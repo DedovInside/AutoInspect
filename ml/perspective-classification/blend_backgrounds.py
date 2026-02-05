@@ -25,7 +25,6 @@ def get_view_from_filename(filename):
     except:
         return 'unknown'
 
-    # Исправленная логика мэппинга
     if view_code == 1: return 'front'
     if view_code in [2, 3, 4]: return 'front-left'
     if view_code == 5: return 'left'
@@ -64,7 +63,7 @@ def crop_car_content(img_car, img_mask, padding=20):
     return cropped_car, cropped_mask
 
 
-def blend_images(img_car, img_mask, bg_path, target_size=256):
+def blend_images(img_car, img_mask, bg_path, target_size=256, add_extra_background=True, scale=1.0):
     img_bg = cv2.imread(bg_path)
 
     if img_bg is None:
@@ -72,40 +71,39 @@ def blend_images(img_car, img_mask, bg_path, target_size=256):
 
     h_car, w_car = img_car.shape[:2]
 
-    # Берем максимальную сторону машины и умножаем на коэф. запаса
-    scale = 1.1
     # Размер стороны квадрата
     square_side = int(max(h_car, w_car) * scale)
-    square_side = max(square_side, 256)  # Чтобы не было меньше целевого размера
+    square_side = max(square_side, target_size)  # Чтобы не было меньше целевого размера
 
-    # Ресайзим фон так, чтобы из него можно было вырезать этот квадрат
-    # Сначала проверяем, не меньше ли фон, чем нам нужно
     h_bg_orig, w_bg_orig = img_bg.shape[:2]
-
-    # Если фон слишком маленький, увеличиваем его
     if h_bg_orig < square_side or w_bg_orig < square_side:
         resize_scale = max(square_side / h_bg_orig, square_side / w_bg_orig)
-        # Чуть больше, чтобы был запас для рандома
         new_w_bg = int(w_bg_orig * resize_scale * 1.1)
         new_h_bg = int(h_bg_orig * resize_scale * 1.1)
         img_bg = cv2.resize(img_bg, (new_w_bg, new_h_bg))
 
     h_bg, w_bg = img_bg.shape[:2]
+    min_x = int(w_bg * 0.2)
+    max_x = int(w_bg * 0.8) - square_side
+    max_y = int(min(h_bg - square_side, h_bg * 0.2))
 
-    max_x = w_bg - square_side
-    max_y = h_bg - square_side
-
-    bg_x = random.randint(0, max_x) if max_x > 0 else 0
+    bg_x = random.randint(min_x, max_x) if max_x > min_x else 0
     bg_y = random.randint(0, max_y) if max_y > 0 else 0
-
     img_bg_cropped = img_bg[bg_y:bg_y + square_side, bg_x:bg_x + square_side]
 
-    # Размещаем машину внутри квадрата
     max_car_x = square_side - w_car
     max_car_y = square_side - h_car
 
-    car_start_x = random.randint(0, max_car_x)
-    car_start_y = random.randint(int(max_car_y * 0.3), max_car_y)  # Чуть ниже центра, реалистичнее
+    if add_extra_background:
+        car_start_x = random.randint(0, max_car_x)
+        low_bound = int(max_car_y * 0.3)
+        if low_bound < max_car_y:
+            car_start_y = random.randint(low_bound, max_car_y)
+        else:
+            car_start_y = max_car_y // 2  # Если места совсем нет
+    else:
+        car_start_x = max_car_x // 2
+        car_start_y = max_car_y // 2
 
     # Нормализуем маску машины
     mask_float = img_mask.astype(float) / 255.0
@@ -131,17 +129,17 @@ def blend_images(img_car, img_mask, bg_path, target_size=256):
 
 def generate_other_crop(img_car, img_mask):
     """
-    Пытается найти случайный кусок авто (20-30% размера),
+    Пытается найти случайный кусок авто (15-25% размера),
     где маска занимает более 50% площади кропа.
     """
     h, w = img_car.shape[:2]
 
     for _ in range(50):
-        # Случайный размер от 10% до 20%
-        crop_ratio = random.uniform(0.1, 0.2)
+        # Случайный размер от 15% до 25%
+        crop_ratio = random.uniform(0.15, 0.25)
 
-        crop_h = int(max(h, w) * crop_ratio)
-        crop_w = int(max(h, w) * crop_ratio)
+        crop_h = max(int(max(h, w) * crop_ratio), 256)
+        crop_w = max(int(max(h, w) * crop_ratio), 256)
 
         # Случайная координата
         if h - crop_h <= 0 or w - crop_w <= 0: continue
@@ -174,7 +172,7 @@ print(f"Папки созданы в: {OUTPUT_DIR}")
 
 # Carvana файлы имеют вид: 'id_01.jpg'. Маски: 'id_01_mask.gif'
 car_files = [f for f in os.listdir(CAR_DIR) if f.endswith('.jpg')]
-car_files = random.sample(car_files, 100)
+# car_files = random.sample(car_files, 100)
 
 bg_files = [f for f in os.listdir(BG_DIR) if f.endswith(('.jpg', '.png', '.jpeg'))]
 
@@ -201,6 +199,7 @@ for car_file in tqdm(car_files):
 
     view_name = get_view_from_filename(car_file)
     if view_name == 'unknown':
+        print('unknown view!')
         continue  # Пропускаем файлы с непонятным именем
 
     # Генерация основных ракурсов
@@ -209,7 +208,13 @@ for car_file in tqdm(car_files):
         bg_path = os.path.join(BG_DIR, random_bg)
 
         # Вызываем функцию смешивания, передавая массивы
-        result_img = blend_images(img_car, img_mask, bg_path)
+        if view_name in ['left', 'right']:
+            scale = 1.0
+        elif view_name in ['front', 'back']:
+            scale = 1.25
+        else:
+            scale = 1.1
+        result_img = blend_images(img_car, img_mask, bg_path, scale=scale)
 
         if result_img is not None:
             save_name = f"{car_file.replace('.jpg', '')}_bg{i}.jpg"
@@ -227,7 +232,7 @@ for car_file in tqdm(car_files):
             random_bg = random.choice(bg_files)
             bg_path = os.path.join(BG_DIR, random_bg)
 
-            result_other = blend_images(crop_car, crop_mask, bg_path)
+            result_other = blend_images(crop_car, crop_mask, bg_path, add_extra_background=False, scale=1.0)
 
             if result_other is not None:
                 save_name = f"{car_file.replace('.jpg', '')}_other_{i}.jpg"
