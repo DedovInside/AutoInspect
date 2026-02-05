@@ -15,28 +15,33 @@ OUTPUT_DIR = '/Users/brshtsk/Documents/hse/course-project/dataset-photo-position
 
 # Если 1 - то просто 1 к 1 замена. Если 3 - то каждая машина будет на 3 разных фонах.
 AUGMENTATION_FACTOR = 2
-
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-# Получаем списки файлов
-# Carvana файлы имеют вид: 'id_01.jpg'. Маски: 'id_01_mask.gif'
-car_files = [f for f in os.listdir(CAR_DIR) if f.endswith('.jpg')]
-
-bg_files = [f for f in os.listdir(BG_DIR) if f.endswith(('.jpg', '.png', '.jpeg'))]
-
-print(f"Найдено машин: {len(car_files)}")
-print(f"Найдено фонов: {len(bg_files)}")
-
-if len(bg_files) == 0:
-    print("Ошибка: Папка с фонами пуста!")
-    exit()
+OTHER_CLASS_FACTOR = 1   # Сколько "кропов" (деталей) делать с одного фото для класса 'other'
 
 
-def blend_images(car_path, mask_path, bg_path):
-    img_car = cv2.imread(car_path)
+def get_view_from_filename(filename):
+    """Определяем ракурс из имени файла Carvana и возвращаем название папки"""
+    try:
+        view_code = int(filename.split('_')[1].split('.')[0])
+    except:
+        return 'unknown'
 
-    pil_mask = Image.open(mask_path).convert('L')  # L = черно-белый
-    img_mask = np.array(pil_mask)
+    # Исправленная логика мэппинга
+    if view_code == 1: return 'front'
+    if view_code in [2, 3, 4]: return 'front-left'
+    if view_code == 5: return 'left'
+    if view_code in [6, 7, 8]: return 'back-left'
+    if view_code == 9: return 'back'
+    if view_code in [10, 11, 12]: return 'back-right'
+    if view_code == 13: return 'right'
+    if view_code in [14, 15, 16]: return 'front-right'
+
+    return 'unknown'
+
+def blend_images(img_car, img_mask, bg_path):
+    """
+    Смешивает картинку машины (или её кусок) с фоном.
+    Принимает numpy array машины и маски, но путь к фону.
+    """
 
     img_bg = cv2.imread(bg_path)
 
@@ -82,6 +87,62 @@ def blend_images(car_path, mask_path, bg_path):
     return final_image
 
 
+def generate_other_crop(img_car, img_mask):
+    """
+    Пытается найти случайный кусок авто (20-30% размера),
+    где маска занимает более 50% площади кропа.
+    """
+    h, w = img_car.shape[:2]
+
+    for _ in range(50):
+        # Случайный размер от 10% до 20%
+        crop_ratio_h = random.uniform(0.1, 0.2)
+        crop_ratio_w = random.uniform(0.1, 0.2)
+
+        crop_h = int(h * crop_ratio_h)
+        crop_w = int(w * crop_ratio_w)
+
+        # Случайная координата
+        if h - crop_h <= 0 or w - crop_w <= 0: continue
+        y = random.randint(0, h - crop_h)
+        x = random.randint(0, w - crop_w)
+
+        # Вырезаем маску для проверки
+        mask_crop = img_mask[y:y + crop_h, x:x + crop_w]
+
+        # Считаем процент белых пикселей (автомобиля) в кропе
+        # Маска у нас 0..255, считаем > 127 как "есть машина"
+        pixels_count = crop_h * crop_w
+        car_pixels = np.count_nonzero(mask_crop > 127)
+
+        if (car_pixels / pixels_count) > 0.5:
+            # Условие выполнено (>50% машины)
+            car_crop = img_car[y:y + crop_h, x:x + crop_w]
+            return car_crop, mask_crop
+
+    return None, None
+
+
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+categories = ['front', 'front-left', 'left', 'back-left', 'back',
+              'back-right', 'right', 'front-right', 'other']
+
+for cat in categories:
+    os.makedirs(os.path.join(OUTPUT_DIR, cat), exist_ok=True)
+
+print(f"Папки созданы в: {OUTPUT_DIR}")
+
+# Получаем списки файлов
+# Carvana файлы имеют вид: 'id_01.jpg'. Маски: 'id_01_mask.gif'
+car_files = [f for f in os.listdir(CAR_DIR) if f.endswith('.jpg')]
+# car_files = random.sample(car_files, 100)
+
+bg_files = [f for f in os.listdir(BG_DIR) if f.endswith(('.jpg', '.png', '.jpeg'))]
+
+print(f"Найдено машин: {len(car_files)}")
+print(f"Найдено фонов: {len(bg_files)}")
+
 counter = 0
 
 for car_file in tqdm(car_files):
@@ -92,16 +153,47 @@ for car_file in tqdm(car_files):
     if not os.path.exists(mask_path):
         continue
 
-    # Делаем N вариантов с разными фонами
+    img_car = cv2.imread(car_path)
+    pil_mask = Image.open(mask_path).convert('L')
+    img_mask = np.array(pil_mask)
+
+    if img_car is None: continue
+
+    view_name = get_view_from_filename(car_file)
+    if view_name == 'unknown':
+        continue  # Пропускаем файлы с непонятным именем
+
+    # Генерация основных ракурсов
     for i in range(AUGMENTATION_FACTOR):
-        # Берем случайный фон
         random_bg = random.choice(bg_files)
         bg_path = os.path.join(BG_DIR, random_bg)
 
-        result_img = blend_images(car_path, mask_path, bg_path)
+        # Вызываем функцию смешивания, передавая массивы
+        result_img = blend_images(img_car, img_mask, bg_path)
 
         if result_img is not None:
-            # Сохраняем с новым именем
-            save_name = f"{car_file.replace('.jpg', '')}_blend_{i}.jpg"
-            cv2.imwrite(os.path.join(OUTPUT_DIR, save_name), result_img)
+            save_name = f"{car_file.replace('.jpg', '')}_bg{i}.jpg"
+            # Сохраняем в подпапку ракурса
+            save_path = os.path.join(OUTPUT_DIR, view_name, save_name)
+            cv2.imwrite(save_path, result_img)
             counter += 1
+
+    # Генерация деталей
+    for i in range(OTHER_CLASS_FACTOR):
+        # Генерируем кроп
+        crop_car, crop_mask = generate_other_crop(img_car, img_mask)
+
+        if crop_car is not None:
+            random_bg = random.choice(bg_files)
+            bg_path = os.path.join(BG_DIR, random_bg)
+
+            # Накладываем кроп на фон
+            # Функция blend_images универсальна, ей всё равно, целая машина или кусок
+            result_other = blend_images(crop_car, crop_mask, bg_path)
+
+            if result_other is not None:
+                save_name = f"{car_file.replace('.jpg', '')}_other_{i}.jpg"
+                # Сохраняем в папку other
+                save_path = os.path.join(OUTPUT_DIR, "other", save_name)
+                cv2.imwrite(save_path, result_other)
+                counter += 1
