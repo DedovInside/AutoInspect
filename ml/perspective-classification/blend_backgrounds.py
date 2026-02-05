@@ -66,6 +66,9 @@ def crop_car_content(img_car, img_mask, padding=20):
 def blend_images(img_car, img_mask, bg_path, target_size=256, add_extra_background=True, scale=1.0):
     img_bg = cv2.imread(bg_path)
 
+    if random.random() > 0.5:
+        img_bg = cv2.flip(img_bg, 1)
+
     if img_bg is None:
         return None
 
@@ -83,6 +86,24 @@ def blend_images(img_car, img_mask, bg_path, target_size=256, add_extra_backgrou
         img_bg = cv2.resize(img_bg, (new_w_bg, new_h_bg))
 
     h_bg, w_bg = img_bg.shape[:2]
+
+    # A. Случайный поворот фона (Tilt)
+    if random.random() < 0.5:
+        angle = random.uniform(-10, 10)  # Угол наклона +/- 10 градусов
+        center = (w_bg // 2, h_bg // 2)
+        M = cv2.getRotationMatrix2D(center, angle, 1.0)
+
+        img_bg = cv2.warpAffine(img_bg, M, (w_bg, h_bg), borderMode=cv2.BORDER_REFLECT)
+
+    # B. Случайный зум фона (Scale background)
+    if random.random() < 0.5:
+        bg_zoom = random.uniform(1.0, 1.5)
+        new_w = int(w_bg * bg_zoom)
+        new_h = int(h_bg * bg_zoom)
+        img_bg = cv2.resize(img_bg, (new_w, new_h))
+        # Размеры изменились, обновляем переменные
+        h_bg, w_bg = img_bg.shape[:2]
+
     min_x = int(w_bg * 0.2)
     max_x = int(w_bg * 0.8) - square_side
     max_y = int(min(h_bg - square_side, h_bg * 0.2))
@@ -209,11 +230,11 @@ for car_file in tqdm(car_files):
 
         # Вызываем функцию смешивания, передавая массивы
         if view_name in ['left', 'right']:
-            scale = 1.0
+            scale = random.uniform(1.0, 1.05)
         elif view_name in ['front', 'back']:
-            scale = 1.25
+            scale = random.uniform(1.2, 1.3)
         else:
-            scale = 1.1
+            scale = random.uniform(1.05, 1.2)
         result_img = blend_images(img_car, img_mask, bg_path, scale=scale)
 
         if result_img is not None:
