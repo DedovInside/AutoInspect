@@ -13,9 +13,9 @@ MASK_DIR = '/Users/brshtsk/Documents/hse/course-project/dataset-photo-position/c
 BG_DIR = '/Users/brshtsk/Documents/hse/course-project/dataset-photo-position/new-backgrounds-cropped'  # Фоны для авто
 OUTPUT_DIR = '/Users/brshtsk/Documents/hse/course-project/dataset-photo-position/blended'  # Вывод
 
-# Если 1 - то просто 1 к 1 замена. Если 3 - то каждая машина будет на 3 разных фонах.
-AUGMENTATION_FACTOR = 2
-OTHER_CLASS_FACTOR = 1   # Сколько "кропов" (деталей) делать с одного фото для класса 'other'
+AUGMENTATION_FACTOR = 2 # Если 1 - то просто 1 к 1 замена. Если 3 - то каждая машина будет на 3 разных фонах.
+OTHER_CLASS_FACTOR = 1 # Сколько "кропов" (деталей) делать с одного фото для класса 'other'
+SAVE_SIZE = 256
 
 
 def get_view_from_filename(filename):
@@ -37,54 +37,81 @@ def get_view_from_filename(filename):
 
     return 'unknown'
 
-def blend_images(img_car, img_mask, bg_path):
-    """
-    Смешивает картинку машины (или её кусок) с фоном.
-    Принимает numpy array машины и маски, но путь к фону.
-    """
 
+def blend_images(img_car, img_mask, bg_path, target_size=256):
     img_bg = cv2.imread(bg_path)
 
-    if img_car is None or img_bg is None:
+    if img_bg is None:
         return None
 
-    h_car, w_car, _ = img_car.shape
-    h_bg, w_bg, _ = img_bg.shape
+    h_car, w_car = img_car.shape[:2]
 
-    # Делаем размер фона всегда в 1.5 раза больше, чем машина
-    scale_bg = 1.5
-    new_bg_h = int(h_car * scale_bg)
-    new_bg_w = int(w_car * scale_bg)
+    # --- ГЛАВНОЕ ИЗМЕНЕНИЕ ---
+    # Мы хотим получить КВАДРАТНЫЙ результат.
+    # Берем максимальную сторону машины и умножаем на коэф. запаса
+    scale = 1.1
+    # Размер стороны квадрата
+    square_side = int(max(h_car, w_car) * scale)
+    square_side = max(square_side, 256)  # Чтобы не было меньше целевого размера
 
-    img_bg = cv2.resize(img_bg, (new_bg_w, new_bg_h))
-    h_bg, w_bg, _ = img_bg.shape
+    # Ресайзим фон так, чтобы из него можно было вырезать этот квадрат
+    # Сначала проверяем, не меньше ли фон, чем нам нужно
+    h_bg_orig, w_bg_orig = img_bg.shape[:2]
 
-    # Случайная позиция для размещения машины на фоне
-    max_start_x = max(int(w_bg * 0.1), int(w_bg * 0.2))
-    max_start_y = 0
+    # Если фон слишком маленький, увеличиваем его
+    if h_bg_orig < square_side or w_bg_orig < square_side:
+        resize_scale = max(square_side / h_bg_orig, square_side / w_bg_orig)
+        # Чуть больше, чтобы был запас для рандома
+        new_w_bg = int(w_bg_orig * resize_scale * 1.1)
+        new_h_bg = int(h_bg_orig * resize_scale * 1.1)
+        img_bg = cv2.resize(img_bg, (new_w_bg, new_h_bg))
 
-    start_x = random.randint(0, max_start_x) if max_start_x > 0 else 0
-    start_y = random.randint(0, max_start_y) if max_start_y > 0 else 0
+    h_bg, w_bg = img_bg.shape[:2]
 
-    # Вырезаем часть фона под размер машины
-    img_bg_cropped = img_bg[start_y:start_y + h_car, start_x:start_x + w_car]
+    # Случайная позиция для вырезания КВАДРАТА из фона
+    max_x = w_bg - square_side
+    max_y = h_bg - square_side
 
-    # Нормализуем маску 0..1
+    bg_x = random.randint(0, max_x) if max_x > 0 else 0
+    bg_y = random.randint(0, max_y) if max_y > 0 else 0
+
+    # Вырезаем квадратный фон
+    img_bg_cropped = img_bg[bg_y:bg_y + square_side, bg_x:bg_x + square_side]
+
+    # Теперь нужно разместить машину внутри этого квадрата
+    # Случайно, но чтобы не вылезала
+    # Мы знаем, что square_side > w_car и square_side > h_car
+    max_car_x = square_side - w_car
+    max_car_y = square_side - h_car
+
+    car_start_x = random.randint(0, max_car_x)
+    car_start_y = random.randint(int(max_car_y * 0.3), max_car_y)  # Чуть ниже центра, реалистичнее
+
+    # Создаем холст для машины и маски размером с наш квадрат
+    # Нам нужно вставить машину в img_bg_cropped по координатам car_start_x, car_start_y
+
+    # Нормализуем маску машины
     mask_float = img_mask.astype(float) / 255.0
+    k = 5 if min(h_car, w_car) > 50 else 1
+    mask_blurred = cv2.GaussianBlur(mask_float, (k, k), 0)
+    mask_3ch = np.dstack([mask_blurred] * 3)
 
-    # Размываем края маски (Blur) для мягкого смешивания
-    mask_blurred = cv2.GaussianBlur(mask_float, (5, 5), 0)
+    # Вырезаем область из фона (ROI), куда встанет машина
+    roi = img_bg_cropped[car_start_y:car_start_y + h_car, car_start_x:car_start_x + w_car]
 
-    # Делаем маску 3-канальной
-    alpha = np.dstack([mask_blurred] * 3)
+    # Смешиваем (Машина * mask + Фон * (1-mask))
+    foreground = img_car.astype(float) * mask_3ch
+    background = roi.astype(float) * (1.0 - mask_3ch)
+    dst = (foreground + background).astype(np.uint8)
 
-    # Формула смешивания: Car * Alpha + Bg * (1 - Alpha)
-    foreground = img_car.astype(float) * alpha
-    background = img_bg_cropped.astype(float) * (1.0 - alpha)
+    # Вставляем смешанный кусок обратно в квадратный фон
+    img_bg_cropped[car_start_y:car_start_y + h_car, car_start_x:car_start_x + w_car] = dst
 
-    final_image = (foreground + background).astype(np.uint8)
+    # --- ФИНАЛЬНЫЙ РЕСАЙЗ ---
+    # Теперь мы ресайзим квадрат в квадрат (256x256). Искажений 0%.
+    final_output = cv2.resize(img_bg_cropped, (target_size, target_size))
 
-    return final_image
+    return final_output
 
 
 def generate_other_crop(img_car, img_mask):
@@ -136,7 +163,7 @@ print(f"Папки созданы в: {OUTPUT_DIR}")
 # Получаем списки файлов
 # Carvana файлы имеют вид: 'id_01.jpg'. Маски: 'id_01_mask.gif'
 car_files = [f for f in os.listdir(CAR_DIR) if f.endswith('.jpg')]
-# car_files = random.sample(car_files, 100)
+car_files = random.sample(car_files, 100)
 
 bg_files = [f for f in os.listdir(BG_DIR) if f.endswith(('.jpg', '.png', '.jpeg'))]
 
