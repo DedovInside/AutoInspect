@@ -10,18 +10,17 @@ from tqdm import tqdm
 
 CAR_DIR = '/Users/brshtsk/Documents/hse/course-project/dataset-photo-position/cars-showroom/train'  # Фото авто Carvana
 MASK_DIR = '/Users/brshtsk/Documents/hse/course-project/dataset-photo-position/cars-showroom/train_masks'  # Маски Carvana
-BG_DIR = '/Users/brshtsk/Documents/hse/course-project/dataset-photo-position/backgrounds'  # Фоны для авто
+BG_DIR = '/Users/brshtsk/Documents/hse/course-project/dataset-photo-position/new-backgrounds-cropped'  # Фоны для авто
 OUTPUT_DIR = '/Users/brshtsk/Documents/hse/course-project/dataset-photo-position/blended'  # Вывод
 
 # Если 1 - то просто 1 к 1 замена. Если 3 - то каждая машина будет на 3 разных фонах.
-AUGMENTATION_FACTOR = 1
+AUGMENTATION_FACTOR = 2
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Получаем списки файлов
 # Carvana файлы имеют вид: 'id_01.jpg'. Маски: 'id_01_mask.gif'
 car_files = [f for f in os.listdir(CAR_DIR) if f.endswith('.jpg')]
-car_files = random.sample(car_files, 20)
 
 bg_files = [f for f in os.listdir(BG_DIR) if f.endswith(('.jpg', '.png', '.jpeg'))]
 
@@ -44,21 +43,26 @@ def blend_images(car_path, mask_path, bg_path):
     if img_car is None or img_bg is None:
         return None
 
-    h, w, _ = img_car.shape
-
-    # Случайный кроп из фона
+    h_car, w_car, _ = img_car.shape
     h_bg, w_bg, _ = img_bg.shape
 
-    # Если фон меньше машины
-    if h_bg < h or w_bg < w:
-        scale = max(h / h_bg, w / w_bg) * 1.05
-        img_bg = cv2.resize(img_bg, (0, 0), fx=scale, fy=scale)
-        h_bg, w_bg, _ = img_bg.shape
+    # Делаем размер фона всегда в 1.5 раза больше, чем машина
+    scale_bg = 1.5
+    new_bg_h = int(h_car * scale_bg)
+    new_bg_w = int(w_car * scale_bg)
 
-    # Случайная точка вырезки
-    start_x = random.randint(0, w_bg - w)
-    start_y = random.randint(0, h_bg - h)
-    img_bg_cropped = img_bg[start_y:start_y + h, start_x:start_x + w]
+    img_bg = cv2.resize(img_bg, (new_bg_w, new_bg_h))
+    h_bg, w_bg, _ = img_bg.shape
+
+    # Случайная позиция для размещения машины на фоне
+    max_start_x = max(int(w_bg * 0.1), int(w_bg * 0.2))
+    max_start_y = 0
+
+    start_x = random.randint(0, max_start_x) if max_start_x > 0 else 0
+    start_y = random.randint(0, max_start_y) if max_start_y > 0 else 0
+
+    # Вырезаем часть фона под размер машины
+    img_bg_cropped = img_bg[start_y:start_y + h_car, start_x:start_x + w_car]
 
     # Нормализуем маску 0..1
     mask_float = img_mask.astype(float) / 255.0
@@ -70,7 +74,6 @@ def blend_images(car_path, mask_path, bg_path):
     alpha = np.dstack([mask_blurred] * 3)
 
     # Формула смешивания: Car * Alpha + Bg * (1 - Alpha)
-
     foreground = img_car.astype(float) * alpha
     background = img_bg_cropped.astype(float) * (1.0 - alpha)
 
