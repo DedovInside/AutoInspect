@@ -7,3 +7,8 @@ tqdm
 matplotlib
 scikit-learn
 huggingface_hub
+torch
+torchvision
+mlflow
+scikit-learn
+tqdm
