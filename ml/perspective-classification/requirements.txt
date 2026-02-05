@@ -12,3 +12,4 @@ torchvision
 mlflow
 scikit-learn
 tqdm
+dagshub
