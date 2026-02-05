@@ -38,6 +38,32 @@ def get_view_from_filename(filename):
     return 'unknown'
 
 
+def crop_car_content(img_car, img_mask, padding=20):
+    """
+    Обрезает изображение и маску по границам маски (убирает лишнюю пустоту).
+    padding: отступ в пикселях, чтобы не резать впритык к кузову.
+    """
+    points = cv2.findNonZero(img_mask)
+
+    if points is None:
+        return img_car, img_mask  # Если маска пустая, возвращаем как было
+
+    x, y, w, h = cv2.boundingRect(points)
+
+    h_img, w_img = img_car.shape[:2]
+
+    x_new = max(0, x - padding)
+    y_new = max(0, y - padding)
+    w_new = min(w_img - x_new, w + 2 * padding)
+    h_new = min(h_img - y_new, h + 2 * padding)
+
+    # Обрезаем
+    cropped_car = img_car[y_new: y_new + h_new, x_new: x_new + w_new]
+    cropped_mask = img_mask[y_new: y_new + h_new, x_new: x_new + w_new]
+
+    return cropped_car, cropped_mask
+
+
 def blend_images(img_car, img_mask, bg_path, target_size=256):
     img_bg = cv2.imread(bg_path)
 
@@ -46,8 +72,6 @@ def blend_images(img_car, img_mask, bg_path, target_size=256):
 
     h_car, w_car = img_car.shape[:2]
 
-    # --- ГЛАВНОЕ ИЗМЕНЕНИЕ ---
-    # Мы хотим получить КВАДРАТНЫЙ результат.
     # Берем максимальную сторону машины и умножаем на коэф. запаса
     scale = 1.1
     # Размер стороны квадрата
@@ -68,27 +92,20 @@ def blend_images(img_car, img_mask, bg_path, target_size=256):
 
     h_bg, w_bg = img_bg.shape[:2]
 
-    # Случайная позиция для вырезания КВАДРАТА из фона
     max_x = w_bg - square_side
     max_y = h_bg - square_side
 
     bg_x = random.randint(0, max_x) if max_x > 0 else 0
     bg_y = random.randint(0, max_y) if max_y > 0 else 0
 
-    # Вырезаем квадратный фон
     img_bg_cropped = img_bg[bg_y:bg_y + square_side, bg_x:bg_x + square_side]
 
-    # Теперь нужно разместить машину внутри этого квадрата
-    # Случайно, но чтобы не вылезала
-    # Мы знаем, что square_side > w_car и square_side > h_car
+    # Размещаем машину внутри квадрата
     max_car_x = square_side - w_car
     max_car_y = square_side - h_car
 
     car_start_x = random.randint(0, max_car_x)
     car_start_y = random.randint(int(max_car_y * 0.3), max_car_y)  # Чуть ниже центра, реалистичнее
-
-    # Создаем холст для машины и маски размером с наш квадрат
-    # Нам нужно вставить машину в img_bg_cropped по координатам car_start_x, car_start_y
 
     # Нормализуем маску машины
     mask_float = img_mask.astype(float) / 255.0
@@ -107,8 +124,6 @@ def blend_images(img_car, img_mask, bg_path, target_size=256):
     # Вставляем смешанный кусок обратно в квадратный фон
     img_bg_cropped[car_start_y:car_start_y + h_car, car_start_x:car_start_x + w_car] = dst
 
-    # --- ФИНАЛЬНЫЙ РЕСАЙЗ ---
-    # Теперь мы ресайзим квадрат в квадрат (256x256). Искажений 0%.
     final_output = cv2.resize(img_bg_cropped, (target_size, target_size))
 
     return final_output
@@ -123,11 +138,10 @@ def generate_other_crop(img_car, img_mask):
 
     for _ in range(50):
         # Случайный размер от 10% до 20%
-        crop_ratio_h = random.uniform(0.1, 0.2)
-        crop_ratio_w = random.uniform(0.1, 0.2)
+        crop_ratio = random.uniform(0.1, 0.2)
 
-        crop_h = int(h * crop_ratio_h)
-        crop_w = int(w * crop_ratio_w)
+        crop_h = int(max(h, w) * crop_ratio)
+        crop_w = int(max(h, w) * crop_ratio)
 
         # Случайная координата
         if h - crop_h <= 0 or w - crop_w <= 0: continue
@@ -137,8 +151,6 @@ def generate_other_crop(img_car, img_mask):
         # Вырезаем маску для проверки
         mask_crop = img_mask[y:y + crop_h, x:x + crop_w]
 
-        # Считаем процент белых пикселей (автомобиля) в кропе
-        # Маска у нас 0..255, считаем > 127 как "есть машина"
         pixels_count = crop_h * crop_w
         car_pixels = np.count_nonzero(mask_crop > 127)
 
@@ -160,7 +172,6 @@ for cat in categories:
 
 print(f"Папки созданы в: {OUTPUT_DIR}")
 
-# Получаем списки файлов
 # Carvana файлы имеют вид: 'id_01.jpg'. Маски: 'id_01_mask.gif'
 car_files = [f for f in os.listdir(CAR_DIR) if f.endswith('.jpg')]
 car_files = random.sample(car_files, 100)
@@ -183,6 +194,8 @@ for car_file in tqdm(car_files):
     img_car = cv2.imread(car_path)
     pil_mask = Image.open(mask_path).convert('L')
     img_mask = np.array(pil_mask)
+
+    img_car, img_mask = crop_car_content(img_car, img_mask, padding=20)
 
     if img_car is None: continue
 
@@ -214,8 +227,6 @@ for car_file in tqdm(car_files):
             random_bg = random.choice(bg_files)
             bg_path = os.path.join(BG_DIR, random_bg)
 
-            # Накладываем кроп на фон
-            # Функция blend_images универсальна, ей всё равно, целая машина или кусок
             result_other = blend_images(crop_car, crop_mask, bg_path)
 
             if result_other is not None:
