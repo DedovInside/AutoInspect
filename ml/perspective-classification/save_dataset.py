@@ -1,4 +1,4 @@
-from huggingface_hub import HfApi
+from huggingface_hub import HfApi, CommitOperationAdd
 import os
 from pathlib import Path
 
@@ -10,7 +10,7 @@ folders = ["back", "back-left", "back-right", "front", "front-left",
 chunks_by_folder = {
     "back": 2,
     "back-left": 4,
-    "back-right":   4,
+    "back-right": 4,
     "front": 2,
     "front-left": 4,
     "front-right": 4,
@@ -20,13 +20,6 @@ chunks_by_folder = {
 }
 
 base_path = "/Users/brshtsk/Documents/hse/course-project/dataset-photo-position/blended"
-
-# api.delete_folder(
-#     path_in_repo="back",
-#     repo_id="mitbersh/car-position",
-#     repo_type="dataset",
-#     commit_message="Delete back folder"
-# )
 
 
 def split_files_into_chunks(folder_path):
@@ -40,7 +33,6 @@ def split_files_into_chunks(folder_path):
                 rel_path = os.path.relpath(full_path, folder_path)
                 all_files.append((full_path, rel_path))
 
-    # Разбиваем на равные части
     chunk_size = len(all_files) // num_chunks + (1 if len(all_files) % num_chunks else 0)
     chunks = [all_files[i:i + chunk_size] for i in range(0, len(all_files), chunk_size)]
 
@@ -64,19 +56,21 @@ def upload_folder_in_chunks(folder_name):
 
             operations = []
             for full_path, rel_path in chunk:
-                # Формируем путь в репозитории
                 path_in_repo = f"{folder_name}/{rel_path}"
 
                 operations.append(
-                    api.upload_file(
-                        path_or_fileobj=full_path,
+                    CommitOperationAdd(
                         path_in_repo=path_in_repo,
-                        repo_id="mitbersh/car-position",
-                        repo_type="dataset",
-                        commit_message=f"Upload {folder_name} (part {i}/{len(chunks)})",
-                        create_pr=False,
+                        path_or_fileobj=full_path
                     )
                 )
+
+            api.create_commit(
+                repo_id="mitbersh/car-position",
+                repo_type="dataset",
+                operations=operations,
+                commit_message=f"Upload {folder_name} (part {i}/{len(chunks)})"
+            )
 
             print(f"   ✓ Коммит {i}/{len(chunks)} завершён")
 
@@ -88,6 +82,5 @@ def upload_folder_in_chunks(folder_name):
     return True
 
 
-# Загружаем все папки
 for folder in folders:
     upload_folder_in_chunks(folder)
