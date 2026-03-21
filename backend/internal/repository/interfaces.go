@@ -64,40 +64,6 @@ type AnalysisRepository interface {
 	GetPending(ctx context.Context, limit int) ([]*domain.Analysis, error)
 }
 
-// DatasetRepository - интерфейс для работы с наборами данных
-type DatasetRepository interface {
-	Create(ctx context.Context, dataset *domain.Dataset) error
-
-	GetByID(ctx context.Context, id uuid.UUID) (*domain.Dataset, error)
-
-	GetByOwnerID(ctx context.Context, ownerID uuid.UUID, limit, offset int) ([]*domain.Dataset, error)
-
-	Update(ctx context.Context, dataset *domain.Dataset) error
-
-	Delete(ctx context.Context, id uuid.UUID) error
-
-	List(ctx context.Context, limit, offset int) ([]*domain.Dataset, error)
-
-	UpdateStatus(ctx context.Context, id uuid.UUID, status domain.DatasetStatus) error
-}
-
-// TrainingJobRepository - интерфейс для работы с задачами обучения
-type TrainingJobRepository interface {
-	Create(ctx context.Context, job *domain.TrainingJob) error
-
-	GetByID(ctx context.Context, id uuid.UUID) (*domain.TrainingJob, error)
-
-	Update(ctx context.Context, job *domain.TrainingJob) error
-
-	UpdateStatus(ctx context.Context, id uuid.UUID, status domain.JobStatus) error
-
-	GetPending(ctx context.Context, limit int) ([]*domain.TrainingJob, error)
-
-	GetByDatasetID(ctx context.Context, datasetID uuid.UUID) ([]*domain.TrainingJob, error)
-
-	List(ctx context.Context, limit, offset int) ([]*domain.TrainingJob, error)
-}
-
 // AuditLogRepository - интерфейс для работы с журналом аудита
 type AuditLogRepository interface {
 	Create(ctx context.Context, log *domain.AuditLog) error

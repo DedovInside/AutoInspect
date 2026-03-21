@@ -1,3 +1,4 @@
+-- +migrate Up
 CREATE TABLE analyses (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -51,7 +52,8 @@ CREATE TABLE analyses (
     queued_at       TIMESTAMPTZ,    -- когда попал в очередь
     processing_at   TIMESTAMPTZ,    -- когда начал обработку
     completed_at    TIMESTAMPTZ,    -- когда завершил
-    
+    processed_at    TIMESTAMPTZ,    -- совместимость с текущим репозиторием
+
     -- Метрики
     processing_time_ms BIGINT,
     queue_wait_time_ms BIGINT,     -- время ожидания в очереди

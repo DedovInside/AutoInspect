@@ -1,5 +1,5 @@
 -- +migrate Up
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";  -- для gen_random_uuid()
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";  -- для gen_random_uuid()
 
 CREATE TABLE users (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),

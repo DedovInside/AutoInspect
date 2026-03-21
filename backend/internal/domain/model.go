@@ -1,104 +1,66 @@
 package domain
 
 import (
-	"database/sql/driver"
-	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
 )
 
-// ModelStatus представляет статус модели в системе.
+// ModelStatus представляет жизненный цикл inference-модели.
 type ModelStatus string
 
 const (
-	// ModelStatusTraining указывает, что модель находится в процессе обучения.
-	ModelStatusTraining ModelStatus = "training"
-	// ModelStatusReady указывает, что модель готова к использованию.
-	ModelStatusReady ModelStatus = "ready"
-	// ModelStatusActive указывает, что модель активна и используется в продакшене.
-	ModelStatusActive ModelStatus = "active"
-	// ModelStatusDeprecated указывает, что модель устарела и не должна использоваться.
+	ModelStatusReady      ModelStatus = "ready"
+	ModelStatusActive     ModelStatus = "active"
 	ModelStatusDeprecated ModelStatus = "deprecated"
 )
 
 // IsValid проверяет, является ли статус модели допустимым.
 func (ms ModelStatus) IsValid() bool {
 	switch ms {
-	case ModelStatusTraining, ModelStatusReady, ModelStatusActive, ModelStatusDeprecated:
+	case ModelStatusReady, ModelStatusActive, ModelStatusDeprecated:
 		return true
 	}
 	return false
 }
 
-// ModelMetrics представляет метрики качества модели.
-// Хранится в БД в формате JSON.
-type ModelMetrics struct {
-	Accuracy float64 `json:"accuracy,omitempty"`
-	MAP      float64 `json:"map,omitempty"`
-	Loss     float64 `json:"loss,omitempty"`
-}
-
-// Scan реализует интерфейс sql.Scanner для ModelMetrics для чтения из базы данных.
-func (mm *ModelMetrics) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	bytes, ok := value.([]byte)
-	if !ok {
-		return nil
-	}
-	return json.Unmarshal(bytes, mm)
-}
-
-// Value реализует интерфейс driver.Valuer для ModelMetrics для записи в базу данных.
-func (mm ModelMetrics) Value() (driver.Value, error) {
-	return json.Marshal(mm)
-}
-
-// MLModel представляет модель машинного обучения в системе.
-
+// MLModel представляет реестр inference-моделей для конкретной спецификации авто.
 type MLModel struct {
 	ID      uuid.UUID `json:"id" db:"id"`
 	Version string    `json:"version" db:"version"`
 	Name    string    `json:"name" db:"name"`
 
-	// Хранилище
+	// Спецификация автомобиля
+	CarMake       string  `json:"car_make" db:"car_make"`
+	CarModel      string  `json:"car_model" db:"car_model"`
+	CarGeneration *string `json:"car_generation,omitempty" db:"car_generation"`
+	YearFrom      *int    `json:"year_from,omitempty" db:"year_from"`
+	YearTo        *int    `json:"year_to,omitempty" db:"year_to"`
+
+	// Артефакт inference-модели
 	WeightsPath string  `json:"weights_path" db:"weights_path"`
 	ConfigPath  *string `json:"config_path,omitempty" db:"config_path"`
 
-	// Метаданные автомобиля
-	CarMake  *string `json:"car_make" db:"car_make"`
-	CarModel *string `json:"car_model" db:"car_model"`
-
-	// Статус модели
-	Status ModelStatus `json:"status" db:"status"`
-	Active bool        `json:"active" db:"active"`
-
-	// Метрики качества (из обучения)
-	Metrics *ModelMetrics `json:"metrics,omitempty" db:"metrics_json"`
-
-	// История доменной адаптации
-	ParentModelID *uuid.UUID `json:"parent_model_id,omitempty" db:"parent_model_id"`
-	TrainedAt     *time.Time `json:"trained_at,omitempty" db:"trained_at"`
-	Description   *string    `json:"description,omitempty" db:"description"`
-
-	CreatedAt time.Time  `json:"created_at" db:"created_at"`
-	CreatedBy *uuid.UUID `json:"created_by,omitempty" db:"created_by"`
+	Status    ModelStatus `json:"status" db:"status"`
+	Active    bool        `json:"active" db:"active"`
+	CreatedAt time.Time   `json:"created_at" db:"created_at"`
+	UpdatedAt *time.Time  `json:"updated_at,omitempty" db:"updated_at"`
 }
 
-// DTO ModelCreateRequest для создания новой модели
+// ModelCreateRequest DTO для регистрации новой inference-модели.
 type ModelCreateRequest struct {
-	Version     string        `json:"version" validate:"required"`
-	Name        string        `json:"name" validate:"required"`
-	WeightsPath string        `json:"weights_path" validate:"required"`
-	CarMake     *string       `json:"car_make,omitempty"`
-	CarModel    *string       `json:"car_model,omitempty"`
-	Description *string       `json:"description,omitempty"`
-	Metrics     *ModelMetrics `json:"metrics,omitempty"`
+	Version       string  `json:"version" validate:"required"`
+	Name          string  `json:"name" validate:"required"`
+	CarMake       string  `json:"car_make" validate:"required"`
+	CarModel      string  `json:"car_model" validate:"required"`
+	CarGeneration *string `json:"car_generation,omitempty"`
+	YearFrom      *int    `json:"year_from,omitempty"`
+	YearTo        *int    `json:"year_to,omitempty"`
+	WeightsPath   string  `json:"weights_path" validate:"required"`
+	ConfigPath    *string `json:"config_path,omitempty"`
 }
 
-// IsReady проверяет, готова ли модель к использованию
+// IsReady проверяет, готова ли модель к использованию.
 func (m *MLModel) IsReady() bool {
 	return m.Status == ModelStatusReady || m.Status == ModelStatusActive
 }
