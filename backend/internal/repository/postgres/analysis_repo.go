@@ -21,6 +21,7 @@ func NewAnalysisRepo(db *DB) *AnalysisRepo {
 
 const analysisSelectCols = `
 	id, user_id, status,
+	car_make, car_model, car_generation, car_year,
 	image_key, image_metadata,
 	model_version, model_id,
 	result_json,
@@ -32,14 +33,16 @@ func (r *AnalysisRepo) Create(ctx context.Context, a *domain.Analysis) error {
 	query := `
 		INSERT INTO analyses (
 			id, user_id, status,
+			car_make, car_model, car_generation, car_year,
 			image_key, image_metadata,
 			model_version, model_id,
 			retry_count, created_at
 		) VALUES (
 			$1, $2, $3,
-			$4, $5,
-			$6, $7,
-			$8, $9
+			$4, $5, $6, $7,
+			$8, $9,
+			$10, $11,
+			$12, $13
 		)`
 
 	if a.ID == uuid.Nil {
@@ -49,6 +52,7 @@ func (r *AnalysisRepo) Create(ctx context.Context, a *domain.Analysis) error {
 
 	_, err := r.db.pool.Exec(ctx, query,
 		a.ID, a.UserID, a.Status,
+		a.CarMake, a.CarModel, a.CarGeneration, a.CarYear,
 		a.ImageKey, a.ImageMetadata,
 		a.ModelVersion, a.ModelID,
 		a.RetryCount, a.CreatedAt,
@@ -89,19 +93,25 @@ func (r *AnalysisRepo) Update(ctx context.Context, a *domain.Analysis) error {
 	query := `
 		UPDATE analyses SET
 			status        = $1,
-			image_key     = $2,
-			image_metadata = $3,
-			model_version = $4,
-			model_id      = $5,
-			result_json   = $6,
-			error_message = $7,
-			error_code    = $8,
-			retry_count   = $9,
-			processed_at  = $10
-		WHERE id = $11`
+			car_make      = $2,
+			car_model     = $3,
+			car_generation = $4,
+			car_year      = $5,
+			image_key     = $6,
+			image_metadata = $7,
+			model_version = $8,
+			model_id      = $9,
+			result_json   = $10,
+			error_message = $11,
+			error_code    = $12,
+			retry_count   = $13,
+			processed_at  = $14
+		WHERE id = $15`
 
 	tag, err := r.db.pool.Exec(ctx, query,
-		a.Status, a.ImageKey, a.ImageMetadata,
+		a.Status,
+		a.CarMake, a.CarModel, a.CarGeneration, a.CarYear,
+		a.ImageKey, a.ImageMetadata,
 		a.ModelVersion, a.ModelID,
 		a.Result,
 		a.ErrorMessage, a.ErrorCode, a.RetryCount,
@@ -185,6 +195,7 @@ func scanAnalysis(row pgx.Row) (*domain.Analysis, error) {
 	a := &domain.Analysis{}
 	err := row.Scan(
 		&a.ID, &a.UserID, &a.Status,
+		&a.CarMake, &a.CarModel, &a.CarGeneration, &a.CarYear,
 		&a.ImageKey, &a.ImageMetadata,
 		&a.ModelVersion, &a.ModelID,
 		&a.Result,
@@ -206,6 +217,7 @@ func collectAnalyses(rows pgx.Rows) ([]*domain.Analysis, error) {
 		a := &domain.Analysis{}
 		err := rows.Scan(
 			&a.ID, &a.UserID, &a.Status,
+			&a.CarMake, &a.CarModel, &a.CarGeneration, &a.CarYear,
 			&a.ImageKey, &a.ImageMetadata,
 			&a.ModelVersion, &a.ModelID,
 			&a.Result,

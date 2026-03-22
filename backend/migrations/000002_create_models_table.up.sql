@@ -28,8 +28,16 @@ CREATE TABLE models (
     CHECK (year_from IS NULL OR year_to IS NULL OR year_from <= year_to)
 );
 
--- Только одна активная модель одновременно
-CREATE UNIQUE INDEX idx_models_active_true ON models(active) WHERE active = TRUE;
+-- Только одна активная модель для конкретной спецификации авто
+CREATE UNIQUE INDEX idx_models_active_per_car_spec
+ON models (
+    car_make,
+    car_model,
+    COALESCE(car_generation, ''),
+    COALESCE(year_from, -1),
+    COALESCE(year_to, -1)
+)
+WHERE active = TRUE;
 
 -- Индексы для быстрого подбора нужной модели
 CREATE INDEX idx_models_car_lookup ON models(car_make, car_model, car_generation);

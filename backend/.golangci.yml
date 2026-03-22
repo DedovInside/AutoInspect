@@ -1,0 +1,79 @@
+version: '2'
+
+run:
+  timeout: 5m
+  tests: true
+  concurrency: 8
+
+linters:
+  enable:
+    # По умолчанию включенные (важные для корректности)
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+    # Дополнительные проверки стиля и качества
+    - gocritic
+    - misspell
+    - goconst
+    - prealloc
+
+    # Проверки безопасности и производительности
+    - bodyclose
+    - sqlclosecheck
+
+    # Проверки сложности кода
+    - gocyclo
+    - gocognit
+
+linters-settings:
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - performance
+      - style
+    disabled-checks:
+      - commentFormatting
+
+  gocyclo:
+    min-complexity: 15
+
+  gocognit:
+    min-complexity: 20
+
+  goconst:
+    min-len: 2
+    min-occurrences: 2
+
+  misspell:
+    locale: US
+
+  prealloc:
+    simple: true
+    range-loops: true
+    for-loops: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  exclude-rules:
+    # Не требовать обработку ошибок для fmt.Print* в main
+    - path: main\.go
+      linters:
+        - errcheck
+      text: "Error return value of `fmt\\.(Print|Printf|Println)` is not checked"
+
+    # Игнорировать использование переменной в замыкании цикла (часто нормально в тестах)
+    - path: _test\.go
+      text: "Using the variable on range scope .* in function literal"
+
+    # В тестах можно использовать более длинные функции
+    - path: _test\.go
+      linters:
+        - funlen
+        - gocognit
+        - gocyclo
+

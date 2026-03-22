@@ -12,215 +12,270 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"       // читает .sql файлы из папки
 )
 
+const confirmationYes = "yes"
+
 func main() {
+	if err := run(); err != nil {
+		log.Printf("migrator failed: %v", err)
+		os.Exit(1)
+	}
+}
 
-	// 1. Чтение конфигурации из переменных окружения
-
-	// DATABASE_URL должен быть в формате:
-	// postgres://username:password@host:port/database?sslmode=disable
+func run() error {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		log.Fatal("DATABASE_URL environment variable is not set")
+		return errors.New("DATABASE_URL environment variable is not set")
 	}
 
-	// Путь к папке с миграциями (можно переопределить через env)
-	migrationsPath := os.Getenv("MIGRATIONS_PATH")
-	if migrationsPath == "" {
-		// Пытаемся найти migrations/ относительно текущей директории или exe
-		ex, err := os.Executable()
-		if err != nil {
-			log.Fatal(err)
-		}
-		baseDir := filepath.Dir(ex)
-		migrationsPath = "file://" + filepath.Join(baseDir, "..", "migrations") // предполагаем, что cmd/migrator/ --> backend/migrations/
+	migrationsPath, err := resolveMigrationsPath()
+	if err != nil {
+		return err
 	}
-
-	// 2. Инициализация мигратора
-
-	// migrate.New создаёт объект мигратора
-	// Параметры:
-	// - source: откуда читать миграции (file://, s3://, github://, etc.)
-	// - database: куда применять (postgres://, mysql://, sqlite://, etc.)
 
 	m, err := migrate.New(migrationsPath, dbURL)
-
 	if err != nil {
-		log.Fatalf("Failed to create migrate instance: %v", err)
+		return fmt.Errorf("failed to create migrate instance: %w", err)
 	}
-	defer m.Close() // Закрываем соединение с базой при завершении
-
-	// 3. Парсим команду из аргументов
+	defer closeMigrator(m)
 
 	if len(os.Args) < 2 {
 		printUsage()
-		os.Exit(1)
+		return errors.New("command is required")
 	}
 
 	command := os.Args[1]
+	args := os.Args[2:]
 
-	// 4. Выполняем команду
-
-	switch command {
-
-	// Команда up: применить все миграции
-	case "up":
-		fmt.Println("Applying migrations...")
-
-		if err := m.Up(); err != nil {
-			// migrate.ErrNoChange - это не ошибка, просто нечего мигрировать
-			if errors.Is(err, migrate.ErrNoChange) {
-				fmt.Println("No new migrations to apply")
-				return
-			}
-			log.Fatalf("Migration failed: %v", err)
-		}
-
-		fmt.Println("All migrations applied successfully")
-
-	// Команда down: откатить все миграции
-	case "down":
-		fmt.Println("Rolling back all migrations...")
-		fmt.Print("Are you sure? This will delete all data! (yes/no): ")
-
-		var confirmation string
-		fmt.Scanln(&confirmation)
-
-		if confirmation != "yes" {
-			fmt.Println("Operation cancelled")
-			return
-		}
-
-		if err := m.Down(); err != nil {
-			if errors.Is(err, migrate.ErrNoChange) {
-				fmt.Println("No migrations to roll back")
-				return
-			}
-			log.Fatalf("Rollback failed: %v", err)
-		}
-
-		fmt.Println("All migrations rolled back successfully")
-
-	// Команда steps: применить или откатить N миграций
-	case "steps":
-		if len(os.Args) < 3 {
-			log.Fatal("Steps command requires a number argument")
-		}
-
-		var n int
-		_, err := fmt.Sscanf(os.Args[2], "%d", &n)
-		if err != nil {
-			log.Fatalf("Invalid number of steps: %v", err)
-		}
-
-		if err := m.Steps(n); err != nil {
-			if errors.Is(err, migrate.ErrNoChange) {
-				fmt.Println("No migrations to apply or rollback")
-				return
-			}
-			log.Fatalf("Steps migration failed: %v", err)
-		}
-
-		fmt.Printf("Successfully applied %d steps\n", n)
-
-	// Команда goto: мигрировать к конкретной версии
-	case "goto":
-		if len(os.Args) < 3 {
-			log.Fatal("Goto command requires a version argument")
-		}
-
-		var version uint
-		_, err := fmt.Sscanf(os.Args[2], "%d", &version)
-		if err != nil {
-			log.Fatalf("Invalid version number: %v", err)
-		}
-
-		if err := m.Migrate(version); err != nil {
-			if errors.Is(err, migrate.ErrNoChange) {
-				fmt.Println("Already at the specified version")
-				return
-			}
-			log.Fatalf("Goto migration failed: %v", err)
-		}
-
-		fmt.Printf("Successfully migrated to version %d\n", version)
-
-	// Команда version: показать текущую версию миграции
-	case "version":
-		version, dirty, err := m.Version()
-		if err != nil {
-			if errors.Is(err, migrate.ErrNilVersion) {
-				fmt.Println("Database is at initial version (no migrations applied)")
-				return
-			}
-			log.Fatalf("Failed to get current version: %v", err)
-		}
-		fmt.Printf("Current version: %d, Dirty state: %v\n", version, dirty)
-
-		// dirty - флаг, указывающий, была ли прервана миграция
-		// Если dirty == true, нужно вручную исправить состояние базы
-
-		if dirty {
-			fmt.Println("WARNING: Database is in dirty state!")
-			fmt.Println("Last migration was interrupted. Manual intervention required.")
-			fmt.Println("Use 'force <VERSION>' to reset the state.")
-		}
-
-	// Команда force: принудительно установить версию миграции
-	// (используется для исправления dirty состояния)
-
-	case "force":
-		if len(os.Args) < 3 {
-			log.Fatal("Force command requires a version argument")
-		}
-
-		var version uint
-		if _, err := fmt.Sscanf(os.Args[2], "%d", &version); err != nil {
-			log.Fatalf("Invalid version number: %v", err)
-		}
-
-		fmt.Printf("Forcing version to %d...\n", version)
-		fmt.Printf("WARNING: This does NOT run migrations! Continue? (yes/no): ")
-
-		var confirmation string
-		fmt.Scanln(&confirmation)
-
-		if confirmation != "yes" {
-			fmt.Println("Operation cancelled")
-			return
-		}
-
-		if err := m.Force(int(version)); err != nil {
-			log.Fatalf("Failed to force version: %v", err)
-		}
-
-		fmt.Printf("Successfully forced version to %d\n", version)
-
-	// Команда drop: удалить все таблицы из базы данных
-	case "drop":
-		fmt.Println("Dropping all tables from the database...")
-		fmt.Print("Are you sure? This will delete ALL DATA! (yes/no): ")
-
-		var confirmation string
-		fmt.Scanln(&confirmation)
-
-		if confirmation != "yes" {
-			fmt.Println("Operation cancelled")
-			return
-		}
-
-		if err := m.Drop(); err != nil {
-			log.Fatalf("Failed to drop database: %v", err)
-		}
-
-		fmt.Println("All tables dropped successfully")
-
-	// Неизвестная команда: показать справку
-	default:
-		fmt.Printf("Unknown command: %s\n", command)
-		printUsage()
-		os.Exit(1)
-
+	if err := executeCommand(m, command, args); err != nil {
+		return err
 	}
+
+	return nil
+}
+
+func resolveMigrationsPath() (string, error) {
+	migrationsPath := os.Getenv("MIGRATIONS_PATH")
+	if migrationsPath != "" {
+		return migrationsPath, nil
+	}
+
+	ex, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("resolve executable path: %w", err)
+	}
+
+	baseDir := filepath.Dir(ex)
+	return "file://" + filepath.Join(baseDir, "..", "migrations"), nil
+}
+
+func closeMigrator(m *migrate.Migrate) {
+	if m == nil {
+		return
+	}
+
+	sourceErr, dbErr := m.Close()
+	if sourceErr != nil {
+		log.Printf("warning: failed to close migration source: %v", sourceErr)
+	}
+	if dbErr != nil {
+		log.Printf("warning: failed to close migration database connection: %v", dbErr)
+	}
+}
+
+func executeCommand(m *migrate.Migrate, command string, args []string) error {
+	switch command {
+	case "up":
+		return runUp(m)
+	case "down":
+		return runDown(m)
+	case "steps":
+		return runSteps(m, args)
+	case "goto":
+		return runGoto(m, args)
+	case "version":
+		return runVersion(m)
+	case "force":
+		return runForce(m, args)
+	case "drop":
+		return runDrop(m)
+	default:
+		printUsage()
+		return fmt.Errorf("unknown command: %s", command)
+	}
+}
+
+func runUp(m *migrate.Migrate) error {
+	fmt.Println("Applying migrations...")
+
+	if err := m.Up(); err != nil {
+		if errors.Is(err, migrate.ErrNoChange) {
+			fmt.Println("No new migrations to apply")
+			return nil
+		}
+		return fmt.Errorf("migration failed: %w", err)
+	}
+
+	fmt.Println("All migrations applied successfully")
+	return nil
+}
+
+func runDown(m *migrate.Migrate) error {
+	fmt.Println("Rolling back all migrations...")
+
+	confirmed, err := askForConfirmation("Are you sure? This will delete all data! (yes/no): ")
+	if err != nil {
+		return err
+	}
+	if !confirmed {
+		fmt.Println("Operation cancelled")
+		return nil
+	}
+
+	if err := m.Down(); err != nil {
+		if errors.Is(err, migrate.ErrNoChange) {
+			fmt.Println("No migrations to roll back")
+			return nil
+		}
+		return fmt.Errorf("rollback failed: %w", err)
+	}
+
+	fmt.Println("All migrations rolled back successfully")
+	return nil
+}
+
+func runSteps(m *migrate.Migrate, args []string) error {
+	n, err := parseIntArg(args, "steps")
+	if err != nil {
+		return err
+	}
+
+	if err := m.Steps(n); err != nil {
+		if errors.Is(err, migrate.ErrNoChange) {
+			fmt.Println("No migrations to apply or rollback")
+			return nil
+		}
+		return fmt.Errorf("steps migration failed: %w", err)
+	}
+
+	fmt.Printf("Successfully applied %d steps\n", n)
+	return nil
+}
+
+func runGoto(m *migrate.Migrate, args []string) error {
+	version, err := parseUintArg(args, "goto")
+	if err != nil {
+		return err
+	}
+
+	if err := m.Migrate(version); err != nil {
+		if errors.Is(err, migrate.ErrNoChange) {
+			fmt.Println("Already at the specified version")
+			return nil
+		}
+		return fmt.Errorf("goto migration failed: %w", err)
+	}
+
+	fmt.Printf("Successfully migrated to version %d\n", version)
+	return nil
+}
+
+func runVersion(m *migrate.Migrate) error {
+	version, dirty, err := m.Version()
+	if err != nil {
+		if errors.Is(err, migrate.ErrNilVersion) {
+			fmt.Println("Database is at initial version (no migrations applied)")
+			return nil
+		}
+		return fmt.Errorf("failed to get current version: %w", err)
+	}
+
+	fmt.Printf("Current version: %d, Dirty state: %v\n", version, dirty)
+	if dirty {
+		fmt.Println("WARNING: Database is in dirty state!")
+		fmt.Println("Last migration was interrupted. Manual intervention required.")
+		fmt.Println("Use 'force <VERSION>' to reset the state.")
+	}
+
+	return nil
+}
+
+func runForce(m *migrate.Migrate, args []string) error {
+	version, err := parseUintArg(args, "force")
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Forcing version to %d...\n", version)
+	confirmed, err := askForConfirmation("WARNING: This does NOT run migrations! Continue? (yes/no): ")
+	if err != nil {
+		return err
+	}
+	if !confirmed {
+		fmt.Println("Operation cancelled")
+		return nil
+	}
+
+	if err := m.Force(int(version)); err != nil {
+		return fmt.Errorf("failed to force version: %w", err)
+	}
+
+	fmt.Printf("Successfully forced version to %d\n", version)
+	return nil
+}
+
+func runDrop(m *migrate.Migrate) error {
+	fmt.Println("Dropping all tables from the database...")
+	confirmed, err := askForConfirmation("Are you sure? This will delete ALL DATA! (yes/no): ")
+	if err != nil {
+		return err
+	}
+	if !confirmed {
+		fmt.Println("Operation cancelled")
+		return nil
+	}
+
+	if err := m.Drop(); err != nil {
+		return fmt.Errorf("failed to drop database: %w", err)
+	}
+
+	fmt.Println("All tables dropped successfully")
+	return nil
+}
+
+func askForConfirmation(prompt string) (bool, error) {
+	fmt.Print(prompt)
+	var confirmation string
+	if _, err := fmt.Scanln(&confirmation); err != nil {
+		return false, fmt.Errorf("read confirmation: %w", err)
+	}
+
+	return confirmation == confirmationYes, nil
+}
+
+func parseIntArg(args []string, command string) (int, error) {
+	if len(args) < 1 {
+		return 0, fmt.Errorf("%s command requires a number argument", command)
+	}
+
+	var n int
+	if _, err := fmt.Sscanf(args[0], "%d", &n); err != nil {
+		return 0, fmt.Errorf("invalid %s argument: %w", command, err)
+	}
+
+	return n, nil
+}
+
+func parseUintArg(args []string, command string) (uint, error) {
+	if len(args) < 1 {
+		return 0, fmt.Errorf("%s command requires a version argument", command)
+	}
+
+	var version uint
+	if _, err := fmt.Sscanf(args[0], "%d", &version); err != nil {
+		return 0, fmt.Errorf("invalid %s version: %w", command, err)
+	}
+
+	return version, nil
 }
 
 // Вспомогательная функция: справка

@@ -45,7 +45,7 @@ type User struct {
 	APIQuotaResetAt *time.Time `json:"-" db:"api_quota_reset_at"`
 }
 
-// DTO UserCreateRequest для создания нового пользователя
+// UserCreateRequest DTO для создания нового пользователя
 type UserCreateRequest struct {
 	Username string `json:"username" validate:"required,min=3,max=50"`
 	Email    string `json:"email" validate:"required,email"`
@@ -53,7 +53,7 @@ type UserCreateRequest struct {
 	Role     Role   `json:"role" validate:"required,oneof=user owner admin"`
 }
 
-// DTO UserResponse представляет данные пользователя, возвращаемые API
+// UserResponse DTO представляет данные пользователя, возвращаемые API
 type UserResponse struct {
 	ID            uuid.UUID  `json:"id"`
 	Username      string     `json:"username"`

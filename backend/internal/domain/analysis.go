@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// AnalysisStatus представляет статус анализа изображения
+// AnalysisStatus Представляет статус анализа изображения
 type AnalysisStatus string
 
 const (
@@ -129,12 +129,18 @@ type Analysis struct {
 	UserID uuid.UUID      `json:"user_id" db:"user_id"`
 	Status AnalysisStatus `json:"status" db:"status"`
 
+	// Спецификация автомобиля пользователя
+	CarMake       string  `json:"car_make" db:"car_make"`
+	CarModel      string  `json:"car_model" db:"car_model"`
+	CarGeneration *string `json:"car_generation,omitempty" db:"car_generation"`
+	CarYear       *int    `json:"car_year,omitempty" db:"car_year"`
+
 	// Изображение
 	ImageKey      string         `json:"image_key" db:"image_key"`
 	ImageMetadata *ImageMetadata `json:"image_metadata,omitempty" db:"image_metadata"`
 
 	// ML модель
-	ModelVersion string     `json:"model_version" db:"model_version"`
+	ModelVersion *string    `json:"model_version,omitempty" db:"model_version"`
 	ModelID      *uuid.UUID `json:"model_id,omitempty" db:"model_id"`
 
 	// Результаты
@@ -153,8 +159,11 @@ type Analysis struct {
 
 // AnalysisCreateRequest DTO для создания нового анализа
 type AnalysisCreateRequest struct {
-	ImageKey     string  `json:"image_key" validate:"required"`
-	ModelVersion *string `json:"model_version,omitempty"`
+	ImageKey      string  `json:"image_key" validate:"required"`
+	CarMake       string  `json:"car_make" validate:"required"`
+	CarModel      string  `json:"car_model" validate:"required"`
+	CarGeneration *string `json:"car_generation,omitempty"`
+	CarYear       *int    `json:"car_year,omitempty"`
 }
 
 // IsCompleted проверяет, завершён ли анализ

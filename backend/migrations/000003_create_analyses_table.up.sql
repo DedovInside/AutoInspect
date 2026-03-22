@@ -5,13 +5,19 @@ CREATE TABLE analyses (
     
     status          VARCHAR(20) NOT NULL DEFAULT 'queued' 
                     CHECK (status IN ('queued', 'processing', 'completed', 'failed', 'cancelled')),
-    
+
+    -- Спецификация автомобиля, по которой подбирается inference-модель
+    car_make        VARCHAR(100) NOT NULL,
+    car_model       VARCHAR(100) NOT NULL,
+    car_generation  VARCHAR(100),
+    car_year        INTEGER CHECK (car_year IS NULL OR car_year >= 1900),
+
     -- Хранение изображения
     image_key       VARCHAR(500) NOT NULL,     -- увеличил до 500
     image_metadata  JSONB,                     -- {"size": 1024000, "format": "jpg", "dimensions": {"width": 1920, "height": 1080}}
     
     -- ML модель
-    model_version   VARCHAR(50) NOT NULL,      -- обязательное поле
+    model_version   VARCHAR(50),               -- заполняется после резолва модели
     model_id        UUID REFERENCES models(id), -- ссылка на конкретную модель
     
     -- Результаты анализа
@@ -49,18 +55,7 @@ CREATE TABLE analyses (
     -- Временные метки
     created_at      TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    queued_at       TIMESTAMPTZ,    -- когда попал в очередь
-    processing_at   TIMESTAMPTZ,    -- когда начал обработку
-    completed_at    TIMESTAMPTZ,    -- когда завершил
-    processed_at    TIMESTAMPTZ,    -- совместимость с текущим репозиторием
-
-    -- Метрики
-    processing_time_ms BIGINT,
-    queue_wait_time_ms BIGINT,     -- время ожидания в очереди
-    
-    -- Опционально: webhook для уведомлений
-    webhook_url     TEXT,
-    webhook_sent_at TIMESTAMPTZ
+    processed_at    TIMESTAMPTZ
 );
 
 -- Индексы

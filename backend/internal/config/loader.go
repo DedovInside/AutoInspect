@@ -3,11 +3,12 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
-// Данный метод загружает конфигурацию из .env файла и переменных окружения
+// Load загружает конфигурацию из .env файла и переменных окружения
 func Load() (*Config, error) {
 	var cfg Config
 
@@ -34,7 +35,7 @@ func Load() (*Config, error) {
 	return &cfg, nil
 }
 
-// Данный метод загружает конфигурацию и паникует при ошибке
+// MustLoad Данный метод загружает конфигурацию и паникует при ошибке
 func MustLoad() *Config {
 	cfg, err := Load()
 	if err != nil {
@@ -74,6 +75,38 @@ func validate(cfg *Config) error {
 	// Проверка порта
 	if cfg.HTTP.Port == "" {
 		return fmt.Errorf("HTTP_PORT cannot be empty")
+	}
+
+	if strings.TrimSpace(cfg.Database.URL) == "" {
+		return fmt.Errorf("DATABASE_URL cannot be empty")
+	}
+
+	if strings.TrimSpace(cfg.GRPC.MLServiceAddr) == "" {
+		return fmt.Errorf("GRPC_ML_SERVICE_ADDR cannot be empty")
+	}
+
+	if strings.TrimSpace(cfg.MinIO.Endpoint) == "" {
+		return fmt.Errorf("MINIO_ENDPOINT cannot be empty")
+	}
+
+	if strings.TrimSpace(cfg.MinIO.ImagesBucket) == "" {
+		return fmt.Errorf("MINIO_IMAGES_BUCKET cannot be empty")
+	}
+
+	if strings.TrimSpace(cfg.MinIO.ModelsBucket) == "" {
+		return fmt.Errorf("MINIO_MODELS_BUCKET cannot be empty")
+	}
+
+	if cfg.Auth.BcryptCost < 4 || cfg.Auth.BcryptCost > 31 {
+		return fmt.Errorf("BCRYPT_COST must be between 4 and 31")
+	}
+
+	if cfg.Worker.Concurrency <= 0 {
+		return fmt.Errorf("WORKER_CONCURRENCY must be greater than 0")
+	}
+
+	if cfg.Redis.MaxRetries < 0 {
+		return fmt.Errorf("REDIS_MAX_RETRIES cannot be negative")
 	}
 
 	return nil

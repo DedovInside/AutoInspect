@@ -75,10 +75,40 @@ func (r *ModelRepo) GetByVersion(ctx context.Context, version string) (*domain.M
 	return scanModel(row)
 }
 
-// GetActive возвращает текущую активную модель.
-func (r *ModelRepo) GetActive(ctx context.Context) (*domain.MLModel, error) {
-	query := `SELECT ` + modelSelectCols + ` FROM models WHERE active = TRUE LIMIT 1`
-	row := r.db.pool.QueryRow(ctx, query)
+// ResolveForCarSpec выбирает наиболее подходящую модель для указанной спецификации автомобиля.
+func (r *ModelRepo) ResolveForCarSpec(ctx context.Context, carMake, carModel string, carGeneration *string, carYear *int) (*domain.MLModel, error) {
+	query := `
+		SELECT ` + modelSelectCols + `
+		FROM models
+		WHERE car_make = $1
+		  AND car_model = $2
+		  AND status IN ('ready', 'active')
+		  AND ($3::text IS NULL OR car_generation IS NULL OR car_generation = $3)
+		  AND (
+			$4::int IS NULL
+			OR (
+				(year_from IS NULL OR year_from <= $4)
+				AND (year_to IS NULL OR year_to >= $4)
+			)
+		  )
+		ORDER BY
+		  active DESC,
+		  CASE
+			WHEN $3::text IS NOT NULL AND car_generation = $3 THEN 0
+			WHEN car_generation IS NULL THEN 1
+			ELSE 2
+		  END,
+		  CASE
+			WHEN $4::int IS NOT NULL
+				 AND year_from IS NOT NULL
+				 AND year_to IS NOT NULL
+				 AND $4 BETWEEN year_from AND year_to
+			THEN 0
+			ELSE 1
+		  END,
+		  created_at DESC
+		LIMIT 1`
+	row := r.db.pool.QueryRow(ctx, query, carMake, carModel, carGeneration, carYear)
 	return scanModel(row)
 }
 
@@ -133,29 +163,56 @@ func (r *ModelRepo) List(ctx context.Context, limit, offset int) ([]*domain.MLMo
 	return collectModels(rows)
 }
 
-// SetActive деактивирует все модели и активирует выбранную (транзакционно).
-func (r *ModelRepo) SetActive(ctx context.Context, id uuid.UUID) error {
+// SetActiveForCarSpec активирует модель и деактивирует другие только в той же car-spec группе.
+func (r *ModelRepo) SetActiveForCarSpec(ctx context.Context, id uuid.UUID) error {
 	tx, err := r.db.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("ModelRepo.SetActive begin tx: %w", err)
+		return fmt.Errorf("ModelRepo.SetActiveForCarSpec begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
-	_, err = tx.Exec(ctx, `UPDATE models SET active = FALSE WHERE active = TRUE`)
+	var carMake, carModel string
+	var carGeneration *string
+	var yearFrom, yearTo *int
+
+	err = tx.QueryRow(ctx,
+		`SELECT car_make, car_model, car_generation, year_from, year_to
+		 FROM models
+		 WHERE id = $1`,
+		id,
+	).Scan(&carMake, &carModel, &carGeneration, &yearFrom, &yearTo)
 	if err != nil {
-		return fmt.Errorf("ModelRepo.SetActive deactivate all: %w", err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("ModelRepo.SetActiveForCarSpec: %w", domain.ErrNotFound)
+		}
+		return fmt.Errorf("ModelRepo.SetActiveForCarSpec load target spec: %w", err)
+	}
+
+	_, err = tx.Exec(ctx,
+		`UPDATE models
+		 SET active = FALSE
+		 WHERE active = TRUE
+		   AND car_make = $1
+		   AND car_model = $2
+		   AND car_generation IS NOT DISTINCT FROM $3
+		   AND year_from IS NOT DISTINCT FROM $4
+		   AND year_to IS NOT DISTINCT FROM $5`,
+		carMake, carModel, carGeneration, yearFrom, yearTo,
+	)
+	if err != nil {
+		return fmt.Errorf("ModelRepo.SetActiveForCarSpec deactivate group: %w", err)
 	}
 
 	tag, err := tx.Exec(ctx, `UPDATE models SET active = TRUE WHERE id = $1`, id)
 	if err != nil {
-		return fmt.Errorf("ModelRepo.SetActive activate: %w", err)
+		return fmt.Errorf("ModelRepo.SetActiveForCarSpec activate: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("ModelRepo.SetActive: %w", domain.ErrNotFound)
+		return fmt.Errorf("ModelRepo.SetActiveForCarSpec: %w", domain.ErrNotFound)
 	}
 
 	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("ModelRepo.SetActive commit: %w", err)
+		return fmt.Errorf("ModelRepo.SetActiveForCarSpec commit: %w", err)
 	}
 	return nil
 }

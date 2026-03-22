@@ -1,4 +1,4 @@
-.PHONY: migrate-up migrate-down migrate-version migrate-steps migrate-create
+.PHONY: migrate-up migrate-down migrate-version migrate-steps migrate-create lint lint-fix lint-fast
 
 include .env
 export
@@ -17,3 +17,12 @@ migrate-steps:
 
 migrate-create:
 	@echo "Enter migration name:" && read name && migrate create -ext sql -dir migrations -seq $$name
+
+lint:
+	golangci-lint -v run --config .golangci.yml
+
+lint-fix:
+	golangci-lint -v run --config .golangci.yml --fix
+
+lint-fast:
+	golangci-lint run --config .golangci.yml --fast

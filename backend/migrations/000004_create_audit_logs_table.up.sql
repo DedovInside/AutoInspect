@@ -3,7 +3,7 @@ CREATE TABLE audit_logs (
     
     user_id     UUID REFERENCES users(id),
     action      VARCHAR(100) NOT NULL,
-    entity_type VARCHAR(50),   -- "analysis", "model", "dataset"
+    entity_type VARCHAR(50),   -- "analysis", "model", "user"
     entity_id   UUID,
     
     -- Контекст

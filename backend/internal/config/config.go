@@ -63,10 +63,9 @@ type MinIOConfig struct {
 	UseSSL    bool   `env:"MINIO_USE_SSL" env-default:"false"`
 
 	// Buckets
-	ImagesBucket   string `env:"MINIO_IMAGES_BUCKET" env-default:"images"`
-	ModelsBucket   string `env:"MINIO_MODELS_BUCKET" env-default:"models"`
-	DatasetsBucket string `env:"MINIO_DATASETS_BUCKET" env-default:"datasets"`
-	LogsBucket     string `env:"MINIO_LOGS_BUCKET" env-default:"logs"`
+	ImagesBucket string `env:"MINIO_IMAGES_BUCKET" env-default:"images"`
+	ModelsBucket string `env:"MINIO_MODELS_BUCKET" env-default:"models"`
+	LogsBucket   string `env:"MINIO_LOGS_BUCKET" env-default:"logs"`
 }
 
 // GRPCConfig настройки gRPC клиента для ML сервиса
@@ -76,7 +75,7 @@ type GRPCConfig struct {
 	MaxRetries    int           `env:"GRPC_MAX_RETRIES" env-default:"3"`
 }
 
-// Для настройки аутентификации
+// AuthConfig Для настройки аутентификации
 type AuthConfig struct {
 	JWTSecret     string        `env:"JWT_SECRET" env-required:"true"`
 	JWTExpiration time.Duration `env:"JWT_EXPIRATION" env-default:"24h"`
@@ -88,7 +87,7 @@ type AuthConfig struct {
 	RateLimitPerMinute int `env:"RATE_LIMIT_PER_MINUTE" env-default:"60"`
 }
 
-// Для настройки воркера
+// WorkerConfig Для настройки воркера
 type WorkerConfig struct {
 	Concurrency       int           `env:"WORKER_CONCURRENCY" env-default:"5"`
 	PollInterval      time.Duration `env:"WORKER_POLL_INTERVAL" env-default:"1s"`
@@ -96,7 +95,7 @@ type WorkerConfig struct {
 	HeartbeatInterval time.Duration `env:"WORKER_HEARTBEAT_INTERVAL" env-default:"30s"`
 }
 
-// Для настройки логирования
+// LoggingConfig Для настройки логирования
 type LoggingConfig struct {
 	Level  string `env:"LOG_LEVEL" env-default:"info"`  // debug, info, warn, error
 	Format string `env:"LOG_FORMAT" env-default:"json"` // json, text
