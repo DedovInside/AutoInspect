@@ -10,6 +10,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres" // драйвер PostgreSQL
 	_ "github.com/golang-migrate/migrate/v4/source/file"       // читает .sql файлы из папки
+	"github.com/ilyakaznacheev/cleanenv"
 )
 
 const confirmationYes = "yes"
@@ -22,6 +23,10 @@ func main() {
 }
 
 func run() error {
+	if err := loadMigratorEnv(); err != nil {
+		return err
+	}
+
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		return errors.New("DATABASE_URL environment variable is not set")
@@ -48,6 +53,39 @@ func run() error {
 
 	if err := executeCommand(m, command, args); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+type migratorEnv struct {
+	DatabaseURL    string `env:"DATABASE_URL"`
+	MigrationsPath string `env:"MIGRATIONS_PATH"`
+}
+
+func loadMigratorEnv() error {
+	envFile := os.Getenv("CONFIG_FILE")
+	if envFile == "" {
+		envFile = ".env"
+	}
+
+	if _, err := os.Stat(envFile); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("check config file %s: %w", envFile, err)
+	}
+
+	var fileCfg migratorEnv
+	if err := cleanenv.ReadConfig(envFile, &fileCfg); err != nil {
+		return fmt.Errorf("read config from %s: %w", envFile, err)
+	}
+
+	if os.Getenv("DATABASE_URL") == "" && fileCfg.DatabaseURL != "" {
+		_ = os.Setenv("DATABASE_URL", fileCfg.DatabaseURL)
+	}
+	if os.Getenv("MIGRATIONS_PATH") == "" && fileCfg.MigrationsPath != "" {
+		_ = os.Setenv("MIGRATIONS_PATH", fileCfg.MigrationsPath)
 	}
 
 	return nil
@@ -278,7 +316,6 @@ func parseUintArg(args []string, command string) (uint, error) {
 	return version, nil
 }
 
-// Вспомогательная функция: справка
 func printUsage() {
 	fmt.Println(`
 	AutoInspect Database Migrator
@@ -305,8 +342,11 @@ func printUsage() {
 	Environment Variables:
 	DATABASE_URL       Required. PostgreSQL connection string
 						Example: postgres://user:pass@localhost:5432/autoinspect?sslmode=disable
-	
+
 	MIGRATIONS_PATH    Optional. Path to migrations folder
-						Default: file://migrations
+						Default: file://<executable>/../migrations
+
+	CONFIG_FILE        Optional. Path to .env-like config file (default: .env)
+						Values from process env have higher priority
 	`)
 }

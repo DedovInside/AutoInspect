@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
 	"github.com/google/uuid"
@@ -19,7 +18,6 @@ func NewUserRepo(db *DB) *UserRepo {
 	return &UserRepo{db: db}
 }
 
-// Create создаёт нового пользователя в базе данных.
 func (r *UserRepo) Create(ctx context.Context, user *domain.User) error {
 	query := `
 		INSERT INTO users (
@@ -34,25 +32,19 @@ func (r *UserRepo) Create(ctx context.Context, user *domain.User) error {
 			$10
 		)`
 
-	now := time.Now()
-	if user.ID == uuid.Nil {
-		user.ID = uuid.New()
-	}
-	user.CreatedAt = now
-
 	_, err := r.db.pool.Exec(ctx, query,
 		user.ID, user.Username, user.Email, user.PasswordHash, user.Role,
 		user.EmailVerified, user.IsActive,
-		user.CreatedAt, now,
+		user.CreatedAt, user.UpdatedAt,
 		user.APICallsCount,
 	)
+
 	if err != nil {
-		return fmt.Errorf("UserRepo.Create: %w", err)
+		return fmt.Errorf("create user Error: %w", err)
 	}
 	return nil
 }
 
-// GetByID возвращает пользователя по его UUID.
 func (r *UserRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
 	query := `
 		SELECT id, username, email, password_hash, role,
@@ -66,7 +58,6 @@ func (r *UserRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, err
 	return scanUser(row)
 }
 
-// GetByEmail возвращает пользователя по email.
 func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	query := `
 		SELECT id, username, email, password_hash, role,
@@ -80,21 +71,6 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, 
 	return scanUser(row)
 }
 
-// GetByUsername возвращает пользователя по имени пользователя.
-func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*domain.User, error) {
-	query := `
-		SELECT id, username, email, password_hash, role,
-		       email_verified, is_active,
-		       created_at, updated_at, last_login,
-		       api_calls_count, api_quota_reset_at
-		FROM users
-		WHERE username = $1`
-
-	row := r.db.pool.QueryRow(ctx, query, username)
-	return scanUser(row)
-}
-
-// Update обновляет данные пользователя.
 func (r *UserRepo) Update(ctx context.Context, user *domain.User) error {
 	query := `
 		UPDATE users SET
@@ -123,7 +99,6 @@ func (r *UserRepo) Update(ctx context.Context, user *domain.User) error {
 	return nil
 }
 
-// Delete удаляет пользователя по UUID (hard delete).
 func (r *UserRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	tag, err := r.db.pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
 	if err != nil {
@@ -135,7 +110,6 @@ func (r *UserRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// List возвращает список пользователей с пагинацией.
 func (r *UserRepo) List(ctx context.Context, limit, offset int) ([]*domain.User, error) {
 	query := `
 		SELECT id, username, email, password_hash, role,
@@ -155,7 +129,6 @@ func (r *UserRepo) List(ctx context.Context, limit, offset int) ([]*domain.User,
 	return collectUsers(rows)
 }
 
-// UpdateLastLogin обновляет время последнего входа пользователя.
 func (r *UserRepo) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
 	tag, err := r.db.pool.Exec(ctx,
 		`UPDATE users SET last_login = NOW() WHERE id = $1`, id,
@@ -168,8 +141,6 @@ func (r *UserRepo) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
 	}
 	return nil
 }
-
-// --- вспомогательные функции сканирования ---
 
 func scanUser(row pgx.Row) (*domain.User, error) {
 	u := &domain.User{}

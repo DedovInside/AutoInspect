@@ -1,5 +1,5 @@
 -- +migrate Up
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";  -- для gen_random_uuid()
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TABLE users (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -9,16 +9,13 @@ CREATE TABLE users (
     role          VARCHAR(20) NOT NULL DEFAULT 'user' 
                   CHECK (role IN ('user', 'owner', 'admin')),
 
-    -- Дополнительная безопасность
-    email_verified BOOLEAN DEFAULT FALSE, -- для регистрации через email
-    is_active      BOOLEAN DEFAULT TRUE, -- для блокировки пользователя
+    email_verified BOOLEAN DEFAULT FALSE,
+    is_active      BOOLEAN DEFAULT TRUE,
 
-    -- Метаданные
     created_at    TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at    TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     last_login    TIMESTAMPTZ,
 
-    -- Опционально: для rate limiting
     api_calls_count INTEGER DEFAULT 0,
     api_quota_reset_at TIMESTAMPTZ
 );
@@ -26,7 +23,6 @@ CREATE TABLE users (
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
 
--- Trigger для автоматического updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN

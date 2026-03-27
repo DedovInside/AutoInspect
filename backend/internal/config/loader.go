@@ -2,13 +2,13 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
-// Load загружает конфигурацию из .env файла и переменных окружения
 func Load() (*Config, error) {
 	var cfg Config
 
@@ -27,7 +27,6 @@ func Load() (*Config, error) {
 		}
 	}
 
-	// Валидация критических параметров
 	if err := validate(&cfg); err != nil {
 		return nil, fmt.Errorf("config validation failed: %w", err)
 	}
@@ -35,7 +34,6 @@ func Load() (*Config, error) {
 	return &cfg, nil
 }
 
-// MustLoad Данный метод загружает конфигурацию и паникует при ошибке
 func MustLoad() *Config {
 	cfg, err := Load()
 	if err != nil {
@@ -44,7 +42,6 @@ func MustLoad() *Config {
 	return cfg
 }
 
-// Данный метод проверяет корректность конфигурации
 func validate(cfg *Config) error {
 	validEnvs := map[string]bool{
 		"development": true,
@@ -56,7 +53,6 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("invalid environment: %s (allowed: development, staging, production, test)", cfg.Environment)
 	}
 
-	// Проверка уровня логирования
 	validLogLevels := map[string]bool{
 		"debug": true,
 		"info":  true,
@@ -67,12 +63,13 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("invalid log level: %s", cfg.Logging.Level)
 	}
 
-	// Проверка JWT секрета в production
 	if cfg.Environment == "production" && len(cfg.Auth.JWTSecret) < 32 {
 		return fmt.Errorf("JWT_SECRET must be at least 32 characters in production (current length: %d)", len(cfg.Auth.JWTSecret))
 	}
+	if len(cfg.Auth.JWTSecret) < 16 {
+		return fmt.Errorf("JWT_SECRET must be at least 16 characters")
+	}
 
-	// Проверка порта
 	if cfg.HTTP.Port == "" {
 		return fmt.Errorf("HTTP_PORT cannot be empty")
 	}
@@ -107,6 +104,39 @@ func validate(cfg *Config) error {
 
 	if cfg.Redis.MaxRetries < 0 {
 		return fmt.Errorf("REDIS_MAX_RETRIES cannot be negative")
+	}
+
+	if strings.TrimSpace(cfg.Auth.JWTIssuer) == "" {
+		return fmt.Errorf("JWT_ISSUER cannot be empty")
+	}
+
+	if cfg.Auth.AccessTokenTTL <= 0 {
+		return fmt.Errorf("ACCESS_TOKEN_TTL must be greater than 0")
+	}
+
+	if cfg.Auth.RefreshTokenTTL <= 0 {
+		return fmt.Errorf("REFRESH_TOKEN_TTL must be greater than 0")
+	}
+
+	if cfg.Auth.OAuthStateTTL <= 0 {
+		return fmt.Errorf("OAUTH_STATE_TTL must be greater than 0")
+	}
+
+	if strings.TrimSpace(cfg.Auth.YandexClientID) == "" {
+		return fmt.Errorf("YANDEX_CLIENT_ID cannot be empty")
+	}
+
+	if strings.TrimSpace(cfg.Auth.YandexClientSecret) == "" {
+		return fmt.Errorf("YANDEX_CLIENT_SECRET cannot be empty")
+	}
+
+	if strings.TrimSpace(cfg.Auth.YandexRedirectURL) == "" {
+		return fmt.Errorf("YANDEX_REDIRECT_URL cannot be empty")
+	}
+
+	u, err := url.Parse(cfg.Auth.YandexRedirectURL)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return fmt.Errorf("YANDEX_REDIRECT_URL must be an absolute URL")
 	}
 
 	return nil
