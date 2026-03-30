@@ -36,15 +36,18 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, models, transforms
 from torch.utils.data import DataLoader, WeightedRandomSampler, Subset
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedGroupKFold, GroupShuffleSplit
 from sklearn.metrics import f1_score, precision_score, recall_score, confusion_matrix
 import numpy as np
 import os
+import re
+from pathlib import Path
 from collections import Counter
 from tqdm import tqdm
 
 CONFIG = {
     "project_name": "car-perspective",
+    "workspace": "brshtsk",
     "hf_dataset_id": "mitbersh/car-position",
     "data_dir": "./car_position_dataset", # Локальная папка для загрузки
     "img_size": 224,
@@ -71,13 +74,81 @@ def set_seed(seed):
     np.random.seed(seed)
 
 
+def extract_car_group_id(sample_path):
+    """Возвращает групповой ID машины, чтобы близкие варианты не делились между train/val."""
+    stem = Path(sample_path).stem
+    stem = re.sub(r"_(bg\d+|other_\d+)$", "", stem)
+
+    # Для Carvana формат обычно carId_viewCode; группируем по carId.
+    if "_" in stem:
+        return stem.split("_")[0]
+    return stem
+
+
+def split_train_val_grouped(samples, targets, seed, test_size=0.2):
+    """Делает train/val split без пересечения машин между выборками."""
+    targets_np = np.array(targets)
+    all_idx = np.arange(len(targets_np))
+    groups = np.array([extract_car_group_id(path) for path, _ in samples])
+    X_dummy = np.zeros(len(targets_np))
+
+    try:
+        splitter = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=seed)
+        train_idx, val_idx = next(splitter.split(X_dummy, targets_np, groups))
+        split_name = "StratifiedGroupKFold"
+    except ValueError as err:
+        print(f"[Split] StratifiedGroupKFold недоступен ({err}). Переходим на GroupShuffleSplit.")
+        try:
+            splitter = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=seed)
+            train_idx, val_idx = next(splitter.split(X_dummy, targets_np, groups))
+            split_name = "GroupShuffleSplit"
+        except ValueError as group_err:
+            print(f"[Split] GroupShuffleSplit недоступен ({group_err}). Переходим на train_test_split.")
+            train_idx, val_idx = train_test_split(
+                all_idx,
+                test_size=test_size,
+                shuffle=True,
+                stratify=targets_np,
+                random_state=seed
+            )
+            split_name = "train_test_split(stratify)"
+
+    train_groups = set(groups[train_idx])
+    val_groups = set(groups[val_idx])
+    overlap = train_groups.intersection(val_groups)
+
+    print(
+        f"[Split] Strategy: {split_name}. "
+        f"Train groups: {len(train_groups)}, Val groups: {len(val_groups)}"
+    )
+    if overlap:
+        print(f"[Split] WARNING: обнаружено пересечение групп ({len(overlap)}).")
+
+    return train_idx, val_idx
+
+
+def get_experiment_url(experiment, workspace, project_name):
+    """Возвращает ссылку на эксперимент Comet для удобного перехода в UI."""
+    url = getattr(experiment, "url", None)
+    if isinstance(url, str) and url.strip():
+        return url
+
+    experiment_id = getattr(experiment, "id", None)
+    if workspace and project_name and experiment_id:
+        return f"https://www.comet.com/{workspace}/{project_name}/experiments/{experiment_id}"
+
+    return "URL недоступен (проверьте workspace в CONFIG)"
+
+
 def get_data_loaders(data_dir, batch_size, img_size):
     """
-    Загружает данные, делает сплит на Train/Val и создает сбалансированный самплер.
+    Загружает данные, делает split без пересечения машин между Train/Val
+    и создает сбалансированный самплер.
     """
     # Аугментации
     train_transforms = transforms.Compose([
         transforms.Resize((img_size, img_size)),
+        transforms.RandomRotation(degrees=7),
         transforms.ColorJitter(brightness=0.2, contrast=0.2),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
@@ -93,12 +164,11 @@ def get_data_loaders(data_dir, batch_size, img_size):
     full_dataset_val = datasets.ImageFolder(data_dir, transform=val_transforms)
 
     targets = full_dataset_train.targets
-    train_idx, val_idx = train_test_split(
-        np.arange(len(full_dataset_train)),
-        test_size=0.2,
-        shuffle=True,
-        stratify=targets,
-        random_state=CONFIG['seed']
+    train_idx, val_idx = split_train_val_grouped(
+        samples=full_dataset_train.samples,
+        targets=targets,
+        seed=CONFIG['seed'],
+        test_size=0.2
     )
     # ToDo: оставить меньше фото класса other (?)
 
@@ -282,15 +352,32 @@ def train_model(experiment, current_config):
 if __name__ == '__main__':
     # Настраиваем Comet ML Optimizer
     opt = Optimizer(OPTIMIZER_CONFIG)
+
+    experiment_iterator_kwargs = {"project_name": CONFIG["project_name"]}
+    if CONFIG.get("workspace"):
+        experiment_iterator_kwargs["workspace"] = CONFIG["workspace"]
     
     # Optimizer автоматически подставит разные параметры для каждого эксперимента
-    for experiment in opt.get_experiments(project_name=CONFIG["project_name"]):
+    for experiment in opt.get_experiments(**experiment_iterator_kwargs):
         print(f"\nЗапуск нового эксперимента: {experiment.id}")
+        print(
+            "Comet URL:",
+            get_experiment_url(
+                experiment,
+                workspace=CONFIG.get("workspace", ""),
+                project_name=CONFIG["project_name"]
+            )
+        )
         
         # Обновляем конфиг текущими гиперпараметрами от оптимайзера
         current_config = CONFIG.copy()
         current_config["learning_rate"] = experiment.get_parameter("learning_rate")
         current_config["batch_size"] = experiment.get_parameter("batch_size")
-        
+
+        lr_str = f"{float(current_config['learning_rate']):.2e}"
+        run_name = f"{lr_str} | {current_config['batch_size']}"
+        experiment.set_name(run_name)
+        print("Run name:", run_name)
+
         train_model(experiment, current_config)
         experiment.end()
