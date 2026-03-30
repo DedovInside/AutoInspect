@@ -1,3 +1,5 @@
+from comet_ml import Experiment # Импорт ДО PyTorch и sklearn, чтобы трекинг работал корректно
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -9,20 +11,16 @@ import os
 from collections import Counter
 from tqdm import tqdm
 
-import dagshub
-import mlflow
-
 CONFIG = {
     "project_name": "car-perspective",
-    "data_dir": "/Users/brshtsk/Documents/hse/course-project/dataset-photo-position/blended",
+    "hf_dataset_id": "mitbersh/car-position",
+    "data_dir": "./car_position_dataset", # Локальная папка для загрузки
     "img_size": 224,
     "batch_size": 32,
     "epochs": 15,
     "learning_rate": 1e-4,
     "architecture": "resnet18",
-    "seed": 42,
-    "dagshub_username": "brshtsk",
-    "dagshub_repo": "car-perspective"
+    "seed": 42
 }
 
 
@@ -87,11 +85,39 @@ def get_data_loaders(data_dir, batch_size, img_size):
 def train_model():
     set_seed(CONFIG['seed'])
 
-    dagshub.init(repo_owner=CONFIG['dagshub_username'], repo_name=CONFIG['dagshub_repo'], mlflow=True)
+    # Автоматическая загрузка датасета с Hugging Face, если его нет локально
+    if not os.path.exists(CONFIG['data_dir']) or len(os.listdir(CONFIG['data_dir'])) == 0:
+        print(f"Датасет не найден локально. Скачиваю {CONFIG['hf_dataset_id']} с Hugging Face...")
+        
+        # Используем git clone вместо snapshot_download, так как в Kaggle 
+        # скачивание тысяч мелких файлов через API часто зависает из-за работы с кэшем и симлинками
+        import subprocess
+        token = os.environ.get("HF_TOKEN", "")
+        if token:
+            repo_url = f"https://oauth2:{token}@huggingface.co/datasets/{CONFIG['hf_dataset_id']}"
+        else:
+            repo_url = f"https://huggingface.co/datasets/{CONFIG['hf_dataset_id']}"
+            
+        subprocess.run(["git", "clone", repo_url, CONFIG['data_dir']], check=True)
+        
+        # Очищаем скрытые папки (вроде .git), из-за которых падает ImageFolder
+        import shutil
+        for item in os.listdir(CONFIG['data_dir']):
+            if item.startswith('.'):
+                item_path = os.path.join(CONFIG['data_dir'], item)
+                if os.path.isdir(item_path):
+                    shutil.rmtree(item_path, ignore_errors=True)
+                elif os.path.isfile(item_path):
+                    os.remove(item_path)
+                    
+        print("Датасет успешно загружен и очищен!")
 
-    mlflow.start_run()
-
-    mlflow.log_params(CONFIG)
+    # Инициализация Comet ML
+    experiment = Experiment(
+        project_name=CONFIG["project_name"],
+        auto_output_logging="simple",
+    )
+    experiment.log_parameters(CONFIG)
 
     if torch.backends.mps.is_available():
         device = torch.device("mps")
@@ -140,7 +166,7 @@ def train_model():
                 optimizer.step()
 
                 train_loss += loss.item() * inputs.size(0)
-                train_corrects += torch.sum(preds == labels.data)
+                train_corrects += torch.sum(preds == labels)
 
             epoch_train_loss = train_loss / len(train_loader.dataset)
             epoch_train_acc = train_corrects.double() / len(train_loader.dataset)
@@ -160,7 +186,7 @@ def train_model():
                     loss = criterion(outputs, labels)
 
                     val_loss += loss.item() * inputs.size(0)
-                    val_corrects += torch.sum(preds == labels.data)
+                    val_corrects += torch.sum(preds == labels)
 
             epoch_val_loss = val_loss / len(val_loader.dataset)
             epoch_val_acc = val_corrects.double() / len(val_loader.dataset)
@@ -168,7 +194,7 @@ def train_model():
             print(f"Train Loss: {epoch_train_loss:.4f} Acc: {epoch_train_acc:.4f}")
             print(f"Val Loss: {epoch_val_loss:.4f} Acc: {epoch_val_acc:.4f}")
 
-            mlflow.log_metrics({
+            experiment.log_metrics({
                 "train_loss": float(epoch_train_loss),
                 "train_acc": float(epoch_train_acc),
                 "val_loss": float(epoch_val_loss),
@@ -177,15 +203,14 @@ def train_model():
 
             if epoch_val_acc > best_acc:
                 best_acc = epoch_val_acc
-                # Сохраняем локально, как и было
                 torch.save(model.state_dict(), "best_car_view_model.pth")
                 print("Model saved locally!")
 
-                mlflow.log_artifact("best_car_view_model.pth")
+                experiment.log_model("best_car_view", "best_car_view_model.pth")
 
     finally:
         print(f"Обучение завершено. Лучшая точность: {best_acc:.4f}")
-        mlflow.end_run()
+        experiment.end()
 
 
 if __name__ == '__main__':
