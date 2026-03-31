@@ -12,8 +12,6 @@ type DB struct {
 	pool *pgxpool.Pool
 }
 
-// Создаём новое подключение к базе данных с пулом соединений
-
 func New(ctx context.Context, dsn string, maxConns int, connLifetime time.Duration) (*DB, error) {
 	config, err := pgxpool.ParseConfig(dsn)
 
@@ -28,14 +26,13 @@ func New(ctx context.Context, dsn string, maxConns int, connLifetime time.Durati
 	config.MaxConnIdleTime = 10 * time.Minute
 	config.HealthCheckPeriod = 1 * time.Minute
 
-	// Создание пула с настройками
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create connection pool: %w", err)
 	}
 
 	if err := pool.Ping(ctx); err != nil {
-		pool.Close() // Закрываем пул перед возвратом ошибки
+		pool.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
@@ -44,17 +41,14 @@ func New(ctx context.Context, dsn string, maxConns int, connLifetime time.Durati
 	}, nil
 }
 
-// CLose закрывает пул соединений
 func (db *DB) Close() {
 	db.pool.Close()
 }
 
-// Ping проверяет соединение с базой данных
 func (db *DB) Ping(ctx context.Context) error {
 	return db.pool.Ping(ctx)
 }
 
-// GetPool возвращает пул соединений для выполнения запросов
 func (db *DB) GetPool() *pgxpool.Pool {
 	return db.pool
 }

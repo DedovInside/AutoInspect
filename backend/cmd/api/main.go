@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -81,7 +82,7 @@ func run() error {
 	)
 
 	authHandler := handlers.NewAuthHandler(authService)
-	router := api.NewRouter(authHandler, tokenManager, sessionCache)
+	router := api.NewGinRouter(authHandler, tokenManager, sessionCache)
 
 	server := &http.Server{
 		Addr:         fmt.Sprintf("%s:%s", cfg.HTTP.Host, cfg.HTTP.Port),
@@ -93,7 +94,7 @@ func run() error {
 	errCh := make(chan error, 1)
 	go func() {
 		log.Printf("api listening on %s", server.Addr)
-		if serveErr := server.ListenAndServe(); serveErr != nil && serveErr != http.ErrServerClosed {
+		if serveErr := server.ListenAndServe(); serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
 			errCh <- serveErr
 		}
 	}()

@@ -6,24 +6,26 @@ import (
 	"github.com/DedovInside/AutoInspect/backend/internal/api/handlers"
 	"github.com/DedovInside/AutoInspect/backend/internal/api/middleware"
 	"github.com/DedovInside/AutoInspect/backend/internal/service"
+	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(authHandler *handlers.AuthHandler, tokenManager *service.TokenManager, cache service.SessionCache) http.Handler {
-	mux := http.NewServeMux()
+func NewGinRouter(authHandler *handlers.AuthHandler, tokenManager *service.TokenManager, cache service.SessionCache) *gin.Engine {
+	router := gin.New()
+	router.Use(gin.Recovery())
 
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
+	router.GET("/health", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
 	})
 
-	mux.HandleFunc("POST /v1/auth/refresh", authHandler.Refresh)
-	mux.HandleFunc("GET /v1/auth/yandex/start", authHandler.YandexStart)
-	mux.HandleFunc("GET /v1/auth/yandex/callback", authHandler.YandexCallback)
-	mux.HandleFunc("POST /v1/auth/oauth/yandex", authHandler.YandexExchange)
+	router.POST("/v1/auth/refresh", authHandler.Refresh)
+	router.GET("/v1/auth/yandex/start", authHandler.YandexStart)
+	router.GET("/v1/auth/yandex/callback", authHandler.YandexCallback)
+	router.POST("/v1/auth/oauth/yandex", authHandler.YandexExchange)
 
-	authMW := middleware.Auth(tokenManager, cache)
-	mux.Handle("GET /v1/auth/me", authMW(http.HandlerFunc(authHandler.Me)))
-	mux.Handle("POST /v1/auth/logout", authMW(http.HandlerFunc(authHandler.Logout)))
+	authGroup := router.Group("/v1/auth")
+	authGroup.Use(middleware.Auth(tokenManager, cache))
+	authGroup.GET("/me", authHandler.Me)
+	authGroup.POST("/logout", authHandler.Logout)
 
-	return mux
+	return router
 }

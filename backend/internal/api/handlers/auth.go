@@ -1,10 +1,7 @@
 package handlers
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -12,6 +9,7 @@ import (
 	"github.com/DedovInside/AutoInspect/backend/internal/api/middleware"
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
 	"github.com/DedovInside/AutoInspect/backend/internal/service"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
@@ -23,115 +21,115 @@ func NewAuthHandler(auth *service.AuthService) *AuthHandler {
 	return &AuthHandler{auth: auth}
 }
 
-func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) Refresh(c *gin.Context) {
 	var req domain.RefreshRequest
 
-	if err := decodeJSONBody(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
 
-	result, err := h.auth.Refresh(r.Context(), req.RefreshToken, optionalHeader(r, "User-Agent"), clientIP(r))
+	result, err := h.auth.Refresh(c.Request.Context(), req.RefreshToken, optionalHeader(c.Request, "User-Agent"), clientIPFromGin(c))
 
 	if err != nil {
-		handleAuthError(w, err)
+		handleAuthError(c, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, result)
+	writeJSON(c, http.StatusOK, result)
 }
 
-func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) Logout(c *gin.Context) {
 	var req domain.RefreshRequest
-	_ = decodeJSONBody(r, &req)
+	_ = c.ShouldBindJSON(&req)
 
-	accessJTI, accessExp := tokenMetaFromContext(r.Context())
+	accessJTI, accessExp := tokenMetaFromContext(c)
 
-	if err := h.auth.Logout(r.Context(), req.RefreshToken, accessJTI, accessExp); err != nil {
-		handleAuthError(w, err)
+	if err := h.auth.Logout(c.Request.Context(), req.RefreshToken, accessJTI, accessExp); err != nil {
+		handleAuthError(c, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	writeJSON(c, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
-	userID, ok := userIDFromContext(r.Context())
+func (h *AuthHandler) Me(c *gin.Context) {
+	userID, ok := userIDFromContext(c)
 
 	if !ok {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "missing user context")
+		writeError(c, http.StatusUnauthorized, "unauthorized", "missing user context")
 		return
 	}
 
-	resp, err := h.auth.GetMe(r.Context(), userID)
+	resp, err := h.auth.GetMe(c.Request.Context(), userID)
 
 	if err != nil {
-		handleAuthError(w, err)
+		handleAuthError(c, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, resp)
+	writeJSON(c, http.StatusOK, resp)
 }
 
-func (h *AuthHandler) YandexStart(w http.ResponseWriter, r *http.Request) {
-	url, err := h.auth.StartYandexOAuth(r.Context())
+func (h *AuthHandler) YandexStart(c *gin.Context) {
+	url, err := h.auth.StartYandexOAuth(c.Request.Context())
 
 	if err != nil {
-		handleAuthError(w, err)
+		handleAuthError(c, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"auth_url": url})
+	writeJSON(c, http.StatusOK, map[string]string{"auth_url": url})
 }
 
-func (h *AuthHandler) YandexCallback(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) YandexCallback(c *gin.Context) {
 	req := domain.OAuthYandexExchangeRequest{
-		Code:  strings.TrimSpace(r.URL.Query().Get("code")),
-		State: strings.TrimSpace(r.URL.Query().Get("state")),
+		Code:  strings.TrimSpace(c.Query("code")),
+		State: strings.TrimSpace(c.Query("state")),
 	}
 
-	result, err := h.auth.ExchangeYandexCode(r.Context(), req, optionalHeader(r, "User-Agent"), clientIP(r))
+	result, err := h.auth.ExchangeYandexCode(c.Request.Context(), req, optionalHeader(c.Request, "User-Agent"), clientIPFromGin(c))
 
 	if err != nil {
-		handleAuthError(w, err)
+		handleAuthError(c, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, result)
+	writeJSON(c, http.StatusOK, result)
 }
 
-func (h *AuthHandler) YandexExchange(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) YandexExchange(c *gin.Context) {
 	var req domain.OAuthYandexExchangeRequest
 
-	if err := decodeJSONBody(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
 
-	result, err := h.auth.ExchangeYandexCode(r.Context(), req, optionalHeader(r, "User-Agent"), clientIP(r))
+	result, err := h.auth.ExchangeYandexCode(c.Request.Context(), req, optionalHeader(c.Request, "User-Agent"), clientIPFromGin(c))
 
 	if err != nil {
-		handleAuthError(w, err)
+		handleAuthError(c, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, result)
+	writeJSON(c, http.StatusOK, result)
 }
 
-func handleAuthError(w http.ResponseWriter, err error) {
+func handleAuthError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, domain.ErrInvalidInput):
-		writeError(w, http.StatusBadRequest, "invalid_input", err.Error())
+		writeError(c, http.StatusBadRequest, "invalid_input", err.Error())
 	case errors.Is(err, domain.ErrAlreadyExists):
-		writeError(w, http.StatusConflict, "already_exists", err.Error())
+		writeError(c, http.StatusConflict, "already_exists", err.Error())
 	case errors.Is(err, domain.ErrInvalidCredentials):
-		writeError(w, http.StatusUnauthorized, "invalid_credentials", err.Error())
+		writeError(c, http.StatusUnauthorized, "invalid_credentials", err.Error())
 	case errors.Is(err, domain.ErrUnauthorized):
-		writeError(w, http.StatusUnauthorized, "unauthorized", err.Error())
+		writeError(c, http.StatusUnauthorized, "unauthorized", err.Error())
 	case errors.Is(err, domain.ErrNotFound):
-		writeError(w, http.StatusNotFound, "not_found", err.Error())
+		writeError(c, http.StatusNotFound, "not_found", err.Error())
 	default:
-		writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		writeError(c, http.StatusInternalServerError, "internal_error", "internal server error")
 	}
 }
 
@@ -140,37 +138,13 @@ type errorResponse struct {
 	Message string `json:"message"`
 }
 
-func decodeJSONBody(r *http.Request, out any) error {
-	if r.Body == nil {
-		return errors.New("request body is empty")
-	}
 
-	defer func() { _ = r.Body.Close() }() // !
-
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-
-	if err := decoder.Decode(out); err != nil {
-
-		if errors.Is(err, io.EOF) {
-			return errors.New("request body is empty")
-		}
-		return err
-	}
-
-	return nil
+func writeJSON(c *gin.Context, statusCode int, payload any) {
+	c.PureJSON(statusCode, payload)
 }
 
-func writeJSON(w http.ResponseWriter, statusCode int, payload any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	encoder := json.NewEncoder(w)
-	encoder.SetEscapeHTML(false)
-	_ = encoder.Encode(payload)
-}
-
-func writeError(w http.ResponseWriter, statusCode int, code, message string) {
-	writeJSON(w, statusCode, errorResponse{Code: code, Message: message})
+func writeError(c *gin.Context, statusCode int, code, message string) {
+	writeJSON(c, statusCode, errorResponse{Code: code, Message: message})
 }
 
 func optionalHeader(r *http.Request, key string) *string {
@@ -183,27 +157,29 @@ func optionalHeader(r *http.Request, key string) *string {
 	return &value
 }
 
-func clientIP(r *http.Request) *string {
-	for _, header := range []string{"X-Forwarded-For", "X-Real-IP"} {
-		value := strings.TrimSpace(r.Header.Get(header))
-
-		if value != "" {
-			parts := strings.Split(value, ",")
-			v := strings.TrimSpace(parts[0])
-			return &v
-		}
+func clientIPFromGin(c *gin.Context) *string {
+	ip := strings.TrimSpace(c.ClientIP())
+	if ip == "" {
+		return nil
 	}
-	return nil
+
+	return &ip
 }
 
-func userIDFromContext(ctx context.Context) (uuid.UUID, bool) {
-	value := ctx.Value(middleware.UserIDContextKey)
+func userIDFromContext(c *gin.Context) (uuid.UUID, bool) {
+	value, ok := c.Get(string(middleware.UserIDContextKey))
+	if !ok {
+		return uuid.Nil, false
+	}
 	id, ok := value.(uuid.UUID)
 	return id, ok
 }
 
-func tokenMetaFromContext(ctx context.Context) (string, time.Time) {
-	jti, _ := ctx.Value(middleware.AccessJTIContextKey).(string)
-	exp, _ := ctx.Value(middleware.AccessExpContextKey).(time.Time)
-	return jti, exp
+func tokenMetaFromContext(c *gin.Context) (string, time.Time) {
+	jti, _ := c.Get(string(middleware.AccessJTIContextKey))
+	exp, _ := c.Get(string(middleware.AccessExpContextKey))
+	jtiValue, _ := jti.(string)
+	expValue, _ := exp.(time.Time)
+
+	return jtiValue, expValue
 }
