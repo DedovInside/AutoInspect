@@ -5,7 +5,6 @@ import random
 import os
 
 def demo_model(data_dir="./car_position_dataset", model_path="best_car_view_model.pth", n=5):
-    # Настройки
     img_size = 224
     device = torch.device("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"))
 
@@ -16,7 +15,6 @@ def demo_model(data_dir="./car_position_dataset", model_path="best_car_view_mode
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
 
-    # Загружаем датасет, чтобы получить доступ к фото и списку классов
     if not os.path.exists(data_dir):
         print(f"Ошибка: Папка с датасетом '{data_dir}' не найдена.")
         return
@@ -24,7 +22,6 @@ def demo_model(data_dir="./car_position_dataset", model_path="best_car_view_mode
     dataset = datasets.ImageFolder(data_dir, transform=val_transforms)
     class_names = dataset.classes
 
-    # Инициализация модели
     print(f"Загрузка модели из {model_path} на {device}...")
     model = models.resnet18(weights=None)
     num_ftrs = model.fc.in_features
@@ -39,7 +36,6 @@ def demo_model(data_dir="./car_position_dataset", model_path="best_car_view_mode
     model = model.to(device)
     model.eval()
 
-    # Выбираем n случайных индексов
     n = min(n, len(dataset))
     indices = random.sample(range(len(dataset)), n)
 
@@ -51,7 +47,6 @@ def demo_model(data_dir="./car_position_dataset", model_path="best_car_view_mode
             image, label = dataset[idx]
             image_batch = image.unsqueeze(0).to(device) # Добавляем размерность батча
             
-            # Предсказание
             outputs = model(image_batch)
             probabilities = torch.nn.functional.softmax(outputs, dim=1)[0]
             confidence, predicted_idx = torch.max(probabilities, 0)
@@ -59,7 +54,6 @@ def demo_model(data_dir="./car_position_dataset", model_path="best_car_view_mode
             true_class = class_names[label]
             predicted_class = class_names[predicted_idx.item()]
             
-            # Результаты
             print(f"Истинный класс: {true_class:<15} | Предсказанный класс: {predicted_class:<15} | Уверенность: {confidence.item():.2%}")
             
     print("-" * 50)

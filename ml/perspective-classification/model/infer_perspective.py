@@ -27,28 +27,28 @@ def get_device(device_arg: str) -> torch.device:
 def load_class_names(data_dir: str = "", classes_file: str = "") -> List[str]:
     if classes_file:
         if not os.path.exists(classes_file):
-            raise FileNotFoundError(f"Classes file not found: {classes_file}")
+            raise FileNotFoundError(f"Файл с классами не найден: {classes_file}")
 
         if classes_file.lower().endswith(".json"):
             with open(classes_file, "r", encoding="utf-8") as f:
                 names = json.load(f)
             if not isinstance(names, list) or not all(isinstance(x, str) for x in names):
-                raise ValueError("JSON must contain a list of class names (strings)")
+                raise ValueError("JSON должен содержать список названий классов (строк)")
             return names
 
         with open(classes_file, "r", encoding="utf-8") as f:
             names = [line.strip() for line in f if line.strip()]
         if not names:
-            raise ValueError("Classes text file is empty")
+            raise ValueError("Текстовый файл с классами пуст")
         return names
 
     if data_dir and os.path.isdir(data_dir):
         dataset = datasets.ImageFolder(data_dir)
         if not dataset.classes:
-            raise ValueError(f"No classes found in data dir: {data_dir}")
+            raise ValueError(f"В каталоге датасета не найдены классы: {data_dir}")
         return dataset.classes
 
-    raise ValueError("Provide --data-dir or --classes-file to resolve class names")
+    raise ValueError("Используйте --data-dir или --classes-file, чтобы определить список классов")
 
 
 def pad_to_square_with_mean_color(image: Image.Image) -> Tuple[Image.Image, Tuple[int, int, int]]:
@@ -87,7 +87,7 @@ def build_transform(img_size: int) -> transforms.Compose:
 
 def load_model(model_path: str, num_classes: int, device: torch.device) -> nn.Module:
     if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Model file not found: {model_path}")
+        raise FileNotFoundError(f"Файл модели не найден: {model_path}")
 
     model = models.resnet18(weights=None)
     model.fc = nn.Linear(model.fc.in_features, num_classes)
@@ -109,7 +109,7 @@ def infer_single_image(
     top_k: int,
 ) -> None:
     if not os.path.exists(image_path):
-        raise FileNotFoundError(f"Image not found: {image_path}")
+        raise FileNotFoundError(f"Изображение не найдено: {image_path}")
 
     image = Image.open(image_path).convert("RGB")
     padded_image, mean_color = pad_to_square_with_mean_color(image)
@@ -127,41 +127,36 @@ def infer_single_image(
     best_idx = indices[0].item()
     best_prob = confs[0].item()
 
-    print("Inference complete")
-    print(f"Image: {image_path}")
-    print(f"Original size: {image.size[0]}x{image.size[1]}")
-    print(f"Padding color (mean RGB): {mean_color}")
-    print(f"Model input size: {img_size}x{img_size}")
-    print(f"Predicted class: {class_names[best_idx]}")
-    print(f"Confidence: {best_prob:.2%}")
+    print("Инференс завершен")
+    print(f"Изображение: {image_path}")
+    print(f"Предсказанный класс: {class_names[best_idx]}")
+    print(f"Уверенность: {best_prob:.2%}")
 
     if top_k > 1:
-        print("Top-k predictions:")
+        print("Топ-k предсказаний:")
         for rank, (conf, idx) in enumerate(zip(confs.tolist(), indices.tolist()), start=1):
             print(f"  {rank}. {class_names[idx]}: {conf:.2%}")
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run inference for a single car perspective image")
-    parser.add_argument("--image", required=True, help="Path to input image")
-    parser.add_argument("--model", default="best_car_view_model.pth", help="Path to .pth model file")
+    parser = argparse.ArgumentParser(description="Инференс ракурса автомобиля для одного изображения")
+    parser.add_argument("--image", required=True, help="Путь к картинке")
+    parser.add_argument("--model", default="best_car_view_model.pth", help="Путь к модели pth")
     parser.add_argument(
         "--data-dir",
         default="./car_position_dataset",
-        help="Dataset root directory to auto-resolve class names",
     )
     parser.add_argument(
         "--classes-file",
         default="",
-        help="Optional .json or .txt file with ordered class names; overrides --data-dir",
+        help="json или txt с упорядоченными классами",
     )
-    parser.add_argument("--img-size", type=int, default=224, help="Model input size")
-    parser.add_argument("--top-k", type=int, default=3, help="How many top predictions to print")
+    parser.add_argument("--img-size", type=int, default=224)
+    parser.add_argument("--top-k", type=int, default=3)
     parser.add_argument(
         "--device",
         default="auto",
-        choices=["auto", "cpu", "cuda", "mps"],
-        help="Computation device",
+        choices=["auto", "cpu", "cuda", "mps"]
     )
     return parser.parse_args()
 

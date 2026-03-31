@@ -91,26 +91,9 @@ def split_train_val_grouped(samples, targets, seed, test_size=0.2):
     groups = np.array([extract_car_group_id(path) for path, _ in samples])
     X_dummy = np.zeros(len(targets_np))
 
-    try:
-        splitter = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=seed)
-        train_idx, val_idx = next(splitter.split(X_dummy, targets_np, groups))
-        split_name = "StratifiedGroupKFold"
-    except ValueError as err:
-        print(f"[Split] StratifiedGroupKFold недоступен ({err}). Переходим на GroupShuffleSplit.")
-        try:
-            splitter = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=seed)
-            train_idx, val_idx = next(splitter.split(X_dummy, targets_np, groups))
-            split_name = "GroupShuffleSplit"
-        except ValueError as group_err:
-            print(f"[Split] GroupShuffleSplit недоступен ({group_err}). Переходим на train_test_split.")
-            train_idx, val_idx = train_test_split(
-                all_idx,
-                test_size=test_size,
-                shuffle=True,
-                stratify=targets_np,
-                random_state=seed
-            )
-            split_name = "train_test_split(stratify)"
+    splitter = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=seed)
+    train_idx, val_idx = next(splitter.split(X_dummy, targets_np, groups))
+    split_name = "StratifiedGroupKFold"
 
     train_groups = set(groups[train_idx])
     val_groups = set(groups[val_idx])
@@ -135,8 +118,6 @@ def get_experiment_url(experiment, workspace, project_name):
     experiment_id = getattr(experiment, "id", None)
     if workspace and project_name and experiment_id:
         return f"https://www.comet.com/{workspace}/{project_name}/experiments/{experiment_id}"
-
-    return "URL недоступен (проверьте workspace в CONFIG)"
 
 
 def get_data_loaders(data_dir, batch_size, img_size):
@@ -169,7 +150,6 @@ def get_data_loaders(data_dir, batch_size, img_size):
         seed=CONFIG['seed'],
         test_size=0.2
     )
-    # ToDo: оставить меньше фото класса other (?)
 
     train_dataset = Subset(full_dataset_train, train_idx)
     val_dataset = Subset(full_dataset_val, val_idx)
@@ -208,12 +188,9 @@ def get_data_loaders(data_dir, batch_size, img_size):
 def train_model(experiment, current_config):
     set_seed(current_config['seed'])
 
-    # Автоматическая загрузка датасета с Hugging Face, если его нет локально
     if not os.path.exists(current_config['data_dir']) or len(os.listdir(current_config['data_dir'])) == 0:
         print(f"Датасет не найден локально. Скачиваю {current_config['hf_dataset_id']} с Hugging Face...")
         
-        # Используем git clone вместо snapshot_download, так как в Kaggle 
-        # скачивание тысяч мелких файлов через API часто зависает из-за работы с кэшем и симлинками
         import subprocess
         token = os.environ.get("HF_TOKEN", "")
         if token:
@@ -223,7 +200,6 @@ def train_model(experiment, current_config):
             
         subprocess.run(["git", "clone", repo_url, current_config['data_dir']], check=True)
         
-        # Очищаем скрытые папки (вроде .git), из-за которых падает ImageFolder
         import shutil
         for item in os.listdir(current_config['data_dir']):
             if item.startswith('.'):
@@ -316,7 +292,6 @@ def train_model(experiment, current_config):
             epoch_val_loss = val_loss / len(val_loader.dataset)
             epoch_val_acc = val_corrects.double() / len(val_loader.dataset)
 
-            # Вычисление дополнительных метрик
             val_f1_macro = f1_score(all_labels, all_preds, average='macro')
             val_precision = precision_score(all_labels, all_preds, average='macro', zero_division=0)
             val_recall = recall_score(all_labels, all_preds, average='macro', zero_division=0)
@@ -334,7 +309,6 @@ def train_model(experiment, current_config):
                 "val_recall": float(val_recall)
             }, step=epoch + 1)
             
-            # Логирование матрицы ошибок
             experiment.log_confusion_matrix(y_true=all_labels, y_predicted=all_preds, step=epoch + 1)
 
             if val_f1_macro > best_f1:
@@ -349,14 +323,12 @@ def train_model(experiment, current_config):
 
 
 if __name__ == '__main__':
-    # Настраиваем Comet ML Optimizer
     opt = Optimizer(OPTIMIZER_CONFIG)
 
     experiment_iterator_kwargs = {"project_name": CONFIG["project_name"]}
     if CONFIG.get("workspace"):
         experiment_iterator_kwargs["workspace"] = CONFIG["workspace"]
     
-    # Optimizer автоматически подставит разные параметры для каждого эксперимента
     for experiment in opt.get_experiments(**experiment_iterator_kwargs):
         print(f"\nЗапуск нового эксперимента: {experiment.id}")
         print(
@@ -368,7 +340,6 @@ if __name__ == '__main__':
             )
         )
         
-        # Обновляем конфиг текущими гиперпараметрами от оптимайзера
         current_config = CONFIG.copy()
         current_config["learning_rate"] = experiment.get_parameter("learning_rate")
         current_config["batch_size"] = experiment.get_parameter("batch_size")
