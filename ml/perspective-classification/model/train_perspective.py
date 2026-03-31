@@ -1,34 +1,3 @@
-# Для работы в Kaggle:
-# !pip install comet_ml scikit-learn torch torchvision tqdm
-# import os
-# from kaggle_secrets import UserSecretsClient
-# user_secrets = UserSecretsClient()
-# os.environ["COMET_API_KEY"] = user_secrets.get_secret("COMET_API_KEY")
-# os.environ["HF_TOKEN"] = user_secrets.get_secret("HF_TOKEN")
-
-# import torch
-#
-# print("Torch:", torch.__version__)
-# print("Torch CUDA runtime:", torch.version.cuda)
-# print("CUDA available:", torch.cuda.is_available())
-#
-# if torch.cuda.is_available():
-#     idx = torch.cuda.current_device()
-#     name = torch.cuda.get_device_name(idx)
-#     major, minor = torch.cuda.get_device_capability(idx)
-#     sm = f"sm_{major}{minor}"
-#
-#     print(f"GPU[{idx}]: {name}")
-#     print(f"Compute Capability: {major}.{minor} ({sm})")
-#
-#     arch_list = torch.cuda.get_arch_list() if hasattr(torch.cuda, "get_arch_list") else []
-#     print("Torch supports:", ", ".join(arch_list) if arch_list else "unknown")
-#
-#     if arch_list and sm not in arch_list:
-#         print(f"WARNING: {sm} не поддерживается текущей сборкой torch -> вероятен crash на CUDA kernels.")
-# else:
-#     print("GPU не доступен, будет CPU.")
-
 from comet_ml import Experiment, Optimizer
 
 import torch
@@ -48,8 +17,8 @@ from tqdm import tqdm
 CONFIG = {
     "project_name": "car-perspective",
     "workspace": "brshtsk",
-    "hf_dataset_id": "mitbersh/car-position",
-    "data_dir": "./car_position_dataset",
+    "hf_dataset_id": "mitbersh/car-view",
+    "data_dir": "./car_view_dataset",
     "img_size": 224,
     "epochs": 3,
     "architecture": "resnet18",
