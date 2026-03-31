@@ -49,7 +49,7 @@ CONFIG = {
     "project_name": "car-perspective",
     "workspace": "brshtsk",
     "hf_dataset_id": "mitbersh/car-position",
-    "data_dir": "./car_position_dataset", # Локальная папка для загрузки
+    "data_dir": "./car_position_dataset",
     "img_size": 224,
     "epochs": 3,
     "architecture": "resnet18",
@@ -59,13 +59,13 @@ CONFIG = {
 OPTIMIZER_CONFIG = {
     "algorithm": "bayes",
     "spec": {
-        "maxCombo": 5, # Максимальное число экспериментов (подборов параметров)
+        "maxCombo": 5, # Максимальное число экспериментов
         "objective": "maximize",
         "metric": "val_f1_macro"
     },
     "parameters": {
         "learning_rate": {"type": "float", "scalingType": "loguniform", "min": 1e-5, "max": 1e-3},
-        "batch_size": {"type": "discrete", "values": [16, 32, 64]} # Перебор размеров батча
+        "batch_size": {"type": "discrete", "values": [16, 32, 64]}
     }
 }
 
@@ -79,7 +79,6 @@ def extract_car_group_id(sample_path):
     stem = Path(sample_path).stem
     stem = re.sub(r"_(bg\d+|other_\d+)$", "", stem)
 
-    # Для Carvana формат обычно carId_viewCode; группируем по carId.
     if "_" in stem:
         return stem.split("_")[0]
     return stem
