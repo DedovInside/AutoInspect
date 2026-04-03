@@ -18,6 +18,6 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
-          version: v2.11.4
+          version: v1.64.2
           working-directory: backend
           args: --config=.golangci.yml --timeout=5m
