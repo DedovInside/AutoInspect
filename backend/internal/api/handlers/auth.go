@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DedovInside/AutoInspect/backend/internal/api/dto"
 	"github.com/DedovInside/AutoInspect/backend/internal/api/middleware"
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
 	"github.com/DedovInside/AutoInspect/backend/internal/service"
@@ -22,7 +23,7 @@ func NewAuthHandler(auth *service.AuthService) *AuthHandler {
 }
 
 func (h *AuthHandler) Refresh(c *gin.Context) {
-	var req domain.RefreshRequest
+	var req dto.RefreshRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeError(c, http.StatusBadRequest, "invalid_request", err.Error())
@@ -36,12 +37,24 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		return
 	}
 
-	writeJSON(c, http.StatusOK, result)
+	resp := dto.AuthResponse{
+		Tokens: dto.AuthTokensResponse{
+			AccessToken:  result.Tokens.AccessToken,
+			RefreshToken: result.Tokens.RefreshToken,
+			TokenType:    result.Tokens.TokenType,
+			ExpiresAt:    result.Tokens.ExpiresAt,
+		},
+		User: dto.ToUserResponse(&result.User),
+	}
+	writeJSON(c, http.StatusOK, resp)
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
-	var req domain.RefreshRequest
-	_ = c.ShouldBindJSON(&req)
+	var req dto.RefreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
 
 	accessJTI, accessExp := tokenMetaFromContext(c)
 
@@ -61,13 +74,14 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.auth.GetMe(c.Request.Context(), userID)
+	user, err := h.auth.GetMe(c.Request.Context(), userID)
 
 	if err != nil {
 		handleAuthError(c, err)
 		return
 	}
 
+	resp := dto.ToUserResponse(user)
 	writeJSON(c, http.StatusOK, resp)
 }
 
@@ -83,37 +97,53 @@ func (h *AuthHandler) YandexStart(c *gin.Context) {
 }
 
 func (h *AuthHandler) YandexCallback(c *gin.Context) {
-	req := domain.OAuthYandexExchangeRequest{
-		Code:  strings.TrimSpace(c.Query("code")),
-		State: strings.TrimSpace(c.Query("state")),
-	}
+	code := strings.TrimSpace(c.Query("code"))
+	state := strings.TrimSpace(c.Query("state"))
 
-	result, err := h.auth.ExchangeYandexCode(c.Request.Context(), req, optionalHeader(c.Request, "User-Agent"), clientIPFromGin(c))
+	result, err := h.auth.ExchangeYandexCode(c.Request.Context(), code, state, optionalHeader(c.Request, "User-Agent"), clientIPFromGin(c))
 
 	if err != nil {
 		handleAuthError(c, err)
 		return
 	}
 
-	writeJSON(c, http.StatusOK, result)
+	resp := dto.AuthResponse{
+		Tokens: dto.AuthTokensResponse{
+			AccessToken:  result.Tokens.AccessToken,
+			RefreshToken: result.Tokens.RefreshToken,
+			TokenType:    result.Tokens.TokenType,
+			ExpiresAt:    result.Tokens.ExpiresAt,
+		},
+		User: dto.ToUserResponse(&result.User),
+	}
+	writeJSON(c, http.StatusOK, resp)
 }
 
 func (h *AuthHandler) YandexExchange(c *gin.Context) {
-	var req domain.OAuthYandexExchangeRequest
+	var req dto.OAuthYandexExchangeRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeError(c, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
 
-	result, err := h.auth.ExchangeYandexCode(c.Request.Context(), req, optionalHeader(c.Request, "User-Agent"), clientIPFromGin(c))
+	result, err := h.auth.ExchangeYandexCode(c.Request.Context(), req.Code, req.State, optionalHeader(c.Request, "User-Agent"), clientIPFromGin(c))
 
 	if err != nil {
 		handleAuthError(c, err)
 		return
 	}
 
-	writeJSON(c, http.StatusOK, result)
+	resp := dto.AuthResponse{
+		Tokens: dto.AuthTokensResponse{
+			AccessToken:  result.Tokens.AccessToken,
+			RefreshToken: result.Tokens.RefreshToken,
+			TokenType:    result.Tokens.TokenType,
+			ExpiresAt:    result.Tokens.ExpiresAt,
+		},
+		User: dto.ToUserResponse(&result.User),
+	}
+	writeJSON(c, http.StatusOK, resp)
 }
 
 func handleAuthError(c *gin.Context, err error) {
@@ -137,7 +167,6 @@ type errorResponse struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
-
 
 func writeJSON(c *gin.Context, statusCode int, payload any) {
 	c.PureJSON(statusCode, payload)
@@ -167,19 +196,17 @@ func clientIPFromGin(c *gin.Context) *string {
 }
 
 func userIDFromContext(c *gin.Context) (uuid.UUID, bool) {
-	value, ok := c.Get(string(middleware.UserIDContextKey))
+	ctx := c.Request.Context()
+	uid, ok := ctx.Value(middleware.UserIDContextKey).(uuid.UUID)
 	if !ok {
 		return uuid.Nil, false
 	}
-	id, ok := value.(uuid.UUID)
-	return id, ok
+	return uid, true
 }
 
 func tokenMetaFromContext(c *gin.Context) (string, time.Time) {
-	jti, _ := c.Get(string(middleware.AccessJTIContextKey))
-	exp, _ := c.Get(string(middleware.AccessExpContextKey))
-	jtiValue, _ := jti.(string)
-	expValue, _ := exp.(time.Time)
-
-	return jtiValue, expValue
+	ctx := c.Request.Context()
+	jti, _ := ctx.Value(middleware.AccessJTIContextKey).(string)
+	exp, _ := ctx.Value(middleware.AccessExpContextKey).(time.Time)
+	return jti, exp
 }

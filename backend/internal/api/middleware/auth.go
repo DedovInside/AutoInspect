@@ -35,17 +35,20 @@ func Auth(tokenManager *service.TokenManager, cache denylistChecker) gin.Handler
 
 		tokenString := strings.TrimSpace(authHeader[len("Bearer "):])
 		claims, err := tokenManager.ParseAccessToken(tokenString)
+
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": "unauthorized", "message": "invalid token"})
 			return
 		}
 
 		if cache != nil {
-			denylisted, cacheErr := cache.IsDenylistedJTI(c.Request.Context(), claims.RegisteredClaims.ID)
+			denylisted, cacheErr := cache.IsDenylistedJTI(c.Request.Context(), claims.ID)
+
 			if cacheErr != nil {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": "unauthorized", "message": "token check failed"})
 				return
 			}
+
 			if denylisted {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": "unauthorized", "message": "token revoked"})
 				return
@@ -58,23 +61,15 @@ func Auth(tokenManager *service.TokenManager, cache denylistChecker) gin.Handler
 			return
 		}
 
-		c.Set(string(UserIDContextKey), uid)
-		c.Set(string(UserRoleContextKey), claims.Role)
-		c.Set(string(AccessJTIContextKey), claims.RegisteredClaims.ID)
-		if claims.RegisteredClaims.ExpiresAt != nil {
-			c.Set(string(AccessExpContextKey), claims.RegisteredClaims.ExpiresAt.Time)
-		} else {
-			c.Set(string(AccessExpContextKey), time.Time{})
-		}
-
 		ctx := context.WithValue(c.Request.Context(), UserIDContextKey, uid)
 		ctx = context.WithValue(ctx, UserRoleContextKey, claims.Role)
-		ctx = context.WithValue(ctx, AccessJTIContextKey, claims.RegisteredClaims.ID)
-		if claims.RegisteredClaims.ExpiresAt != nil {
-			ctx = context.WithValue(ctx, AccessExpContextKey, claims.RegisteredClaims.ExpiresAt.Time)
+		ctx = context.WithValue(ctx, AccessJTIContextKey, claims.ID)
+		if claims.ExpiresAt != nil {
+			ctx = context.WithValue(ctx, AccessExpContextKey, claims.ExpiresAt.Time)
 		} else {
 			ctx = context.WithValue(ctx, AccessExpContextKey, time.Time{})
 		}
+
 		c.Request = c.Request.WithContext(ctx)
 
 		c.Next()

@@ -7,13 +7,11 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *AuthService) GetMe(ctx context.Context, userID uuid.UUID) (*domain.UserResponse, error) {
+func (s *AuthService) GetMe(ctx context.Context, userID uuid.UUID) (*domain.User, error) {
 	user, err := s.users.GetByID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	resp := user.ToUserResponse()
-	return &resp, nil
+	return user, nil
 }
-

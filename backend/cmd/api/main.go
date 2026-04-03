@@ -28,23 +28,27 @@ func main() {
 
 func run() error {
 	cfg := config.MustLoad()
-	ctx := context.Background()
+	initCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-	db, err := postgres.New(ctx, cfg.Database.URL, cfg.Database.MaxOpenConns, cfg.Database.ConnMaxLifetime)
+	db, err := postgres.New(initCtx, cfg.Database.URL, cfg.Database.MaxOpenConns, cfg.Database.ConnMaxLifetime)
+
 	if err != nil {
 		return fmt.Errorf("init postgres: %w", err)
 	}
+
 	defer db.Close()
 
 	redisClient := rediscache.New(cfg.Redis)
-	if err := redisClient.Ping(ctx); err != nil {
-		return fmt.Errorf("init redis: %w", err)
-	}
+
 	defer func() {
 		if closeErr := redisClient.Close(); closeErr != nil {
 			log.Printf("warning: redis close failed: %v", closeErr)
 		}
 	}()
+	if err := redisClient.Ping(initCtx); err != nil {
+		return fmt.Errorf("init redis: %w", err)
+	}
 
 	sessionCache := redisClient
 
@@ -59,20 +63,23 @@ func run() error {
 		cfg.Auth.RefreshTokenTTL,
 		cfg.Auth.OAuthStateTTL,
 	)
+
 	if err != nil {
 		return fmt.Errorf("init token manager: %w", err)
 	}
 
-	yandexClient := service.NewYandexOAuthClient(
+	yandexClient, err := service.NewYandexOAuthClient(
 		cfg.Auth.YandexClientID,
 		cfg.Auth.YandexClientSecret,
 		cfg.Auth.YandexRedirectURL,
+		10*time.Second,
 	)
 	if yandexClient == nil {
-		return fmt.Errorf("init yandex oauth client: empty oauth config")
+		return fmt.Errorf("init yandex oauth client: empty oauth config: %w", err)
 	}
 
 	authService := service.NewAuthService(
+		db,
 		userRepo,
 		sessionRepo,
 		oauthRepo,
@@ -85,10 +92,11 @@ func run() error {
 	router := api.NewGinRouter(authHandler, tokenManager, sessionCache)
 
 	server := &http.Server{
-		Addr:         fmt.Sprintf("%s:%s", cfg.HTTP.Host, cfg.HTTP.Port),
-		Handler:      router,
-		ReadTimeout:  cfg.HTTP.ReadTimeout,
-		WriteTimeout: cfg.HTTP.WriteTimeout,
+		Addr:           fmt.Sprintf("%s:%s", cfg.HTTP.Host, cfg.HTTP.Port),
+		Handler:        router,
+		ReadTimeout:    cfg.HTTP.ReadTimeout,
+		WriteTimeout:   cfg.HTTP.WriteTimeout,
+		MaxHeaderBytes: 1 << 20,
 	}
 
 	errCh := make(chan error, 1)
@@ -109,13 +117,12 @@ func run() error {
 		return fmt.Errorf("listen and serve: %w", serveErr)
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.HTTP.ShutdownTimeout)
-	defer cancel()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.HTTP.ShutdownTimeout)
+	defer shutdownCancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		return fmt.Errorf("graceful shutdown: %w", err)
 	}
 
-	time.Sleep(100 * time.Millisecond)
 	return nil
 }

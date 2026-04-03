@@ -3,114 +3,157 @@ package postgres
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
+	"github.com/DedovInside/AutoInspect/backend/internal/repository/postgres/db"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type AuthSessionRepo struct {
-	db *DB
+	queries *db.Queries
 }
 
-func NewAuthSessionRepo(db *DB) *AuthSessionRepo {
-	return &AuthSessionRepo{db: db}
+func NewAuthSessionRepo(tx DBTX) *AuthSessionRepo {
+	return &AuthSessionRepo{
+		queries: db.New(tx),
+	}
 }
 
-const authSessionSelectCols = `
-	id, user_id, token_hash, token_family_id, replaced_by_id,
-	user_agent, ip_address,
-	expires_at, revoked_at, revoked_reason,
-	created_at, updated_at, last_used_at`
-
-func (r *AuthSessionRepo) Create(ctx context.Context, s *domain.AuthRefreshSession) error {
-	query := `
-		INSERT INTO auth_refresh_sessions (
-			id, user_id, token_hash, token_family_id, replaced_by_id,
-			user_agent, ip_address,
-			expires_at, revoked_at, revoked_reason,
-			created_at, last_used_at
-		) VALUES (
-			$1, $2, $3, $4, $5,
-			$6, $7,
-			$8, $9, $10,
-			$11, $12
-		)`
-
-	_, err := r.db.pool.Exec(ctx, query,
-		s.ID, s.UserID, s.TokenHash, s.TokenFamilyID, s.ReplacedByID,
-		s.UserAgent, s.IPAddress,
-		s.ExpiresAt, s.RevokedAt, s.RevokedReason,
-		s.CreatedAt, s.LastUsedAt,
-	)
+func (r *AuthSessionRepo) Create(ctx context.Context, s *domain.AuthSession) error {
+	params := db.CreateAuthSessionParams{
+		ID:            pgtype.UUID{Bytes: s.ID, Valid: true},
+		UserID:        pgtype.UUID{Bytes: s.UserID, Valid: true},
+		TokenHash:     s.TokenHash,
+		TokenFamilyID: pgtype.UUID{Bytes: s.TokenFamilyID, Valid: true},
+		ReplacedByID:  toPgUUIDPtr(s.ReplacedByID),
+		UserAgent:     s.UserAgent,
+		IpAddress:     s.IPAddress,
+		ExpiresAt:     pgtype.Timestamptz{Time: s.ExpiresAt, Valid: true},
+		RevokedAt:     toPgTimestamptzPtr(s.RevokedAt),
+		RevokedReason: s.RevokedReason,
+		CreatedAt:     pgtype.Timestamptz{Time: s.CreatedAt, Valid: true},
+		LastUsedAt:    toPgTimestamptzPtr(s.LastUsedAt),
+	}
+	err := r.queries.CreateAuthSession(ctx, params)
 	if err != nil {
-		return fmt.Errorf("AuthSessionRepo.Create: %w", err)
+		return domain.ErrInternal
 	}
 	return nil
 }
 
-func (r *AuthSessionRepo) GetByTokenHash(ctx context.Context, tokenHash string) (*domain.AuthRefreshSession, error) {
-	query := `SELECT ` + authSessionSelectCols + ` FROM auth_refresh_sessions WHERE token_hash = $1`
-	row := r.db.pool.QueryRow(ctx, query, tokenHash)
-	return scanAuthSession(row)
+func (r *AuthSessionRepo) GetByTokenHash(ctx context.Context, tokenHash string) (*domain.AuthSession, error) {
+	dbSession, err := r.queries.GetAuthSessionByTokenHash(ctx, tokenHash)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, domain.ErrInternal
+	}
+	return toDomainAuthSession(&dbSession), nil
 }
 
 func (r *AuthSessionRepo) Revoke(ctx context.Context, id uuid.UUID, revokedReason string, replacedByID *uuid.UUID) error {
-	query := `
-		UPDATE auth_refresh_sessions
-		SET revoked_at = NOW(), revoked_reason = $1, replaced_by_id = $2
-		WHERE id = $3 AND revoked_at IS NULL`
-
-	tag, err := r.db.pool.Exec(ctx, query, revokedReason, replacedByID, id)
-	if err != nil {
-		return fmt.Errorf("AuthSessionRepo.Revoke: %w", err)
+	params := db.RevokeAuthSessionParams{
+		RevokedReason: &revokedReason,
+		ReplacedByID:  toPgUUIDPtr(replacedByID),
+		ID:            pgtype.UUID{Bytes: id, Valid: true},
 	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("AuthSessionRepo.Revoke: %w", domain.ErrNotFound)
+	rowsAffected, err := r.queries.RevokeAuthSession(ctx, params)
+	if err != nil {
+		return domain.ErrInternal
+	}
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
 	}
 	return nil
 }
 
 func (r *AuthSessionRepo) TouchLastUsed(ctx context.Context, id uuid.UUID, at time.Time) error {
-	query := `UPDATE auth_refresh_sessions SET last_used_at = $1 WHERE id = $2`
-	tag, err := r.db.pool.Exec(ctx, query, at, id)
+	params := db.TouchLastUsedParams{
+		LastUsedAt: pgtype.Timestamptz{Time: at, Valid: true},
+		ID:         pgtype.UUID{Bytes: id, Valid: true},
+	}
+
+	rowsAffected, err := r.queries.TouchLastUsed(ctx, params)
+
 	if err != nil {
-		return fmt.Errorf("AuthSessionRepo.TouchLastUsed: %w", err)
+		return domain.ErrInternal
 	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("AuthSessionRepo.TouchLastUsed: %w", domain.ErrNotFound)
+
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
 	}
+
 	return nil
 }
 
 func (r *AuthSessionRepo) RevokeFamily(ctx context.Context, familyID uuid.UUID, revokedReason string) error {
-	query := `
-		UPDATE auth_refresh_sessions
-		SET revoked_at = NOW(), revoked_reason = $1
-		WHERE token_family_id = $2 AND revoked_at IS NULL`
+	params := db.RevokeFamilyParams{
+		RevokedReason: &revokedReason,
+		TokenFamilyID: pgtype.UUID{Bytes: familyID, Valid: true},
+	}
+	err := r.queries.RevokeFamily(ctx, params)
 
-	_, err := r.db.pool.Exec(ctx, query, revokedReason, familyID)
 	if err != nil {
-		return fmt.Errorf("AuthSessionRepo.RevokeFamily: %w", err)
+		return domain.ErrInternal
 	}
 	return nil
 }
 
-func scanAuthSession(row pgx.Row) (*domain.AuthRefreshSession, error) {
-	s := &domain.AuthRefreshSession{}
-	err := row.Scan(
-		&s.ID, &s.UserID, &s.TokenHash, &s.TokenFamilyID, &s.ReplacedByID,
-		&s.UserAgent, &s.IPAddress,
-		&s.ExpiresAt, &s.RevokedAt, &s.RevokedReason,
-		&s.CreatedAt, &s.UpdatedAt, &s.LastUsedAt,
-	)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, domain.ErrNotFound
-		}
-		return nil, fmt.Errorf("scanAuthSession: %w", err)
+func toDomainAuthSession(dbSession *db.AuthSession) *domain.AuthSession {
+	return &domain.AuthSession{
+		ID:            fromPgUUID(dbSession.ID),
+		UserID:        fromPgUUID(dbSession.UserID),
+		TokenHash:     dbSession.TokenHash,
+		TokenFamilyID: fromPgUUID(dbSession.TokenFamilyID),
+		ReplacedByID:  fromPgUUIDPtr(dbSession.ReplacedByID),
+		UserAgent:     dbSession.UserAgent,
+		IPAddress:     dbSession.IpAddress,
+		ExpiresAt:     dbSession.ExpiresAt.Time,
+		RevokedAt:     fromPgTimestamptzPtr(dbSession.RevokedAt),
+		RevokedReason: dbSession.RevokedReason,
+		CreatedAt:     dbSession.CreatedAt.Time,
+		UpdatedAt:     fromPgTimestamptzPtr(dbSession.UpdatedAt),
+		LastUsedAt:    fromPgTimestamptzPtr(dbSession.LastUsedAt),
 	}
-	return s, nil
+}
+
+func toPgUUIDPtr(id *uuid.UUID) pgtype.UUID {
+	if id == nil {
+		return pgtype.UUID{Valid: false}
+	}
+	return pgtype.UUID{Bytes: *id, Valid: true}
+}
+
+func toPgTimestamptzPtr(t *time.Time) pgtype.Timestamptz {
+	if t == nil || t.IsZero() {
+		return pgtype.Timestamptz{Valid: false}
+	}
+	return pgtype.Timestamptz{Time: *t, Valid: true}
+}
+
+func fromPgUUID(uid pgtype.UUID) uuid.UUID {
+	if !uid.Valid {
+		return uuid.Nil
+	}
+	id, _ := uuid.FromBytes(uid.Bytes[:])
+	return id
+}
+
+func fromPgUUIDPtr(uid pgtype.UUID) *uuid.UUID {
+	if !uid.Valid {
+		return nil
+	}
+	id := fromPgUUID(uid)
+	return &id
+}
+
+func fromPgTimestamptzPtr(t pgtype.Timestamptz) *time.Time {
+	if !t.Valid {
+		return nil
+	}
+	return &t.Time
 }

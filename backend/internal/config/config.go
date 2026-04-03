@@ -10,11 +10,11 @@ type Config struct {
 	HTTP     HTTPConfig
 	Database DatabaseConfig
 	Redis    RedisConfig
-	MinIO    MinIOConfig
-	GRPC     GRPCConfig
-	Auth     AuthConfig
-	Worker   WorkerConfig
-	Logging  LoggingConfig
+	// MinIO    MinIOConfig
+	// GRPC     GRPCConfig
+	Auth AuthConfig
+	// Worker   WorkerConfig
+	// Logging  LoggingConfig
 }
 
 type HTTPConfig struct {
@@ -23,14 +23,14 @@ type HTTPConfig struct {
 	ReadTimeout     time.Duration `env:"HTTP_READ_TIMEOUT" env-default:"10s"`
 	WriteTimeout    time.Duration `env:"HTTP_WRITE_TIMEOUT" env-default:"10s"`
 	ShutdownTimeout time.Duration `env:"HTTP_SHUTDOWN_TIMEOUT" env-default:"30s"`
-	CORS            CORSConfig
+	// CORS            CORSConfig
 }
 
-type CORSConfig struct {
-	AllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS" env-default:"http://localhost:3000" env-separator:","`
-	AllowedMethods []string `env:"CORS_ALLOWED_METHODS" env-default:"GET,POST,PUT,DELETE,PATCH,OPTIONS" env-separator:","`
-	AllowedHeaders []string `env:"CORS_ALLOWED_HEADERS" env-default:"Content-Type,Authorization" env-separator:","`
-}
+// type CORSConfig struct {
+//	AllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS" env-default:"http://localhost:3000" env-separator:","`
+//	AllowedMethods []string `env:"CORS_ALLOWED_METHODS" env-default:"GET,POST,PUT,DELETE,PATCH,OPTIONS" env-separator:","`
+//	AllowedHeaders []string `env:"CORS_ALLOWED_HEADERS" env-default:"Content-Type,Authorization" env-separator:","`
+// }
 
 type DatabaseConfig struct {
 	URL             string        `env:"DATABASE_URL" env-required:"true"`
@@ -51,23 +51,23 @@ type RedisConfig struct {
 	VisibilityTimeout time.Duration `env:"REDIS_VISIBILITY_TIMEOUT" env-default:"5m"`
 }
 
-type MinIOConfig struct {
-	Endpoint  string `env:"MINIO_ENDPOINT" env-default:"localhost:9000"`
-	AccessKey string `env:"MINIO_ACCESS_KEY" env-default:"minioadmin"`
-	SecretKey string `env:"MINIO_SECRET_KEY" env-default:"minioadmin"`
-	UseSSL    bool   `env:"MINIO_USE_SSL" env-default:"false"`
+// type MinIOConfig struct {
+//	Endpoint  string `env:"MINIO_ENDPOINT" env-default:"localhost:9000"`
+//	AccessKey string `env:"MINIO_ACCESS_KEY" env-default:"minioadmin"`
+//	SecretKey string `env:"MINIO_SECRET_KEY" env-default:"minioadmin"`
+//	UseSSL    bool   `env:"MINIO_USE_SSL" env-default:"false"`
+//
+//	// Buckets
+//	ImagesBucket string `env:"MINIO_IMAGES_BUCKET" env-default:"images"`
+//	ModelsBucket string `env:"MINIO_MODELS_BUCKET" env-default:"models"`
+//	LogsBucket   string `env:"MINIO_LOGS_BUCKET" env-default:"logs"`
+// }
 
-	// Buckets
-	ImagesBucket string `env:"MINIO_IMAGES_BUCKET" env-default:"images"`
-	ModelsBucket string `env:"MINIO_MODELS_BUCKET" env-default:"models"`
-	LogsBucket   string `env:"MINIO_LOGS_BUCKET" env-default:"logs"`
-}
-
-type GRPCConfig struct {
-	MLServiceAddr string        `env:"GRPC_ML_SERVICE_ADDR" env-default:"localhost:50051"`
-	Timeout       time.Duration `env:"GRPC_TIMEOUT" env-default:"30s"`
-	MaxRetries    int           `env:"GRPC_MAX_RETRIES" env-default:"3"`
-}
+// type GRPCConfig struct {
+//	MLServiceAddr string        `env:"GRPC_ML_SERVICE_ADDR" env-default:"localhost:50051"`
+//	Timeout       time.Duration `env:"GRPC_TIMEOUT" env-default:"30s"`
+//	MaxRetries    int           `env:"GRPC_MAX_RETRIES" env-default:"3"`
+// }
 
 type AuthConfig struct {
 	JWTSecret       string        `env:"JWT_SECRET" env-required:"true"`
@@ -85,14 +85,14 @@ type AuthConfig struct {
 	YandexRedirectURL  string `env:"YANDEX_REDIRECT_URL" env-default:"http://localhost:8080/v1/auth/yandex/callback"`
 }
 
-type WorkerConfig struct {
-	Concurrency       int           `env:"WORKER_CONCURRENCY" env-default:"5"`
-	PollInterval      time.Duration `env:"WORKER_POLL_INTERVAL" env-default:"1s"`
-	MaxJobDuration    time.Duration `env:"WORKER_MAX_JOB_DURATION" env-default:"10m"`
-	HeartbeatInterval time.Duration `env:"WORKER_HEARTBEAT_INTERVAL" env-default:"30s"`
-}
+// type WorkerConfig struct {
+//	Concurrency       int           `env:"WORKER_CONCURRENCY" env-default:"5"`
+//	PollInterval      time.Duration `env:"WORKER_POLL_INTERVAL" env-default:"1s"`
+//	MaxJobDuration    time.Duration `env:"WORKER_MAX_JOB_DURATION" env-default:"10m"`
+//	HeartbeatInterval time.Duration `env:"WORKER_HEARTBEAT_INTERVAL" env-default:"30s"`
+// }
 
-type LoggingConfig struct {
-	Level  string `env:"LOG_LEVEL" env-default:"info"`
-	Format string `env:"LOG_FORMAT" env-default:"json"`
-}
+// type LoggingConfig struct {
+//	Level  string `env:"LOG_LEVEL" env-default:"info"`
+//	Format string `env:"LOG_FORMAT" env-default:"json"`
+// }

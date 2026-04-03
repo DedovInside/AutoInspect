@@ -16,4 +16,3 @@ type OAuthIdentity struct {
 	Email          *string   `json:"email,omitempty" db:"email"`
 	CreatedAt      time.Time `json:"created_at" db:"created_at"`
 }
-

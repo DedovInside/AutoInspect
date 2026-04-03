@@ -1,0 +1,23 @@
+name: Lint
+
+on:
+  push:
+    branches: [main, backend]
+  pull_request:
+    branches: [main, backend]
+
+jobs:
+  golangci:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.64.6
+          working-directory: backend
+          args: --config=.golangci.yml --timeout=5m

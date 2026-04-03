@@ -3,179 +3,173 @@ package postgres
 import (
 	"context"
 	"errors"
-	"fmt"
+	"time"
 
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
+	"github.com/DedovInside/AutoInspect/backend/internal/repository/postgres/db"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type UserRepo struct {
-	db *DB
+	queries *db.Queries
 }
 
-func NewUserRepo(db *DB) *UserRepo {
-	return &UserRepo{db: db}
+func NewUserRepo(tx DBTX) *UserRepo {
+	return &UserRepo{
+		queries: db.New(tx),
+	}
 }
 
 func (r *UserRepo) Create(ctx context.Context, user *domain.User) error {
-	query := `
-		INSERT INTO users (
-			id, username, email, password_hash, role,
-			email_verified, is_active,
-			created_at, updated_at,
-			api_calls_count
-		) VALUES (
-			$1, $2, $3, $4, $5,
-			$6, $7,
-			$8, $9,
-			$10
-		)`
-
-	_, err := r.db.pool.Exec(ctx, query,
-		user.ID, user.Username, user.Email, user.PasswordHash, user.Role,
-		user.EmailVerified, user.IsActive,
-		user.CreatedAt, user.UpdatedAt,
-		user.APICallsCount,
-	)
-
+	params := db.CreateUserParams{
+		ID:            pgtype.UUID{Bytes: user.ID, Valid: true},
+		Username:      user.Username,
+		Email:         user.Email,
+		PasswordHash:  user.PasswordHash,
+		Role:          string(user.Role),
+		EmailVerified: &user.EmailVerified,
+		IsActive:      &user.IsActive,
+		CreatedAt:     pgtype.Timestamptz{Time: user.CreatedAt, Valid: true},
+		UpdatedAt:     pgtype.Timestamptz{Time: user.UpdatedAt, Valid: true},
+	}
+	err := r.queries.CreateUser(ctx, params)
 	if err != nil {
-		return fmt.Errorf("create user Error: %w", err)
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return domain.ErrAlreadyExists
+		}
+		return domain.ErrInternal
 	}
 	return nil
 }
 
 func (r *UserRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
-	query := `
-		SELECT id, username, email, password_hash, role,
-		       email_verified, is_active,
-		       created_at, updated_at, last_login,
-		       api_calls_count, api_quota_reset_at
-		FROM users
-		WHERE id = $1`
-
-	row := r.db.pool.QueryRow(ctx, query, id)
-	return scanUser(row)
-}
-
-func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
-	query := `
-		SELECT id, username, email, password_hash, role,
-		       email_verified, is_active,
-		       created_at, updated_at, last_login,
-		       api_calls_count, api_quota_reset_at
-		FROM users
-		WHERE email = $1`
-
-	row := r.db.pool.QueryRow(ctx, query, email)
-	return scanUser(row)
-}
-
-func (r *UserRepo) Update(ctx context.Context, user *domain.User) error {
-	query := `
-		UPDATE users SET
-			username      = $1,
-			email         = $2,
-			password_hash = $3,
-			role          = $4,
-			email_verified = $5,
-			is_active     = $6,
-			api_calls_count = $7,
-			api_quota_reset_at = $8
-		WHERE id = $9`
-
-	tag, err := r.db.pool.Exec(ctx, query,
-		user.Username, user.Email, user.PasswordHash, user.Role,
-		user.EmailVerified, user.IsActive,
-		user.APICallsCount, user.APIQuotaResetAt,
-		user.ID,
-	)
-	if err != nil {
-		return fmt.Errorf("UserRepo.Update: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("UserRepo.Update: %w", domain.ErrNotFound)
-	}
-	return nil
-}
-
-func (r *UserRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	tag, err := r.db.pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
-	if err != nil {
-		return fmt.Errorf("UserRepo.Delete: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("UserRepo.Delete: %w", domain.ErrNotFound)
-	}
-	return nil
-}
-
-func (r *UserRepo) List(ctx context.Context, limit, offset int) ([]*domain.User, error) {
-	query := `
-		SELECT id, username, email, password_hash, role,
-		       email_verified, is_active,
-		       created_at, updated_at, last_login,
-		       api_calls_count, api_quota_reset_at
-		FROM users
-		ORDER BY created_at DESC
-		LIMIT $1 OFFSET $2`
-
-	rows, err := r.db.pool.Query(ctx, query, limit, offset)
-	if err != nil {
-		return nil, fmt.Errorf("UserRepo.List: %w", err)
-	}
-	defer rows.Close()
-
-	return collectUsers(rows)
-}
-
-func (r *UserRepo) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
-	tag, err := r.db.pool.Exec(ctx,
-		`UPDATE users SET last_login = NOW() WHERE id = $1`, id,
-	)
-	if err != nil {
-		return fmt.Errorf("UserRepo.UpdateLastLogin: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("UserRepo.UpdateLastLogin: %w", domain.ErrNotFound)
-	}
-	return nil
-}
-
-func scanUser(row pgx.Row) (*domain.User, error) {
-	u := &domain.User{}
-	err := row.Scan(
-		&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role,
-		&u.EmailVerified, &u.IsActive,
-		&u.CreatedAt, &u.UpdatedAt, &u.LastLogin,
-		&u.APICallsCount, &u.APIQuotaResetAt,
-	)
+	pgID := pgtype.UUID{Bytes: id, Valid: true}
+	dbUser, err := r.queries.GetUserByID(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrNotFound
 		}
-		return nil, fmt.Errorf("scanUser: %w", err)
+		return nil, domain.ErrInternal
 	}
-	return u, nil
+	return toDomainUser(&dbUser), nil
 }
 
-func collectUsers(rows pgx.Rows) ([]*domain.User, error) {
-	var users []*domain.User
-	for rows.Next() {
-		u := &domain.User{}
-		err := rows.Scan(
-			&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role,
-			&u.EmailVerified, &u.IsActive,
-			&u.CreatedAt, &u.UpdatedAt, &u.LastLogin,
-			&u.APICallsCount, &u.APIQuotaResetAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("collectUsers: %w", err)
+func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+	dbUser, err := r.queries.GetUserByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrNotFound
 		}
-		users = append(users, u)
+		return nil, domain.ErrInternal
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("collectUsers rows: %w", err)
+	return toDomainUser(&dbUser), nil
+}
+
+func (r *UserRepo) Update(ctx context.Context, user *domain.User) error {
+	params := db.UpdateUserParams{
+		Username:      user.Username,
+		Email:         user.Email,
+		PasswordHash:  user.PasswordHash,
+		Role:          string(user.Role),
+		EmailVerified: &user.EmailVerified,
+		IsActive:      &user.IsActive,
+		ID:            pgtype.UUID{Bytes: user.ID, Valid: true},
+	}
+	rowsAffected, err := r.queries.UpdateUser(ctx, params)
+	if err != nil {
+		return domain.ErrInternal
+	}
+
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+
+	return nil
+}
+
+func (r *UserRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	pgID := pgtype.UUID{Bytes: id, Valid: true}
+	rowsAffected, err := r.queries.DeleteUser(ctx, pgID)
+	if err != nil {
+		return domain.ErrInternal
+	}
+
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+
+	return nil
+}
+
+func (r *UserRepo) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
+	pgID := pgtype.UUID{Bytes: id, Valid: true}
+
+	rowsAffected, err := r.queries.UpdateLastLogin(ctx, pgID)
+
+	if err != nil {
+		return domain.ErrInternal
+	}
+
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+
+	return nil
+}
+
+func (r *UserRepo) List(ctx context.Context, limit, offset int) ([]*domain.User, error) {
+	params := db.ListUsersParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	}
+	dbUsers, err := r.queries.ListUsers(ctx, params)
+	if err != nil {
+		return nil, domain.ErrInternal
+	}
+	users := make([]*domain.User, len(dbUsers))
+	for i, u := range dbUsers {
+		users[i] = toDomainUser(&u)
 	}
 	return users, nil
+}
+
+func toDomainUser(dbUser *db.User) *domain.User {
+	emailVerified := false
+
+	if dbUser.EmailVerified != nil {
+		emailVerified = *dbUser.EmailVerified
+	}
+
+	isActive := false
+
+	if dbUser.IsActive != nil {
+		isActive = *dbUser.IsActive
+	}
+
+	createdAt := dbUser.CreatedAt.Time
+	updatedAt := dbUser.UpdatedAt.Time
+
+	var lastLoginTime *time.Time
+
+	if dbUser.LastLogin.Valid {
+		lastLoginTime = &dbUser.LastLogin.Time
+	}
+
+	id, _ := uuid.FromBytes(dbUser.ID.Bytes[:])
+	return &domain.User{
+		ID:            id,
+		Username:      dbUser.Username,
+		Email:         dbUser.Email,
+		PasswordHash:  dbUser.PasswordHash,
+		Role:          domain.Role(dbUser.Role),
+		EmailVerified: emailVerified,
+		IsActive:      isActive,
+		CreatedAt:     createdAt,
+		UpdatedAt:     updatedAt,
+		LastLogin:     lastLoginTime,
+	}
 }

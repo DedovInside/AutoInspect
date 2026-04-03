@@ -36,6 +36,7 @@ func Load() (*Config, error) {
 
 func MustLoad() *Config {
 	cfg, err := Load()
+
 	if err != nil {
 		panic(fmt.Sprintf("Failed to load config: %v", err))
 	}
@@ -49,23 +50,26 @@ func validate(cfg *Config) error {
 		"production":  true,
 		"test":        true,
 	}
+
 	if !validEnvs[cfg.Environment] {
 		return fmt.Errorf("invalid environment: %s (allowed: development, staging, production, test)", cfg.Environment)
 	}
 
-	validLogLevels := map[string]bool{
-		"debug": true,
-		"info":  true,
-		"warn":  true,
-		"error": true,
-	}
-	if !validLogLevels[cfg.Logging.Level] {
-		return fmt.Errorf("invalid log level: %s", cfg.Logging.Level)
-	}
+	// validLogLevels := map[string]bool{
+	//	"debug": true,
+	//	"info":  true,
+	//	"warn":  true,
+	//	"error": true,
+	// }
+
+	// if !validLogLevels[cfg.Logging.Level] {
+	//	return fmt.Errorf("invalid log level: %s", cfg.Logging.Level)
+	// }
 
 	if cfg.Environment == "production" && len(cfg.Auth.JWTSecret) < 32 {
 		return fmt.Errorf("JWT_SECRET must be at least 32 characters in production (current length: %d)", len(cfg.Auth.JWTSecret))
 	}
+
 	if len(cfg.Auth.JWTSecret) < 16 {
 		return fmt.Errorf("JWT_SECRET must be at least 16 characters")
 	}
@@ -78,29 +82,29 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("DATABASE_URL cannot be empty")
 	}
 
-	if strings.TrimSpace(cfg.GRPC.MLServiceAddr) == "" {
-		return fmt.Errorf("GRPC_ML_SERVICE_ADDR cannot be empty")
-	}
+	// if strings.TrimSpace(cfg.GRPC.MLServiceAddr) == "" {
+	//	return fmt.Errorf("GRPC_ML_SERVICE_ADDR cannot be empty")
+	// }
 
-	if strings.TrimSpace(cfg.MinIO.Endpoint) == "" {
-		return fmt.Errorf("MINIO_ENDPOINT cannot be empty")
-	}
+	// if strings.TrimSpace(cfg.MinIO.Endpoint) == "" {
+	//	return fmt.Errorf("MINIO_ENDPOINT cannot be empty")
+	// }
 
-	if strings.TrimSpace(cfg.MinIO.ImagesBucket) == "" {
-		return fmt.Errorf("MINIO_IMAGES_BUCKET cannot be empty")
-	}
+	// if strings.TrimSpace(cfg.MinIO.ImagesBucket) == "" {
+	//	return fmt.Errorf("MINIO_IMAGES_BUCKET cannot be empty")
+	// }
 
-	if strings.TrimSpace(cfg.MinIO.ModelsBucket) == "" {
-		return fmt.Errorf("MINIO_MODELS_BUCKET cannot be empty")
-	}
+	// if strings.TrimSpace(cfg.MinIO.ModelsBucket) == "" {
+	//	return fmt.Errorf("MINIO_MODELS_BUCKET cannot be empty")
+	// }
 
 	if cfg.Auth.BcryptCost < 4 || cfg.Auth.BcryptCost > 31 {
 		return fmt.Errorf("BCRYPT_COST must be between 4 and 31")
 	}
 
-	if cfg.Worker.Concurrency <= 0 {
-		return fmt.Errorf("WORKER_CONCURRENCY must be greater than 0")
-	}
+	// if cfg.Worker.Concurrency <= 0 {
+	//	return fmt.Errorf("WORKER_CONCURRENCY must be greater than 0")
+	// }
 
 	if cfg.Redis.MaxRetries < 0 {
 		return fmt.Errorf("REDIS_MAX_RETRIES cannot be negative")

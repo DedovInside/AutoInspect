@@ -1,9 +1,7 @@
 package domain
 
 import (
-	"database/sql"
 	"errors"
-	"time"
 )
 
 var (
@@ -13,15 +11,6 @@ var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrUnauthorized       = errors.New("unauthorized")
 	ErrInvalidToken       = errors.New("invalid token")
+	ErrInternal           = errors.New("internal server error")
+	ErrInvalidOAuthConfig = errors.New("invalid oauth configuration")
 )
-
-type NullTime = sql.NullTime
-
-type NullString = sql.NullString
-
-type NullInt64 = sql.NullInt64
-
-type TimestampFields struct {
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
-}

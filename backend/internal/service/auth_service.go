@@ -6,6 +6,7 @@ import (
 
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository"
+	"github.com/DedovInside/AutoInspect/backend/internal/repository/postgres"
 )
 
 type SessionCache interface {
@@ -16,6 +17,7 @@ type SessionCache interface {
 }
 
 type AuthService struct {
+	db         *postgres.DB
 	users      repository.UserRepository
 	sessions   repository.AuthSessionRepository
 	identities repository.OAuthIdentityRepository
@@ -25,11 +27,12 @@ type AuthService struct {
 }
 
 type AuthResult struct {
-	Tokens domain.AuthTokens   `json:"tokens"`
-	User   domain.UserResponse `json:"user"`
+	Tokens domain.AuthTokens `json:"tokens"`
+	User   domain.User       `json:"user"`
 }
 
 func NewAuthService(
+	db *postgres.DB,
 	users repository.UserRepository,
 	sessions repository.AuthSessionRepository,
 	identities repository.OAuthIdentityRepository,
@@ -38,6 +41,7 @@ func NewAuthService(
 	yandex *YandexOAuthClient,
 ) *AuthService {
 	return &AuthService{
+		db:         db,
 		users:      users,
 		sessions:   sessions,
 		identities: identities,
@@ -46,4 +50,3 @@ func NewAuthService(
 		yandex:     yandex,
 	}
 }
-

@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
+	"time"
 
+	"github.com/DedovInside/AutoInspect/backend/internal/domain"
 	"golang.org/x/oauth2"
 )
 
@@ -29,9 +30,13 @@ type YandexProfile struct {
 	DefaultEmail string `json:"default_email"`
 }
 
-func NewYandexOAuthClient(clientID, clientSecret, redirectURL string) *YandexOAuthClient {
+func NewYandexOAuthClient(clientID, clientSecret, redirectURL string, timeout time.Duration) (*YandexOAuthClient, error) {
 	if clientID == "" || clientSecret == "" || redirectURL == "" {
-		return nil
+		return nil, domain.ErrInvalidOAuthConfig
+	}
+
+	if timeout == 0 {
+		timeout = 10 * time.Second
 	}
 
 	return &YandexOAuthClient{
@@ -45,8 +50,8 @@ func NewYandexOAuthClient(clientID, clientSecret, redirectURL string) *YandexOAu
 			},
 			Scopes: []string{"login:email", "login:info"},
 		},
-		httpClient: http.DefaultClient,
-	}
+		httpClient: &http.Client{Timeout: timeout},
+	}, nil
 }
 
 func (c *YandexOAuthClient) AuthCodeURL(state string) string {
@@ -60,12 +65,7 @@ func (c *YandexOAuthClient) ExchangeCodeAndFetchProfile(ctx context.Context, cod
 		return nil, fmt.Errorf("exchange yandex code: %w", err)
 	}
 
-	values := url.Values{}
-	values.Set("format", "json")
-	values.Set("jwt_secret", "")
-	values.Set("oauth_token", token.AccessToken)
-
-	endpoint := yandexUserInfoURL + "?" + values.Encode()
+	endpoint := yandexUserInfoURL + "?format=json"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 
 	if err != nil {

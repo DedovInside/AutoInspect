@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
+	"github.com/DedovInside/AutoInspect/backend/internal/repository/postgres"
 )
 
 func (s *AuthService) Refresh(ctx context.Context, refreshToken string, userAgent, ipAddress *string) (*AuthResult, error) {
@@ -14,8 +15,21 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string, userAgen
 		return nil, domain.ErrInvalidInput
 	}
 
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return nil, domain.ErrInternal
+	}
+
+	defer func() {
+		_ = tx.Rollback(ctx) // !
+	}()
+
+	sessionsTx := postgres.NewAuthSessionRepo(tx)
+	usersTx := postgres.NewUserRepo(tx)
+
 	tokenHash := HashToken(refreshToken)
-	session, err := s.sessions.GetByTokenHash(ctx, tokenHash)
+	oldSession, err := sessionsTx.GetByTokenHash(ctx, tokenHash)
+
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			return nil, domain.ErrUnauthorized
@@ -23,19 +37,17 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string, userAgen
 		return nil, err
 	}
 
-	now := time.Now().UTC()
-
-	if session.RevokedAt != nil {
-		_ = s.sessions.RevokeFamily(ctx, session.TokenFamilyID, "refresh token reuse detected")
+	if oldSession.RevokedAt != nil {
+		_ = sessionsTx.RevokeFamily(ctx, oldSession.TokenFamilyID, "refresh token reuse detected")
 		return nil, domain.ErrUnauthorized
 	}
 
-	if now.After(session.ExpiresAt) {
-		_ = s.sessions.Revoke(ctx, session.ID, "refresh token expired", nil)
+	if time.Now().UTC().After(oldSession.ExpiresAt) {
+		_ = sessionsTx.Revoke(ctx, oldSession.ID, "refresh token expired", nil)
 		return nil, domain.ErrUnauthorized
 	}
 
-	user, err := s.users.GetByID(ctx, session.UserID)
+	user, err := usersTx.GetByID(ctx, oldSession.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -44,22 +56,23 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string, userAgen
 		return nil, domain.ErrUnauthorized
 	}
 
-	newResult, err := s.issueTokens(ctx, user, userAgent, ipAddress, session.TokenFamilyID)
+	ipAddr := stringToNetIPPtr(ipAddress)
+
+	newResult, newSession, err := s.issueTokensWithRepos(ctx, user, userAgent, ipAddr, oldSession.TokenFamilyID, sessionsTx)
+
 	if err != nil {
 		return nil, err
 	}
 
-	newTokenHash := HashToken(newResult.Tokens.RefreshToken)
-	newSession, err := s.sessions.GetByTokenHash(ctx, newTokenHash)
-	if err != nil {
+	if err := sessionsTx.Revoke(ctx, oldSession.ID, "refresh token rotated", &newSession.ID); err != nil {
 		return nil, err
 	}
 
-	if err := s.sessions.Revoke(ctx, session.ID, "refresh token rotated", &newSession.ID); err != nil {
-		return nil, err
-	}
+	_ = sessionsTx.TouchLastUsed(ctx, oldSession.ID, time.Now().UTC())
 
-	_ = s.sessions.TouchLastUsed(ctx, session.ID, now)
+	if err := tx.Commit(ctx); err != nil {
+		return nil, domain.ErrInternal
+	}
 
 	return newResult, nil
 }
@@ -68,6 +81,7 @@ func (s *AuthService) Logout(ctx context.Context, refreshToken, accessJTI string
 	if strings.TrimSpace(refreshToken) != "" {
 		tokenHash := HashToken(refreshToken)
 		session, err := s.sessions.GetByTokenHash(ctx, tokenHash)
+
 		if err == nil {
 			_ = s.sessions.Revoke(ctx, session.ID, "user logout", nil)
 		}
@@ -84,5 +98,3 @@ func (s *AuthService) Logout(ctx context.Context, refreshToken, accessJTI string
 
 	return nil
 }
-
-

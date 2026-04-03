@@ -1,0 +1,10 @@
+repos:
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v2.11.4
+    hooks:
+      - id: golangci-lint
+        name: golangci-lint (backend)
+        entry: golangci-lint run
+        args: [--config=backend/.golangci.yml]
+        files: ^backend/
+        types: [go]

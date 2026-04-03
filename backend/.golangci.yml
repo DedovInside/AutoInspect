@@ -60,6 +60,9 @@ issues:
   max-same-issues: 0
 
   exclude-rules:
+    - path: internal/repository/db
+      linters:
+        - "*"
     # Не требовать обработку ошибок для fmt.Print* в main
     - path: main\.go
       linters:

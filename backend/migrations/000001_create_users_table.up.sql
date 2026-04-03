@@ -14,10 +14,7 @@ CREATE TABLE users (
 
     created_at    TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at    TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    last_login    TIMESTAMPTZ,
-
-    api_calls_count INTEGER DEFAULT 0,
-    api_quota_reset_at TIMESTAMPTZ
+    last_login    TIMESTAMPTZ
 );
 
 CREATE INDEX idx_users_email ON users(email);

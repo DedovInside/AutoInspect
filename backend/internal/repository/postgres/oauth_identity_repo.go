@@ -3,49 +3,70 @@ package postgres
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
+	"github.com/DedovInside/AutoInspect/backend/internal/repository/postgres/db"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type OAuthIdentityRepo struct {
-	db *DB
+	queries *db.Queries
 }
 
-func NewOAuthIdentityRepo(db *DB) *OAuthIdentityRepo {
-	return &OAuthIdentityRepo{db: db}
+func NewOAuthIdentityRepo(tx DBTX) *OAuthIdentityRepo {
+	return &OAuthIdentityRepo{queries: db.New(tx)}
 }
 
 func (r *OAuthIdentityRepo) Create(ctx context.Context, identity *domain.OAuthIdentity) error {
-	query := `
-		INSERT INTO auth_oauth_identities (id, user_id, provider, provider_user_id, email, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6)`
+	params := db.CreateOAuthIdentityParams{
+		ID:             pgtype.UUID{Bytes: identity.ID, Valid: true},
+		UserID:         pgtype.UUID{Bytes: identity.UserID, Valid: true},
+		Provider:       identity.Provider,
+		ProviderUserID: identity.ProviderUserID,
+		Email:          identity.Email,
+		CreatedAt:      pgtype.Timestamptz{Time: identity.CreatedAt, Valid: true},
+	}
+	err := r.queries.CreateOAuthIdentity(ctx, params)
 
-	_, err := r.db.pool.Exec(ctx, query,
-		identity.ID, identity.UserID, identity.Provider, identity.ProviderUserID, identity.Email, identity.CreatedAt,
-	)
 	if err != nil {
-		return fmt.Errorf("OAuthIdentityRepo.Create: %w", err)
+		var pgErr *pgconn.PgError
+
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return domain.ErrAlreadyExists
+		}
+
+		return domain.ErrInternal
 	}
 	return nil
 }
 
 func (r *OAuthIdentityRepo) GetByProviderSubject(ctx context.Context, provider, providerUserID string) (*domain.OAuthIdentity, error) {
-	query := `
-		SELECT id, user_id, provider, provider_user_id, email, created_at
-		FROM auth_oauth_identities
-		WHERE provider = $1 AND provider_user_id = $2`
+	params := db.GetOAuthIdentityByProviderSubjectParams{
+		Provider:       provider,
+		ProviderUserID: providerUserID,
+	}
 
-	identity := &domain.OAuthIdentity{}
-	err := r.db.pool.QueryRow(ctx, query, provider, providerUserID).Scan(
-		&identity.ID, &identity.UserID, &identity.Provider, &identity.ProviderUserID, &identity.Email, &identity.CreatedAt,
-	)
+	dbIdentity, err := r.queries.GetOAuthIdentityByProviderSubject(ctx, params)
+
 	if err != nil {
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrNotFound
 		}
-		return nil, fmt.Errorf("OAuthIdentityRepo.GetByProviderSubject: %w", err)
+		return nil, domain.ErrInternal
 	}
-	return identity, nil
+	return toDomainOAuthIdentity(&dbIdentity), nil
+}
+
+func toDomainOAuthIdentity(dbID *db.AuthOauthIdentity) *domain.OAuthIdentity {
+	return &domain.OAuthIdentity{
+		ID:             fromPgUUID(dbID.ID),
+		UserID:         fromPgUUID(dbID.UserID),
+		Provider:       dbID.Provider,
+		ProviderUserID: dbID.ProviderUserID,
+		Email:          dbID.Email,
+		CreatedAt:      dbID.CreatedAt.Time,
+	}
 }
