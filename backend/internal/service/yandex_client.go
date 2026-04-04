@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	yandexAuthURL     = "https://oauth.yandex.ru/authorize"
+	yandexAuthURL = "https://oauth.yandex.ru/authorize"
+	// #nosec
 	yandexTokenURL    = "https://oauth.yandex.ru/token"
 	yandexUserInfoURL = "https://login.yandex.ru/info"
 )

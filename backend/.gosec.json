@@ -1,0 +1,7 @@
+{
+  "Exclude": {
+    "Paths": [
+      "internal/repository/postgres/db"
+    ]
+  }
+}

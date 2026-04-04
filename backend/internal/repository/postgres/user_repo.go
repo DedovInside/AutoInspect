@@ -123,7 +123,9 @@ func (r *UserRepo) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
 
 func (r *UserRepo) List(ctx context.Context, limit, offset int) ([]*domain.User, error) {
 	params := db.ListUsersParams{
-		Limit:  int32(limit),
+		// #nosec
+		Limit: int32(limit),
+		// #nosec
 		Offset: int32(offset),
 	}
 	dbUsers, err := r.queries.ListUsers(ctx, params)

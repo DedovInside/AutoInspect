@@ -10,4 +10,3 @@ CREATE TABLE auth_oauth_identities (
 );
 
 CREATE INDEX idx_auth_oauth_identities_user_id ON auth_oauth_identities(user_id);
-

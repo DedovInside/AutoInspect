@@ -6,7 +6,7 @@ export
 migrate-up:
 	go run cmd/migrator/main.go up
 
-migrate-down: 
+migrate-down:
 	go run cmd/migrator/main.go down
 
 migrate-version:

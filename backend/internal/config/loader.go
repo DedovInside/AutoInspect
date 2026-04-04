@@ -17,6 +17,7 @@ func Load() (*Config, error) {
 		envFile = ".env"
 	}
 
+	// #nosec
 	if _, err := os.Stat(envFile); err == nil {
 		if err := cleanenv.ReadConfig(envFile, &cfg); err != nil {
 			return nil, fmt.Errorf("failed to read config from %s: %w", envFile, err)

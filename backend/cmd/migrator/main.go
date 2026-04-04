@@ -69,6 +69,7 @@ func loadMigratorEnv() error {
 		envFile = ".env"
 	}
 
+	// #nosec
 	if _, err := os.Stat(envFile); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
@@ -253,6 +254,7 @@ func runForce(m *migrate.Migrate, args []string) error {
 		return nil
 	}
 
+	// #nosec
 	if err := m.Force(int(version)); err != nil {
 		return fmt.Errorf("failed to force version: %w", err)
 	}

@@ -2,8 +2,8 @@
 CREATE TABLE analyses (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    
-    status          VARCHAR(20) NOT NULL DEFAULT 'queued' 
+
+    status          VARCHAR(20) NOT NULL DEFAULT 'queued'
                     CHECK (status IN ('queued', 'processing', 'completed', 'failed', 'cancelled')),
 
     -- Спецификация автомобиля, по которой подбирается inference-модель
@@ -15,11 +15,11 @@ CREATE TABLE analyses (
     -- Хранение изображения
     image_key       VARCHAR(500) NOT NULL,     -- увеличил до 500
     image_metadata  JSONB,                     -- {"size": 1024000, "format": "jpg", "dimensions": {"width": 1920, "height": 1080}}
-    
+
     -- ML модель
     model_version   VARCHAR(50),               -- заполняется после резолва модели
     model_id        UUID REFERENCES models(id), -- ссылка на конкретную модель
-    
+
     -- Результаты анализа
     result_json     JSONB,
     /*
@@ -46,12 +46,12 @@ CREATE TABLE analyses (
       }
     }
     */
-    
+
     -- Ошибки
     error_message   TEXT,
     error_code      VARCHAR(50),  -- для классификации ошибок
     retry_count     INTEGER DEFAULT 0,  -- для повторных попыток
-    
+
     -- Временные метки
     created_at      TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,

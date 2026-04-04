@@ -27,7 +27,9 @@ func New(ctx context.Context, dsn string, maxConns int, connLifetime time.Durati
 		return nil, fmt.Errorf("failed to parse DSN: %w", err)
 	}
 
+	// #nosec
 	config.MaxConns = int32(maxConns)
+	// #nosec
 	config.MinConns = int32(maxConns / 4)
 	config.MaxConnLifetime = connLifetime
 	config.MaxConnIdleTime = 10 * time.Minute

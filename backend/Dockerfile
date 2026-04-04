@@ -26,4 +26,3 @@ ENV MIGRATIONS_PATH=file:///app/migrations
 USER appuser
 ENTRYPOINT ["/app/migrator"]
 CMD ["up"]
-

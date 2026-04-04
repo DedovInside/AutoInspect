@@ -6,7 +6,7 @@ CREATE TABLE users (
     username      VARCHAR(50) UNIQUE NOT NULL,
     email         VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    role          VARCHAR(20) NOT NULL DEFAULT 'user' 
+    role          VARCHAR(20) NOT NULL DEFAULT 'user'
                   CHECK (role IN ('user', 'owner', 'admin')),
 
     email_verified BOOLEAN DEFAULT FALSE,
