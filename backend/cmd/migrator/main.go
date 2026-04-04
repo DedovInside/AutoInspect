@@ -165,7 +165,7 @@ func runDown(m *migrate.Migrate) error {
 		return err
 	}
 	if !confirmed {
-		fmt.Println("Operation cancelled")
+		fmt.Println("Operation canceled")
 		return nil
 	}
 
@@ -249,7 +249,7 @@ func runForce(m *migrate.Migrate, args []string) error {
 		return err
 	}
 	if !confirmed {
-		fmt.Println("Operation cancelled")
+		fmt.Println("Operation canceled")
 		return nil
 	}
 
@@ -268,7 +268,7 @@ func runDrop(m *migrate.Migrate) error {
 		return err
 	}
 	if !confirmed {
-		fmt.Println("Operation cancelled")
+		fmt.Println("Operation canceled")
 		return nil
 	}
 

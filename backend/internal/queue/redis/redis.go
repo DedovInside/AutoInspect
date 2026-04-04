@@ -18,7 +18,7 @@ type Client struct {
 	client *goredis.Client
 }
 
-func New(cfg config.RedisConfig) *Client {
+func New(cfg *config.RedisConfig) *Client {
 	return &Client{
 		client: goredis.NewClient(&goredis.Options{
 			Addr:         fmt.Sprintf("%s:%s", cfg.Host, cfg.Port),

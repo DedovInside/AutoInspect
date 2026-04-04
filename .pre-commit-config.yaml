@@ -1,10 +1,10 @@
 repos:
-  - repo: https://github.com/golangci/golangci-lint
-    rev: v1.64.2
+  - repo: local
     hooks:
       - id: golangci-lint
         name: golangci-lint (backend)
-        entry: golangci-lint run
-        args: [--config=backend/.golangci.yml]
-        files: ^backend/
+        entry: powershell -Command "cd backend; golangci-lint run --config=.golangci.yml"
+        language: system
+        files: ^backend/.*\.go$
         types: [go]
+        pass_filenames: false

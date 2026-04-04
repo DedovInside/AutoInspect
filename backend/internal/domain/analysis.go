@@ -16,7 +16,7 @@ const (
 	AnalysisStatusProcessing AnalysisStatus = "processing"
 	AnalysisStatusCompleted  AnalysisStatus = "completed"
 	AnalysisStatusFailed     AnalysisStatus = "failed"
-	AnalysisStatusCancelled  AnalysisStatus = "cancelled"
+	AnalysisStatusCancelled  AnalysisStatus = "canceled"
 )
 
 // IsValid проверяет, является ли статус анализа допустимым

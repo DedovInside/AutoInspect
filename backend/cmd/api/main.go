@@ -39,7 +39,7 @@ func run() error {
 
 	defer db.Close()
 
-	redisClient := rediscache.New(cfg.Redis)
+	redisClient := rediscache.New(&cfg.Redis)
 
 	defer func() {
 		if closeErr := redisClient.Close(); closeErr != nil {

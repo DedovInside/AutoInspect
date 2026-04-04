@@ -131,9 +131,11 @@ func (r *UserRepo) List(ctx context.Context, limit, offset int) ([]*domain.User,
 		return nil, domain.ErrInternal
 	}
 	users := make([]*domain.User, len(dbUsers))
-	for i, u := range dbUsers {
-		users[i] = toDomainUser(&u)
+
+	for i := range dbUsers {
+		users[i] = toDomainUser(&dbUsers[i])
 	}
+
 	return users, nil
 }
 

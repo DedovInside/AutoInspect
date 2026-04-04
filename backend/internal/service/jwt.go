@@ -66,7 +66,7 @@ func (m *TokenManager) OAuthStateTTL() time.Duration {
 	return m.oauthStateTTL
 }
 
-func (m *TokenManager) GenerateAccessToken(user *domain.User) (tokenString string, jti string, expiresAt time.Time, err error) {
+func (m *TokenManager) GenerateAccessToken(user *domain.User) (tokenString, jti string, expiresAt time.Time, err error) {
 	now := time.Now().UTC()
 	expiresAt = now.Add(m.accessTTL)
 	jti = uuid.NewString()

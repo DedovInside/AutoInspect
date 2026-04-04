@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
+	"github.com/DedovInside/AutoInspect/backend/internal/repository"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository/postgres"
 	"github.com/google/uuid"
 )
@@ -35,116 +36,79 @@ func (s *AuthService) StartYandexOAuth(ctx context.Context) (string, error) {
 	return s.yandex.AuthCodeURL(state), nil
 }
 
-func (s *AuthService) ExchangeYandexCode(ctx context.Context, code, state string, userAgent, ipAddress *string) (*AuthResult, error) {
-	if s.yandex == nil {
+func (s *AuthService) handleExistingYandexIdentity(
+	ctx context.Context,
+	usersTx repository.UserRepository,
+	sessionsTx repository.AuthSessionRepository,
+	identity *domain.OAuthIdentity,
+	userAgent, ipAddress *string,
+) (*AuthResult, error) {
+	user, err := usersTx.GetByID(ctx, identity.UserID)
+	if err != nil {
+		return nil, err
+	}
+	if !user.IsActive {
 		return nil, domain.ErrUnauthorized
 	}
-
-	if strings.TrimSpace(code) == "" {
-		return nil, domain.ErrInvalidInput
-	}
-
-	if s.cache == nil {
-		return nil, errors.New("yandex oauth requires cache for state management")
-	}
-
-	ok, err := s.cache.ConsumeOAuthState(ctx, state)
-
+	ipAddr := stringToNetIPPtr(ipAddress)
+	result, _, err := s.issueTokensWithRepos(ctx, user, userAgent, ipAddr, uuid.Nil, sessionsTx)
 	if err != nil {
 		return nil, err
 	}
+	return result, nil
+}
 
-	if !ok {
-		return nil, domain.ErrUnauthorized
-	}
-
-	profile, err := s.yandex.ExchangeCodeAndFetchProfile(ctx, code)
-
-	if err != nil {
-		return nil, err
-	}
-
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return nil, domain.ErrInternal
-	}
-	defer func() {
-		_ = tx.Rollback(ctx) // !
-	}()
-
-	usersTx := postgres.NewUserRepo(tx)
-	identitiesTx := postgres.NewOAuthIdentityRepo(tx)
-	sessionsTx := postgres.NewAuthSessionRepo(tx)
-
-	identity, err := identitiesTx.GetByProviderSubject(ctx, domain.OAuthProviderYandex, profile.ID)
-
-	if err == nil {
-		user, err := usersTx.GetByID(ctx, identity.UserID)
-
-		if err != nil {
-			return nil, err
-		}
-		if !user.IsActive {
-			return nil, domain.ErrUnauthorized
-		}
-
-		ipAddr := stringToNetIPPtr(ipAddress)
-
-		result, _, err := s.issueTokensWithRepos(ctx, user, userAgent, ipAddr, uuid.Nil, sessionsTx)
-
-		if err != nil {
-			return nil, err
-		}
-
-		if err := tx.Commit(ctx); err != nil {
-			return nil, domain.ErrInternal
-		}
-		return result, nil
-
-	} else if !errors.Is(err, domain.ErrNotFound) {
-		return nil, err
-	}
-
+func (s *AuthService) getOrCreateYandexUserByEmail(
+	ctx context.Context,
+	usersTx repository.UserRepository,
+	profile *YandexProfile,
+) (*domain.User, error) {
 	if profile.DefaultEmail == "" {
 		return nil, domain.ErrInvalidInput
 	}
 
 	user, err := usersTx.GetByEmail(ctx, strings.ToLower(profile.DefaultEmail))
-
-	if err != nil {
-		if !errors.Is(err, domain.ErrNotFound) {
-			return nil, err
+	if err == nil {
+		if !user.IsActive {
+			return nil, domain.ErrUnauthorized
 		}
-
-		now := time.Now().UTC()
-		username := profile.Login
-
-		if username == "" {
-			username = strings.Split(profile.DefaultEmail, "@")[0]
-		}
-
-		username = fmt.Sprintf("%s_%s", username, uuid.NewString()[:6])
-
-		user = &domain.User{
-			ID:            uuid.New(),
-			Username:      username,
-			Email:         strings.ToLower(profile.DefaultEmail),
-			PasswordHash:  "",
-			Role:          domain.RoleUser,
-			EmailVerified: true,
-			IsActive:      true,
-			CreatedAt:     now,
-			UpdatedAt:     now,
-		}
-
-		if err := usersTx.Create(ctx, user); err != nil {
-			return nil, err
-		}
-	} else if !user.IsActive {
-		return nil, domain.ErrUnauthorized
+		return user, nil
+	}
+	if !errors.Is(err, domain.ErrNotFound) {
+		return nil, err
 	}
 
-	identity = &domain.OAuthIdentity{
+	now := time.Now().UTC()
+	username := profile.Login
+	if username == "" {
+		username = strings.Split(profile.DefaultEmail, "@")[0]
+	}
+	username = fmt.Sprintf("%s_%s", username, uuid.NewString()[:6])
+
+	user = &domain.User{
+		ID:            uuid.New(),
+		Username:      username,
+		Email:         strings.ToLower(profile.DefaultEmail),
+		PasswordHash:  "",
+		Role:          domain.RoleUser,
+		EmailVerified: true,
+		IsActive:      true,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	if err := usersTx.Create(ctx, user); err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func (s *AuthService) ensureYandexOAuthIdentity(
+	ctx context.Context,
+	identitiesTx repository.OAuthIdentityRepository,
+	user *domain.User,
+	profile *YandexProfile,
+) error {
+	identity := &domain.OAuthIdentity{
 		ID:             uuid.New(),
 		UserID:         user.ID,
 		Provider:       domain.OAuthProviderYandex,
@@ -152,8 +116,44 @@ func (s *AuthService) ExchangeYandexCode(ctx context.Context, code, state string
 		Email:          &profile.DefaultEmail,
 		CreatedAt:      time.Now().UTC(),
 	}
+	return identitiesTx.Create(ctx, identity)
+}
 
-	if err := identitiesTx.Create(ctx, identity); err != nil {
+func (s *AuthService) processYandexOAuth(
+	ctx context.Context,
+	profile *YandexProfile,
+	userAgent, ipAddress *string,
+) (*AuthResult, error) {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return nil, domain.ErrInternal
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	usersTx := postgres.NewUserRepo(tx)
+	identitiesTx := postgres.NewOAuthIdentityRepo(tx)
+	sessionsTx := postgres.NewAuthSessionRepo(tx)
+
+	identity, err := identitiesTx.GetByProviderSubject(ctx, domain.OAuthProviderYandex, profile.ID)
+	if err == nil {
+		result, err := s.handleExistingYandexIdentity(ctx, usersTx, sessionsTx, identity, userAgent, ipAddress)
+		if err != nil {
+			return nil, err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return nil, domain.ErrInternal
+		}
+		return result, nil
+	} else if !errors.Is(err, domain.ErrNotFound) {
+		return nil, err
+	}
+
+	user, err := s.getOrCreateYandexUserByEmail(ctx, usersTx, profile)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.ensureYandexOAuthIdentity(ctx, identitiesTx, user, profile); err != nil {
 		return nil, err
 	}
 
@@ -167,4 +167,28 @@ func (s *AuthService) ExchangeYandexCode(ctx context.Context, code, state string
 		return nil, domain.ErrInternal
 	}
 	return result, nil
+}
+
+func (s *AuthService) ExchangeYandexCode(ctx context.Context, code, state string, userAgent, ipAddress *string) (*AuthResult, error) {
+	if s.yandex == nil {
+		return nil, domain.ErrUnauthorized
+	}
+	if strings.TrimSpace(code) == "" {
+		return nil, domain.ErrInvalidInput
+	}
+	if s.cache == nil {
+		return nil, errors.New("yandex oauth requires cache for state management")
+	}
+	ok, err := s.cache.ConsumeOAuthState(ctx, state)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, domain.ErrUnauthorized
+	}
+	profile, err := s.yandex.ExchangeCodeAndFetchProfile(ctx, code)
+	if err != nil {
+		return nil, err
+	}
+	return s.processYandexOAuth(ctx, profile, userAgent, ipAddress)
 }

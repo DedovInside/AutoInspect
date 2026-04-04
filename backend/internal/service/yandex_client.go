@@ -66,7 +66,7 @@ func (c *YandexOAuthClient) ExchangeCodeAndFetchProfile(ctx context.Context, cod
 	}
 
 	endpoint := yandexUserInfoURL + "?format=json"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, http.NoBody)
 
 	if err != nil {
 		return nil, fmt.Errorf("create yandex profile request: %w", err)

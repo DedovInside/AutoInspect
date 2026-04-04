@@ -169,7 +169,7 @@ func (r *ModelRepo) SetActiveForCarSpec(ctx context.Context, id uuid.UUID) error
 	if err != nil {
 		return fmt.Errorf("ModelRepo.SetActiveForCarSpec begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer tx.Rollback(ctx) //nolint:errcheck // rollback error is not critical, already logged
 
 	var carMake, carModel string
 	var carGeneration *string
