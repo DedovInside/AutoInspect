@@ -81,19 +81,14 @@ def load_model(model_path: str, device: torch.device) -> nn.Module:
     return model
 
 
-def infer_single_image(
-    image_path: str,
+def predict_from_pil_image(
+    image: Image.Image,
     model: nn.Module,
     img_size: int,
     device: torch.device,
     top_k: int,
-) -> None:
-    if not os.path.exists(image_path):
-        raise FileNotFoundError(f"Изображение не найдено: {image_path}")
-
-    image = Image.open(image_path).convert("RGB")
+) -> dict:
     padded_image = pad_to_square_with_mean_color(image)
-
     transform = build_transform(img_size)
     input_tensor = transform(padded_image).unsqueeze(0).to(device)
 
@@ -104,18 +99,61 @@ def infer_single_image(
     top_k = max(1, min(top_k, len(CLASS_NAMES)))
     confs, indices = torch.topk(probs, k=top_k)
 
-    best_idx = indices[0].item()
-    best_prob = confs[0].item()
+    predictions = []
+    for conf, idx in zip(confs.tolist(), indices.tolist()):
+        predictions.append({"class": CLASS_NAMES[idx], "confidence": float(conf)})
+
+    return {
+        "predicted_class": predictions[0]["class"],
+        "confidence": predictions[0]["confidence"],
+        "top_k": predictions,
+    }
+
+
+def predict_from_image_path(
+    image_path: str,
+    model: nn.Module,
+    img_size: int,
+    device: torch.device,
+    top_k: int,
+) -> dict:
+    if not os.path.exists(image_path):
+        raise FileNotFoundError(f"Изображение не найдено: {image_path}")
+
+    image = Image.open(image_path).convert("RGB")
+    return predict_from_pil_image(
+        image=image,
+        model=model,
+        img_size=img_size,
+        device=device,
+        top_k=top_k,
+    )
+
+
+def infer_single_image(
+    image_path: str,
+    model: nn.Module,
+    img_size: int,
+    device: torch.device,
+    top_k: int,
+) -> None:
+    result = predict_from_image_path(
+        image_path=image_path,
+        model=model,
+        img_size=img_size,
+        device=device,
+        top_k=top_k,
+    )
 
     print("Инференс завершен")
     print(f"Изображение: {image_path}")
-    print(f"Предсказанный класс: {CLASS_NAMES[best_idx]}")
-    print(f"Уверенность: {best_prob:.2%}")
+    print(f"Предсказанный класс: {result['predicted_class']}")
+    print(f"Уверенность: {result['confidence']:.2%}")
 
     if top_k > 1:
         print("Топ-k предсказаний:")
-        for rank, (conf, idx) in enumerate(zip(confs.tolist(), indices.tolist()), start=1):
-            print(f"  {rank}. {CLASS_NAMES[idx]}: {conf:.2%}")
+        for rank, item in enumerate(result["top_k"], start=1):
+            print(f"  {rank}. {item['class']}: {item['confidence']:.2%}")
 
 
 def parse_args() -> argparse.Namespace:
