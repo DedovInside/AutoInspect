@@ -1,63 +1,88 @@
-# AutoInspect: ML-часть
+# AutoInspect - ML
 
-**Исполнитель**: Бершицкий Дмитрий Александрович
+![logo-ml](../img/logo-ml.png)
 
-![logo-ml.png](../img/logo-ml.png)
+ML-часть AutoInspect - это каскад моделей компьютерного зрения:
+- классификация ракурса автомобиля (`View Model`),
+- сегментация деталей (`Part Segmentation`),
+- сегментация повреждений (`Damage Segmentation`).
 
-ML-часть AutoInspect - это каскад из нескольких моделей:
-отдельная ResNet-классификация ракурса автомобиля, YoLo-сегментация деталей (coarse/tuned/detailed)
-и отдельная YoLo-сегментация повреждений. Модели позволяют определять тип дефекта и затронутые детали авто.
-Доступна общая модель, а также функционал для дообучения модели под конкретные авто, что позволяет получить максимальную точность.
-Ниже - подробный разбор каждой модели в проекте:
+Проект сделан с прицелом на production: общая модель + дообучение под конкретные марки и типы кузова.
 
-## 1. View Model
+**Автор**: Бершицкий Дмитрий Александрович
 
-### Fine-tuned ResNet 18: Классификация ракурса фотографии
+## Что уже готово
 
-* Модель Pythorch (Hugging face): https://huggingface.co/mitbersh/car-view
-* Ноутбук, чтобы протестировать модель (Kaggle): https://www.kaggle.com/code/brshtskmit/infer-car-view
-* Ноутбук с обучением (Kaggle): https://www.kaggle.com/code/brshtskmit/train-view-model
-* Дешборд с метриками моделей с разными гиперпараметрами (Comet ML): https://www.comet.com/brshtsk/car-perspective
-* Собственный Car View Dataset (Hugging face): https://huggingface.co/datasets/mitbersh/car-view
-* На основе View Model реализованы Supervisely Apps для доразметки датасета под Part Segmentation Model:
-[SuperviselyPerspective](https://github.com/brshtsk/SuperviselyPerspective)
-и [SuperviselyPartsTags](https://github.com/brshtsk/SuperviselyPartsTags)
+| Модуль | Назначение | Статус | Артефакты |
+|---|---|---|---|
+| View Model | Классификация ракурса фото авто | `READY` | Hugging Face, Kaggle, Comet |
+| Part Segmentation | Сегментация деталей авто (coarse/tuned/detailed) | `IN PROGRESS` | Датасет и пайплайн в работе |
+| Damage Segmentation | Сегментация зон повреждений | `IN PROGRESS` | Базовый датасет подготовлен |
 
-## 2. Part Segmentation Model
+> Сейчас полностью доступна модель 1 (View Model). Модули 2-3 находятся в активной разработке.
 
-### Fine-tuned YoLo26-segm: Сегментация частей авто
+## Архитектура ML-каскада
 
-Разбита на 3 части:
+1. `View Model` определяет ракурс авто (`front-left`, `back-right` и т.д.).
+2. `Part Segmentation` сегментирует релевантные детали с учетом ракурса.
+3. `Damage Segmentation` выделяет повреждения и связывает их с деталями.
 
-### 2a. Part Segmentation Coarse (General)
+Итог: модельный стек определяет **что повреждено**, **где расположено** и **к какому элементу относится**.
 
-Общая модель сегментации крупных деталей автомобиля. Используется как база для Tuned моделей или как универсальный сегментатор
+## 1) View Model (готово)
 
-* Адаптированный Parts&Damages Dataset (Supervisely): https://app.supervisely.com/projects/373665/datasets/1128482.
-Базируется на датасете от [Humans In The Loop](https://humansintheloop.org/resources/datasets/car-parts-and-car-damages-dataset/).
-Были использованы Supervisely Apps [SuperviselyPerspective](https://github.com/brshtsk/SuperviselyPerspective)
-и [SuperviselyPartsTags](https://github.com/brshtsk/SuperviselyPartsTags) для обогащения датасета и добавления меток
-left/right на детали
+### Fine-tuned ResNet18: классификация ракурса
 
-### 2b. Part Segmentation Coarse (Tuned)
+- Модель (Hugging Face): https://huggingface.co/mitbersh/car-view
+- Инференс-ноутбук (Kaggle): https://www.kaggle.com/code/brshtskmit/infer-car-view
+- Обучение (Kaggle): https://www.kaggle.com/code/brshtskmit/train-view-model
+- Метрики и эксперименты (Comet): https://www.comet.com/brshtsk/car-perspective
+- Датасет (Hugging Face): https://huggingface.co/datasets/mitbersh/car-view
 
-Специализированная модель сегментации крупных деталей автомобиля под конкретные авто. Базируется на Part Segmentation Coarse (General)
+На базе `View Model` сделаны инструменты для подготовки датасета сегментации:
+- [SuperviselyPerspective](https://github.com/brshtsk/SuperviselyPerspective)
+- [SuperviselyPartsTags](https://github.com/brshtsk/SuperviselyPartsTags)
 
-* Требует датасет формата X для дообучения
-* Использует General модель как базу
-* Ноутбук для дообучения: X
+## 2) Part Segmentation (в разработке)
 
-### 2c. Part Segmentation Detailed
+### 2a. Coarse (General)
 
-Специализированная модель детальной сегментации под конкретные авто. Базируется на Part Segmentation Coarse (General)
+Базовая сегментация крупных частей авто (дверь, бампер, крыло и т.д.).
+Используется как универсальный сегментатор и как база для specialized-моделей.
 
-* Работает не на грубом уровне (дверь/бампер/крыло), а находит мелкие элементы (в зависимости от детализированности датасета)
-* Требует датасет формата X для дообучения
-* Использует General модель как базу
-* Ноутбук для дообучения: X
+- Адаптированный датасет (Supervisely): https://app.supervisely.com/projects/373665/datasets/1128482
+- Исходный набор: [Humans In The Loop](https://humansintheloop.org/resources/datasets/car-parts-and-car-damages-dataset/)
+- Для обогащения разметки использовались:
+  - [SuperviselyPerspective](https://github.com/brshtsk/SuperviselyPerspective)
+  - [SuperviselyPartsTags](https://github.com/brshtsk/SuperviselyPartsTags)
 
-## 3. Damage Segmentation
+### 2b. Coarse (Tuned)
 
-Отдельная модель сегментации повреждений.
+Дообучаемая версия `Coarse (General)` под конкретные авто/домены.
 
-* Адаптированный Parts&Damages Dataset (Supervisely): https://app.supervisely.com/projects/373665/datasets/1128482
+- Статус: `IN PROGRESS`
+- План: шаблон датасета + notebook дообучения + базовые метрики
+
+### 2c. Detailed
+
+Детальная сегментация мелких элементов (ниже уровня крупных панелей).
+
+- Статус: `IN PROGRESS`
+- План: расширенная схема классов + пайплайн дообучения + сравнение с coarse-моделью
+
+## 3) Damage Segmentation (в разработке)
+
+Отдельный контур сегментации повреждений с последующей привязкой к деталям авто.
+
+- Базовый датасет: https://app.supervisely.com/projects/373665/datasets/1128482
+- Статус: `IN PROGRESS`
+- План: baseline-модель + валидация на реальных кейсах
+
+## Дорожная карта
+
+- [x] Релиз `View Model` и публичных артефактов
+- [ ] Релиз `Part Segmentation Coarse (General)`
+- [ ] Релиз `Part Segmentation Coarse (Tuned)`
+- [ ] Релиз `Part Segmentation Detailed`
+- [ ] Релиз `Damage Segmentation`
+- [ ] Единый end-to-end пайплайн оценки повреждений
