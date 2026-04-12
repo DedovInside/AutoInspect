@@ -19,7 +19,7 @@ from torchvision import models, transforms
 from tqdm import tqdm
 
 CONFIG = {
-    "project_name": "car-perspective-baseline",
+    "project_name": "car-perspective",
     "workspace": "brshtsk",
     "hf_dataset_id": "mitbersh/car-view",
     "data_dir": "./car_view_dataset",
@@ -301,7 +301,12 @@ def log_best_val_samples(experiment, val_samples: List[Dict], step: int) -> None
         ).replace("\\", "/")
         comet_meta_name = f"best_val_meta/{idx:04d}_{Path(base_name).stem}.json"
 
-        experiment.log_image(image_data=image_uint8, name=comet_image_name, step=step)
+        experiment.log_image(
+            image_data=image_uint8,
+            name=comet_image_name,
+            step=step,
+            metadata=metadata,
+        )
         experiment.log_asset_data(
             json.dumps(metadata, ensure_ascii=False, indent=2),
             name=comet_meta_name,
