@@ -1,15 +1,5 @@
-torch
-torchvision
 opencv-python
 numpy
 Pillow
 tqdm
-matplotlib
-scikit-learn
 huggingface_hub
-torch
-torchvision
-mlflow
-scikit-learn
-tqdm
-dagshub
