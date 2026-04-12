@@ -1,42 +1,49 @@
 import csv
+import json
 import os
+import random
+from collections import Counter
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+from comet_ml import Optimizer
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from comet_ml import Optimizer
 from PIL import Image, ImageOps, ImageStat
 from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 from torchvision import models, transforms
 from tqdm import tqdm
 
 CONFIG = {
-    "project_name": "car-perspective",
+    "project_name": "car-perspective-baseline",
     "workspace": "brshtsk",
     "hf_dataset_id": "mitbersh/car-view",
     "data_dir": "./car_view_dataset",
     "img_size": 224,
-    "epochs": 3,
+    "epochs": 5,
     "architecture": "resnet18",
     "seed": 42,
     "val_real_split": 0.2,
+    "real_source_weight": 2.0,
+    "weight_decay": 1e-4,
 }
 
 OPTIMIZER_CONFIG = {
     "algorithm": "bayes",
     "spec": {
-        "maxCombo": 5,
+        "maxCombo": 7,
         "objective": "maximize",
         "metric": "val_axes_macro_f1",
     },
     "parameters": {
         "learning_rate": {"type": "float", "scalingType": "loguniform", "min": 1e-5, "max": 1e-3},
         "batch_size": {"type": "discrete", "values": [16, 32, 64]},
+        "real_source_weight": {"type": "discrete", "values": [1.0, 1.5, 2.0, 3.0]},
+        "weight_decay": {"type": "float", "scalingType": "loguniform", "min": 1e-6, "max": 1e-3},
     },
 }
 
@@ -66,6 +73,7 @@ V_TO_ID = {name: idx for idx, name in enumerate(V_LABELS)}
 
 def set_seed(seed: int) -> None:
     torch.manual_seed(seed)
+    random.seed(seed)
     np.random.seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
@@ -100,7 +108,7 @@ def build_transforms(img_size: int) -> Tuple[transforms.Compose, transforms.Comp
         [
             PadToSquareWithMeanColor(),
             transforms.Resize((img_size, img_size)),
-            transforms.RandomRotation(degrees=7),
+            transforms.RandomRotation(degrees=5),
             transforms.ColorJitter(brightness=0.2, contrast=0.2),
             transforms.ToTensor(),
             transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
@@ -183,7 +191,8 @@ class PerspectiveMetaDataset(Dataset):
         horizontal_name, vertical_name = VIEW_TO_AXES[row["view"]]
         target_h = H_TO_ID[horizontal_name]
         target_v = V_TO_ID[vertical_name]
-        return image, target_h, target_v
+        source = row.get("source", "unknown")
+        return image, target_h, target_v, relative_path, source
 
 
 class TwoHeadPerspectiveModel(nn.Module):
@@ -242,7 +251,65 @@ def get_experiment_url(experiment, workspace, project_name):
         return f"https://www.comet.com/{workspace}/{project_name}/experiments/{experiment_id}"
 
 
-def get_data_loaders(data_dir, batch_size, img_size, seed, val_real_split):
+def combined_view_name_from_axes(h_id: int, v_id: int) -> str:
+    view_name = PAIR_TO_VIEW.get((H_LABELS[h_id], V_LABELS[v_id]))
+    return view_name if view_name is not None else "unknown"
+
+
+def tensor_to_uint8_image(image_tensor: torch.Tensor) -> np.ndarray:
+    mean = torch.tensor(IMAGENET_MEAN, dtype=image_tensor.dtype).view(3, 1, 1)
+    std = torch.tensor(IMAGENET_STD, dtype=image_tensor.dtype).view(3, 1, 1)
+    image = image_tensor.detach().cpu() * std + mean
+    image = image.clamp(0, 1)
+    image = (image.permute(1, 2, 0).numpy() * 255.0).astype(np.uint8)
+    return image
+
+
+def log_best_val_samples(experiment, val_samples: List[Dict], step: int) -> None:
+    print(f"Логирую {len(val_samples)} val-картинок для best-модели в Comet...")
+    for idx, sample in enumerate(val_samples):
+        true_view = combined_view_name_from_axes(sample["true_h"], sample["true_v"])
+        pred_view = combined_view_name_from_axes(sample["pred_h"], sample["pred_v"])
+        is_correct = true_view == pred_view
+        correctness_tag = "ok" if is_correct else "err"
+
+        probs_h = {label: float(prob) for label, prob in zip(H_LABELS, sample["probs_h"])}
+        probs_v = {label: float(prob) for label, prob in zip(V_LABELS, sample["probs_v"])}
+        pred_h_conf = probs_h[H_LABELS[sample["pred_h"]]]
+        pred_v_conf = probs_v[V_LABELS[sample["pred_v"]]]
+
+        metadata = {
+            "relative_path": sample["relative_path"],
+            "source": sample["source"],
+            "true_horizontal": H_LABELS[sample["true_h"]],
+            "true_vertical": V_LABELS[sample["true_v"]],
+            "pred_horizontal": H_LABELS[sample["pred_h"]],
+            "pred_vertical": V_LABELS[sample["pred_v"]],
+            "true_view": true_view,
+            "pred_view": pred_view,
+            "is_correct": bool(is_correct),
+            "softmax_horizontal": probs_h,
+            "softmax_vertical": probs_v,
+            "pred_horizontal_confidence": pred_h_conf,
+            "pred_vertical_confidence": pred_v_conf,
+        }
+
+        image_uint8 = tensor_to_uint8_image(sample["image_tensor"])
+        base_name = Path(sample["relative_path"]).name
+        comet_image_name = (
+            f"best_val/{idx:04d}_{correctness_tag}_{true_view}_pred-{pred_view}_{base_name}"
+        ).replace("\\", "/")
+        comet_meta_name = f"best_val_meta/{idx:04d}_{Path(base_name).stem}.json"
+
+        experiment.log_image(image_data=image_uint8, name=comet_image_name, step=step)
+        experiment.log_asset_data(
+            json.dumps(metadata, ensure_ascii=False, indent=2),
+            name=comet_meta_name,
+            step=step,
+        )
+
+
+def get_data_loaders(data_dir, batch_size, img_size, seed, val_real_split, real_source_weight):
     meta_path = resolve_meta_csv(data_dir)
     dataset_root = str(Path(meta_path).parent)
     rows = read_meta(meta_path)
@@ -255,10 +322,26 @@ def get_data_loaders(data_dir, batch_size, img_size, seed, val_real_split):
     print(f"Meta: {meta_path}")
     print(f"Train size: {len(train_dataset)} | Val size (real-only): {len(val_dataset)}")
 
+    class_counts = Counter(row["view"] for row in train_rows)
+    source_counts = Counter(row.get("source", "unknown") for row in train_rows)
+
+    sampler_weights = []
+    for row in train_rows:
+        source_name = row.get("source", "unknown")
+        class_weight = 1.0 / np.sqrt(class_counts[row["view"]])
+        real_boost = float(real_source_weight) if source_name == "real" else 1.0
+        sampler_weights.append(class_weight * real_boost)
+
+    sampler = WeightedRandomSampler(
+        weights=sampler_weights,
+        num_samples=len(sampler_weights),
+        replacement=True,
+    )
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
-        shuffle=True,
+        sampler=sampler,
         num_workers=0,
         drop_last=True,
     )
@@ -316,6 +399,7 @@ def train_model(experiment, current_config):
         current_config['img_size'],
         current_config['seed'],
         current_config['val_real_split'],
+        current_config['real_source_weight'],
     )
 
     model = TwoHeadPerspectiveModel(architecture=current_config.get("architecture", "resnet18"))
@@ -323,7 +407,11 @@ def train_model(experiment, current_config):
 
     criterion_h = nn.CrossEntropyLoss()
     criterion_v = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=current_config['learning_rate'])
+    optimizer = optim.AdamW(
+        model.parameters(),
+        lr=current_config['learning_rate'],
+        weight_decay=current_config['weight_decay'],
+    )
 
     best_axes_score = -1.0
 
@@ -338,8 +426,9 @@ def train_model(experiment, current_config):
             train_loss_v = 0.0
             train_h_true, train_h_pred = [], []
             train_v_true, train_v_pred = [], []
+            seen_train_samples = 0
 
-            for inputs, target_h, target_v in tqdm(train_loader, desc="Training"):
+            for inputs, target_h, target_v, _, _ in tqdm(train_loader, desc="Training"):
                 inputs = inputs.to(device)
                 target_h = target_h.to(device)
                 target_v = target_v.to(device)
@@ -357,6 +446,7 @@ def train_model(experiment, current_config):
                 loss.backward()
                 optimizer.step()
 
+                seen_train_samples += inputs.size(0)
                 train_loss += loss.item() * inputs.size(0)
                 train_loss_h += loss_h.item() * inputs.size(0)
                 train_loss_v += loss_v.item() * inputs.size(0)
@@ -366,9 +456,10 @@ def train_model(experiment, current_config):
                 train_v_true.extend(target_v.cpu().tolist())
                 train_v_pred.extend(pred_v.cpu().tolist())
 
-            epoch_train_loss = train_loss / len(train_loader.dataset)
-            epoch_train_loss_h = train_loss_h / len(train_loader.dataset)
-            epoch_train_loss_v = train_loss_v / len(train_loader.dataset)
+            train_denominator = max(1, seen_train_samples)
+            epoch_train_loss = train_loss / train_denominator
+            epoch_train_loss_h = train_loss_h / train_denominator
+            epoch_train_loss_v = train_loss_v / train_denominator
             train_horizontal_acc = accuracy(train_h_true, train_h_pred)
             train_vertical_acc = accuracy(train_v_true, train_v_pred)
             train_horizontal_f1 = safe_macro_f1(train_h_true, train_h_pred)
@@ -380,9 +471,13 @@ def train_model(experiment, current_config):
             val_loss_v = 0.0
             val_h_true, val_h_pred = [], []
             val_v_true, val_v_pred = [], []
+            seen_val_samples = 0
+            impossible_combined_pred_count = 0
+            val_samples = []
 
             with torch.no_grad():
-                for inputs, target_h, target_v in val_loader:
+                for inputs, target_h, target_v, relative_paths, sources in val_loader:
+                    raw_inputs = inputs.clone()
                     inputs = inputs.to(device)
                     target_h = target_h.to(device)
                     target_v = target_v.to(device)
@@ -394,7 +489,13 @@ def train_model(experiment, current_config):
 
                     pred_h = torch.argmax(logits_h, dim=1)
                     pred_v = torch.argmax(logits_v, dim=1)
+                    probs_h = torch.softmax(logits_h, dim=1).cpu()
+                    probs_v = torch.softmax(logits_v, dim=1).cpu()
 
+                    impossible_mask = (pred_h == H_TO_ID["center"]) & (pred_v == V_TO_ID["center"])
+                    impossible_combined_pred_count += int(impossible_mask.sum().item())
+
+                    seen_val_samples += inputs.size(0)
                     val_loss += loss.item() * inputs.size(0)
                     val_loss_h += loss_h.item() * inputs.size(0)
                     val_loss_v += loss_v.item() * inputs.size(0)
@@ -404,15 +505,37 @@ def train_model(experiment, current_config):
                     val_v_true.extend(target_v.cpu().tolist())
                     val_v_pred.extend(pred_v.cpu().tolist())
 
-            epoch_val_loss = val_loss / len(val_loader.dataset)
-            epoch_val_loss_h = val_loss_h / len(val_loader.dataset)
-            epoch_val_loss_v = val_loss_v / len(val_loader.dataset)
+                    target_h_cpu = target_h.cpu().tolist()
+                    target_v_cpu = target_v.cpu().tolist()
+                    pred_h_cpu = pred_h.cpu().tolist()
+                    pred_v_cpu = pred_v.cpu().tolist()
+
+                    for sample_idx in range(len(relative_paths)):
+                        val_samples.append(
+                            {
+                                "image_tensor": raw_inputs[sample_idx],
+                                "relative_path": relative_paths[sample_idx],
+                                "source": sources[sample_idx],
+                                "true_h": target_h_cpu[sample_idx],
+                                "true_v": target_v_cpu[sample_idx],
+                                "pred_h": pred_h_cpu[sample_idx],
+                                "pred_v": pred_v_cpu[sample_idx],
+                                "probs_h": probs_h[sample_idx].tolist(),
+                                "probs_v": probs_v[sample_idx].tolist(),
+                            }
+                        )
+
+            val_denominator = max(1, seen_val_samples)
+            epoch_val_loss = val_loss / val_denominator
+            epoch_val_loss_h = val_loss_h / val_denominator
+            epoch_val_loss_v = val_loss_v / val_denominator
 
             horizontal_acc = accuracy(val_h_true, val_h_pred)
             vertical_acc = accuracy(val_v_true, val_v_pred)
             horizontal_macro_f1 = safe_macro_f1(val_h_true, val_h_pred)
             vertical_macro_f1 = safe_macro_f1(val_v_true, val_v_pred)
             val_axes_score = 0.5 * (horizontal_macro_f1 + vertical_macro_f1)
+            impossible_combined_pred_ratio = impossible_combined_pred_count / max(1, seen_val_samples)
 
             val_combined_true = axes_to_combined_ids(val_h_true, val_v_true)
             val_combined_pred = axes_to_combined_ids(val_h_pred, val_v_pred)
@@ -444,6 +567,10 @@ def train_model(experiment, current_config):
                 f"V-Acc/F1: {vertical_acc:.4f}/{vertical_macro_f1:.4f} | "
                 f"Combined Acc: {combined_view_acc:.4f}"
             )
+            print(
+                f"Val impossible (center-center): {impossible_combined_pred_count} "
+                f"({impossible_combined_pred_ratio:.4%})"
+            )
 
             experiment.log_metrics(
                 {
@@ -462,6 +589,8 @@ def train_model(experiment, current_config):
                     "horizontal_macro_f1": float(horizontal_macro_f1),
                     "vertical_macro_f1": float(vertical_macro_f1),
                     "combined_view_acc": float(combined_view_acc),
+                    "impossible_combined_pred_count": float(impossible_combined_pred_count),
+                    "impossible_combined_pred_ratio": float(impossible_combined_pred_ratio),
                     "val_axes_macro_f1": float(val_axes_score),
                 },
                 step=epoch + 1,
@@ -488,6 +617,7 @@ def train_model(experiment, current_config):
                 print("Model saved locally! (Improved mean axis macro-F1)")
 
                 experiment.log_model("best_car_view", "best_car_view_model.pth")
+                log_best_val_samples(experiment, val_samples, step=epoch + 1)
 
     finally:
         print(f"Обучение завершено. Лучший axis-score: {best_axes_score:.4f}")
@@ -512,11 +642,17 @@ if __name__ == '__main__':
         )
         
         current_config = CONFIG.copy()
-        current_config["learning_rate"] = experiment.get_parameter("learning_rate")
-        current_config["batch_size"] = experiment.get_parameter("batch_size")
+        current_config["learning_rate"] = float(experiment.get_parameter("learning_rate"))
+        current_config["batch_size"] = int(experiment.get_parameter("batch_size"))
+        current_config["real_source_weight"] = float(experiment.get_parameter("real_source_weight"))
+        current_config["weight_decay"] = float(experiment.get_parameter("weight_decay"))
 
         lr_str = f"{float(current_config['learning_rate']):.2e}"
-        run_name = f"{lr_str} | {current_config['batch_size']}"
+        wd_str = f"{float(current_config['weight_decay']):.1e}"
+        run_name = (
+            f"lr={lr_str} | bs={current_config['batch_size']} | "
+            f"rsw={current_config['real_source_weight']:.2f} | wd={wd_str}"
+        )
         experiment.set_name(run_name)
         print("Run name:", run_name)
 
