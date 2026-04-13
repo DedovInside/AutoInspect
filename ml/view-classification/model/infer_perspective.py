@@ -1,5 +1,7 @@
 import argparse
 import os
+import sys
+from typing import Dict, List, Tuple
 
 import torch
 import torch.nn as nn
@@ -10,17 +12,23 @@ from torchvision import models, transforms
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 
-CLASS_NAMES = [
-    "back",
-    "back-left",
-    "back-right",
-    "front",
-    "front-left",
-    "front-right",
-    "left",
-    "other",
-    "right",
-]
+H_LABELS = ["left", "center", "right"]
+V_LABELS = ["front", "center", "back"]
+
+VIEW_TO_AXES: Dict[str, Tuple[str, str]] = {
+    "front": ("center", "front"),
+    "front-left": ("left", "front"),
+    "left": ("left", "center"),
+    "back-left": ("left", "back"),
+    "back": ("center", "back"),
+    "back-right": ("right", "back"),
+    "right": ("right", "center"),
+    "front-right": ("right", "front"),
+}
+
+PAIR_TO_VIEW = {value: key for key, value in VIEW_TO_AXES.items()}
+H_TO_ID = {name: idx for idx, name in enumerate(H_LABELS)}
+V_TO_ID = {name: idx for idx, name in enumerate(V_LABELS)}
 
 
 def get_device(device_arg: str) -> torch.device:
@@ -66,12 +74,30 @@ def build_transform(img_size: int) -> transforms.Compose:
     )
 
 
+class TwoHeadPerspectiveModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        backbone = models.resnet18(weights=None)
+
+        feat_dim = backbone.fc.in_features
+        backbone.fc = nn.Identity()
+
+        self.backbone = backbone
+        self.horizontal_head = nn.Linear(feat_dim, len(H_LABELS))
+        self.vertical_head = nn.Linear(feat_dim, len(V_LABELS))
+
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        features = self.backbone(x)
+        logits_h = self.horizontal_head(features)
+        logits_v = self.vertical_head(features)
+        return logits_h, logits_v
+
+
 def load_model(model_path: str, device: torch.device) -> nn.Module:
     if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Файл модели не найден: {model_path}")
+        raise FileNotFoundError(f"Model file not found: {model_path}")
 
-    model = models.resnet18(weights=None)
-    model.fc = nn.Linear(model.fc.in_features, len(CLASS_NAMES))
+    model = TwoHeadPerspectiveModel()
 
     state_dict = torch.load(model_path, map_location=device)
     model.load_state_dict(state_dict)
@@ -79,6 +105,27 @@ def load_model(model_path: str, device: torch.device) -> nn.Module:
     model = model.to(device)
     model.eval()
     return model
+
+
+def build_joint_predictions(probs_h: torch.Tensor, probs_v: torch.Tensor) -> List[dict]:
+    predictions = []
+    for h_idx, h_name in enumerate(H_LABELS):
+        for v_idx, v_name in enumerate(V_LABELS):
+            confidence = float(probs_h[h_idx].item() * probs_v[v_idx].item())
+            pair = (h_name, v_name)
+            view_name = PAIR_TO_VIEW.get(pair)
+            predictions.append(
+                {
+                    "class": view_name if view_name is not None else "center-center",
+                    "confidence": confidence,
+                    "horizontal": h_name,
+                    "vertical": v_name,
+                    "is_impossible": view_name is None,
+                }
+            )
+
+    predictions.sort(key=lambda item: item["confidence"], reverse=True)
+    return predictions
 
 
 def predict_from_pil_image(
@@ -93,20 +140,44 @@ def predict_from_pil_image(
     input_tensor = transform(padded_image).unsqueeze(0).to(device)
 
     with torch.no_grad():
-        logits = model(input_tensor)
-        probs = torch.softmax(logits, dim=1)[0]
+        logits_h, logits_v = model(input_tensor)
+        probs_h = torch.softmax(logits_h, dim=1)[0]
+        probs_v = torch.softmax(logits_v, dim=1)[0]
 
-    top_k = max(1, min(top_k, len(CLASS_NAMES)))
-    confs, indices = torch.topk(probs, k=top_k)
+    all_joint_predictions = build_joint_predictions(probs_h, probs_v)
+    top_pred = all_joint_predictions[0]
+    warning = None
 
-    predictions = []
-    for conf, idx in zip(confs.tolist(), indices.tolist()):
-        predictions.append({"class": CLASS_NAMES[idx], "confidence": float(conf)})
+    if top_pred["is_impossible"]:
+        fallback_pred = next((p for p in all_joint_predictions if not p["is_impossible"]), None)
+        if fallback_pred is None:
+            raise RuntimeError("Could not find a valid fallback class for impossible center-center prediction.")
+
+        warning = (
+            "Top prediction is impossible class 'center-center' "
+            f"({top_pred['confidence']:.2%}). Falling back to next best valid class "
+            f"'{fallback_pred['class']}' ({fallback_pred['confidence']:.2%})."
+        )
+        selected_pred = fallback_pred
+    else:
+        selected_pred = top_pred
+
+    valid_predictions = [p for p in all_joint_predictions if not p["is_impossible"]]
+    top_k = max(1, min(top_k, len(valid_predictions)))
+    predictions = [
+        {"class": item["class"], "confidence": float(item["confidence"])}
+        for item in valid_predictions[:top_k]
+    ]
 
     return {
-        "predicted_class": predictions[0]["class"],
-        "confidence": predictions[0]["confidence"],
+        "predicted_class": selected_pred["class"],
+        "confidence": selected_pred["confidence"],
+        "predicted_axes": {
+            "horizontal": selected_pred["horizontal"],
+            "vertical": selected_pred["vertical"],
+        },
         "top_k": predictions,
+        "warning": warning,
     }
 
 
@@ -118,7 +189,7 @@ def predict_from_image_path(
     top_k: int,
 ) -> dict:
     if not os.path.exists(image_path):
-        raise FileNotFoundError(f"Изображение не найдено: {image_path}")
+        raise FileNotFoundError(f"Image not found: {image_path}")
 
     image = Image.open(image_path).convert("RGB")
     return predict_from_pil_image(
@@ -145,33 +216,38 @@ def infer_single_image(
         top_k=top_k,
     )
 
-    print("Инференс завершен")
-    print(f"Изображение: {image_path}")
-    print(f"Предсказанный класс: {result['predicted_class']}")
-    print(f"Уверенность: {result['confidence']:.2%}")
+    print("Inference completed")
+    print(f"Image: {image_path}")
+    print(f"Predicted class: {result['predicted_class']}")
+    print(f"Predicted axes: H={result['predicted_axes']['horizontal']}, V={result['predicted_axes']['vertical']}")
+    print(f"Confidence: {result['confidence']:.2%}")
+
+    if result["warning"]:
+        print(f"WARNING: {result['warning']}", file=sys.stderr)
 
     if top_k > 1:
-        print("Топ-k предсказаний:")
+        print("Top-k predictions:")
         for rank, item in enumerate(result["top_k"], start=1):
             print(f"  {rank}. {item['class']}: {item['confidence']:.2%}")
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Инференс ракурса автомобиля для одного изображения")
-    parser.add_argument("--image", required=True, help="Путь к картинке")
-    parser.add_argument("--model", default="best_car_view_model.pth", help="Путь к модели pth")
-    parser.add_argument("--img-size", type=int, default=224, help="Размер входа модели")
-    parser.add_argument("--top-k", type=int, default=3, help="Сколько лучших предсказаний вывести")
+    parser = argparse.ArgumentParser(description="Run car perspective inference for a single image")
+    parser.add_argument("--image", required=True, help="Path to input image")
+    parser.add_argument("--model", default="best_car_view_model.pth", help="Path to .pth checkpoint")
+    parser.add_argument("--img-size", type=int, default=224, help="Model input size")
+    parser.add_argument("--top-k", type=int, default=3, help="Number of top predictions to print")
     parser.add_argument(
         "--device",
         default="auto",
         choices=["auto", "cpu", "cuda", "mps"],
-        help="Устройство вычислений",
+        help="Compute device",
     )
     return parser.parse_args()
 
 
 def main() -> None:
+    '''Run: python infer_perspective.py --image "C:\path\to\car.jpg" --model "C:\path\to\best_car_view_model.pth" --top-k 3 --device auto'''
     args = parse_args()
     device = get_device(args.device)
     model = load_model(args.model, device=device)

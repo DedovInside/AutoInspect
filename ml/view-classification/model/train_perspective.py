@@ -5,6 +5,7 @@ import random
 from collections import Counter
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+import shutil
 
 from comet_ml import Optimizer
 import numpy as np
@@ -25,7 +26,6 @@ CONFIG = {
     "data_dir": "./car_view_dataset",
     "img_size": 224,
     "epochs": 5,
-    "architecture": "resnet18",
     "seed": 42,
     "val_real_split": 0.2,
     "real_source_weight": 2.0,
@@ -196,12 +196,9 @@ class PerspectiveMetaDataset(Dataset):
 
 
 class TwoHeadPerspectiveModel(nn.Module):
-    def __init__(self, architecture: str = "resnet18"):
+    def __init__(self):
         super().__init__()
-        if architecture == "resnet34":
-            backbone = models.resnet34(weights="DEFAULT")
-        else:
-            backbone = models.resnet18(weights="DEFAULT")
+        backbone = models.resnet18(weights="DEFAULT")
 
         feat_dim = backbone.fc.in_features
         backbone.fc = nn.Identity()
@@ -266,8 +263,15 @@ def tensor_to_uint8_image(image_tensor: torch.Tensor) -> np.ndarray:
 
 
 def log_best_val_samples(experiment, val_samples: List[Dict], step: int) -> None:
-    print(f"Логирую {len(val_samples)} val-картинок для best-модели в Comet...")
-    for idx, sample in enumerate(val_samples):
+    error_samples = []
+    for sample in val_samples:
+        true_view = combined_view_name_from_axes(sample["true_h"], sample["true_v"])
+        pred_view = combined_view_name_from_axes(sample["pred_h"], sample["pred_v"])
+        if true_view != pred_view:
+            error_samples.append(sample)
+
+    print(f"Логирую {len(error_samples)} ошибочных val-картинок для best-модели в Comet...")
+    for idx, sample in enumerate(error_samples):
         true_view = combined_view_name_from_axes(sample["true_h"], sample["true_v"])
         pred_view = combined_view_name_from_axes(sample["pred_h"], sample["pred_v"])
         is_correct = true_view == pred_view
@@ -374,7 +378,6 @@ def train_model(experiment, current_config):
             
         subprocess.run(["git", "clone", repo_url, current_config['data_dir']], check=True)
         
-        import shutil
         for item in os.listdir(current_config['data_dir']):
             if item.startswith('.'):
                 item_path = os.path.join(current_config['data_dir'], item)
@@ -407,7 +410,7 @@ def train_model(experiment, current_config):
         current_config['real_source_weight'],
     )
 
-    model = TwoHeadPerspectiveModel(architecture=current_config.get("architecture", "resnet18"))
+    model = TwoHeadPerspectiveModel()
     model = model.to(device)
 
     criterion_h = nn.CrossEntropyLoss()
@@ -419,6 +422,10 @@ def train_model(experiment, current_config):
     )
 
     best_axes_score = -1.0
+    best_epoch = -1
+    best_model_path = f"best_car_view_model_{experiment.id}.pth"
+    best_run_metrics: Dict[str, float] = {}
+    best_val_payload: Optional[Dict[str, List]] = None
 
     # Train loop
     try:
@@ -601,31 +608,86 @@ def train_model(experiment, current_config):
                 step=epoch + 1,
             )
 
-            experiment.log_confusion_matrix(
-                y_true=val_h_true,
-                y_predicted=val_h_pred,
-                labels=H_LABELS,
-                title="Horizontal confusion matrix",
-                step=epoch + 1,
-            )
-            experiment.log_confusion_matrix(
-                y_true=val_v_true,
-                y_predicted=val_v_pred,
-                labels=V_LABELS,
-                title="Vertical confusion matrix",
-                step=epoch + 1,
-            )
-
             if val_axes_score > best_axes_score:
                 best_axes_score = val_axes_score
-                torch.save(model.state_dict(), "best_car_view_model.pth")
-                print("Model saved locally! (Improved mean axis macro-F1)")
+                best_epoch = epoch + 1
+                torch.save(model.state_dict(), best_model_path)
+                print(f"Model snapshot updated: {best_model_path} (epoch={best_epoch})")
 
-                experiment.log_model("best_car_view", "best_car_view_model.pth")
-                log_best_val_samples(experiment, val_samples, step=epoch + 1)
+                best_run_metrics = {
+                    "val_axes_macro_f1": float(val_axes_score),
+                    "val_loss": float(epoch_val_loss),
+                    "combined_view_acc": float(combined_view_acc),
+                    "horizontal_macro_f1": float(horizontal_macro_f1),
+                    "vertical_macro_f1": float(vertical_macro_f1),
+                    "impossible_combined_pred_ratio": float(impossible_combined_pred_ratio),
+                }
+                best_val_payload = {
+                    "val_h_true": val_h_true.copy(),
+                    "val_h_pred": val_h_pred.copy(),
+                    "val_v_true": val_v_true.copy(),
+                    "val_v_pred": val_v_pred.copy(),
+                    "val_samples": list(val_samples),
+                }
 
     finally:
         print(f"Обучение завершено. Лучший axis-score: {best_axes_score:.4f}")
+
+        if best_epoch > 0:
+            # One-time run summary for quick hyperparameter comparison in Comet.
+            experiment.log_metric("run_best_val_axes_macro_f1", float(best_axes_score))
+            experiment.log_metrics(
+                {
+                    "run_best_val_loss": float(best_run_metrics.get("val_loss", 0.0)),
+                    "run_best_combined_view_acc": float(best_run_metrics.get("combined_view_acc", 0.0)),
+                    "run_best_horizontal_macro_f1": float(best_run_metrics.get("horizontal_macro_f1", 0.0)),
+                    "run_best_vertical_macro_f1": float(best_run_metrics.get("vertical_macro_f1", 0.0)),
+                    "run_best_impossible_combined_pred_ratio": float(
+                        best_run_metrics.get("impossible_combined_pred_ratio", 0.0)
+                    ),
+                }
+            )
+            experiment.log_other("run_best_epoch", best_epoch)
+            experiment.log_other("run_best_model_path", best_model_path)
+            experiment.log_other("run_selection_metric", "val_axes_macro_f1")
+
+            experiment.log_model(
+                "best_car_view",
+                best_model_path,
+                metadata={
+                    "best_epoch": int(best_epoch),
+                    "best_val_axes_macro_f1": float(best_axes_score),
+                    "selection_metric": "val_axes_macro_f1",
+                    "best_val_loss": float(best_run_metrics.get("val_loss", 0.0)),
+                    "best_combined_view_acc": float(best_run_metrics.get("combined_view_acc", 0.0)),
+                },
+            )
+
+            if best_val_payload is not None:
+                experiment.log_confusion_matrix(
+                    y_true=best_val_payload["val_h_true"],
+                    y_predicted=best_val_payload["val_h_pred"],
+                    labels=H_LABELS,
+                    title=f"Horizontal confusion matrix (best epoch {best_epoch})",
+                    step=best_epoch,
+                )
+                experiment.log_confusion_matrix(
+                    y_true=best_val_payload["val_v_true"],
+                    y_predicted=best_val_payload["val_v_pred"],
+                    labels=V_LABELS,
+                    title=f"Vertical confusion matrix (best epoch {best_epoch})",
+                    step=best_epoch,
+                )
+                log_best_val_samples(experiment, best_val_payload["val_samples"], step=best_epoch)
+
+    return {
+        "run_id": str(experiment.id),
+        "best_axes_score": float(best_axes_score),
+        "best_epoch": int(best_epoch),
+        "best_model_path": best_model_path,
+        "selection_metric": "val_axes_macro_f1",
+        "best_run_metrics": best_run_metrics,
+    }
 
 
 if __name__ == '__main__':
@@ -635,6 +697,9 @@ if __name__ == '__main__':
     if CONFIG.get("workspace"):
         experiment_iterator_kwargs["workspace"] = CONFIG["workspace"]
     
+    overall_best_score = -1.0
+    overall_best_info: Optional[Dict] = None
+
     for experiment in opt.get_experiments(**experiment_iterator_kwargs):
         print(f"\nЗапуск нового эксперимента: {experiment.id}")
         print(
@@ -661,5 +726,39 @@ if __name__ == '__main__':
         experiment.set_name(run_name)
         print("Run name:", run_name)
 
-        train_model(experiment, current_config)
+        run_result = train_model(experiment, current_config)
+
+        is_new_overall_best = run_result["best_axes_score"] > overall_best_score
+        if is_new_overall_best:
+            overall_best_score = run_result["best_axes_score"]
+            overall_best_info = {
+                "run_id": run_result["run_id"],
+                "run_name": run_name,
+                "selection_metric": run_result["selection_metric"],
+                "best_axes_score": run_result["best_axes_score"],
+                "best_epoch": run_result["best_epoch"],
+                "best_model_path": run_result["best_model_path"],
+                "config": {
+                    "learning_rate": float(current_config["learning_rate"]),
+                    "batch_size": int(current_config["batch_size"]),
+                    "real_source_weight": float(current_config["real_source_weight"]),
+                    "weight_decay": float(current_config["weight_decay"]),
+                },
+            }
+            experiment.log_other("was_best_so_far", True)
+            experiment.log_metric("overall_best_val_axes_macro_f1_so_far", float(overall_best_score))
+            experiment.log_other("overall_best_model_path_so_far", run_result["best_model_path"])
+            shutil.copyfile(run_result["best_model_path"], "best_overall_car_view_model.pth")
+        else:
+            experiment.log_other("was_best_so_far", False)
+
         experiment.end()
+
+    if overall_best_info is not None:
+        overall_summary_path = "best_overall_run_summary.json"
+        with open(overall_summary_path, "w", encoding="utf-8") as f:
+            json.dump(overall_best_info, f, ensure_ascii=False, indent=2)
+        print("Overall best run:")
+        print(json.dumps(overall_best_info, ensure_ascii=False, indent=2))
+        print(f"Overall best summary saved to: {overall_summary_path}")
+

@@ -163,7 +163,7 @@ def parse_args():
 
 
 def main():
-    r'''Запуск: python save_dataset.py --clear-repo --confirm-clear "mitbersh/car-view"'''
+    r'''Run: python save_dataset.py --clear-repo --confirm-clear "mitbersh/car-view"'''
     args = parse_args()
     base_path = Path(args.base_path).expanduser().resolve()
 
