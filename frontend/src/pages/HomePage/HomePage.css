@@ -1,0 +1,25 @@
+.home-page {
+  width: 100%;
+  text-align: center;
+  padding: 400px;
+}
+  
+  .home-title {
+    font-size: 42px;
+    color: #1E3A5F;
+    margin-bottom: 20px;
+  }
+  
+  .home-subtitle {
+    font-size: 20px;
+    color: #6b7280;
+    margin-bottom: 40px;
+  }
+  
+  .start-button {
+    background: #1E3A5F;
+    color: white;
+    padding: 16px 28px;
+    border-radius: 12px;
+    font-size: 18px;
+  }

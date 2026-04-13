@@ -1,18 +1,22 @@
+import './HomePage.css';
 import { Link } from 'react-router-dom';
+import Button from "../../components/Button/Button";
 
 function HomePage() {
   return (
-    <div>
-      <h2>AutoInspect</h2>
-      <p>Сервис автоматического анализа повреждений кузова автомобиля</p>
+    <div className='home-page'>
+      <h1 className='home-title'>
+        AutoInspect
+      </h1>
+      <p className='home-subtitle'>
+        Сервис автоматического анализа повреждений кузова автомобиля
+      </p>
 
-      <nav>
-        <ul>
-          <li><Link to="/login">Вход</Link></li>
-          <li><Link to="/registration">Регистрация</Link></li>
-          <li><Link to="/upload">Начать анализ</Link></li>
-        </ul>
-      </nav>
+      <Link to="/upload">
+        <Button className='start-button'>
+          Начать анализ
+        </Button>
+      </Link>
     </div>
   );
 }

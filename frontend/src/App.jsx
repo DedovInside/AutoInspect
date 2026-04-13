@@ -1,36 +1,73 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import AuthPage from './pages/AuthPage/AuthPage';
 import HomePage from './pages/HomePage/HomePage';
-import LoginPage from './pages/LoginPage/LoginPage';
-import RegistrationPage from './pages/RegistrationPage/RegistrationPage';
 import UploadPage from './pages/UploadPage/UploadPage';
 import ResultPage from './pages/ResultPage/ResultPage';
 import HistoryPage from './pages/HistoryPage/HistoryPage';
 import AdminPage from './pages/AdminPage/AdminPage';
-
-function Layout({ children }) {
-  return (
-    <div>
-      <header>
-        <h1>AutoInspect</h1>
-      </header>
-      <main>{children}</main>
-    </div>
-  );
-}
+import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute';
+import Layout from './components/Layout/Layout';
 
 function App() {
+  const isAuth = localStorage.getItem("token");
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Layout><HomePage /></Layout>} />
-        <Route path="/login" element={<Layout><LoginPage /></Layout>} />
-        <Route path="/registration" element={<Layout><RegistrationPage /></Layout>} />
-        <Route path="/upload" element={<Layout><UploadPage /></Layout>} />
-        <Route path="/result" element={<Layout><ResultPage /></Layout>} />
-        <Route path="/history" element={<Layout><HistoryPage /></Layout>} />
-        <Route path="/admin" element={<Layout><AdminPage /></Layout>} />
-        <Route path="*" element={<div>404 Not Found</div>} />
+        <Route 
+          path="/" 
+          element={
+            isAuth ? <Navigate to="/home" /> : <Navigate to="/auth" />
+          } 
+        />
+
+        <Route path="/auth" element={<AuthPage />} />
+
+        <Route element={<Layout />}>
+          <Route 
+            path="/home" 
+            element={
+              <ProtectedRoute>
+                <HomePage />
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/upload" 
+            element={
+              <ProtectedRoute>
+                <UploadPage />
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/result" 
+            element={
+              <ProtectedRoute>
+                <ResultPage />
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/history" 
+            element={
+              <ProtectedRoute>
+                <HistoryPage />
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/admin" 
+            element={
+              <ProtectedRoute>
+                <AdminPage />
+              </ProtectedRoute>
+            } 
+          />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
