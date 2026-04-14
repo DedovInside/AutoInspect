@@ -74,8 +74,8 @@ func run() error {
 		cfg.Auth.YandexRedirectURL,
 		10*time.Second,
 	)
-	if yandexClient == nil {
-		return fmt.Errorf("init yandex oauth client: empty oauth config: %w", err)
+	if err != nil {
+		return fmt.Errorf("init yandex oauth client: %w", err)
 	}
 
 	authService := service.NewAuthService(
