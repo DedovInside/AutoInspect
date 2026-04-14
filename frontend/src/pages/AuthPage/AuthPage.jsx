@@ -1,21 +1,28 @@
 import './AuthPage.css';
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import YandexLoginButton from "../../components/YandexLoginButton/YandexLoginButton";
-import { loginWithYandex } from "../../services/authService";
+import { isDevAuthBypassEnabled, startYandexOAuth } from "../../services/authService";
 
 function AuthPage() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
+    if (isDevAuthBypassEnabled()) {
+      navigate("/home", { replace: true });
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      const data = await loginWithYandex();
-
-      localStorage.setItem("token", data.accessToken);
-
-      navigate("/");
+      const authURL = await startYandexOAuth();
+      window.location.assign(authURL);
     } catch (error) {
       console.error("Auth error:", error);
-      alert("Ошибка авторизации");
+      alert(error.message || "Ошибка авторизации");
+      setLoading(false);
     }
   };
 
@@ -26,7 +33,7 @@ function AuthPage() {
         <p className='auth-subtitle'>
           Войдите или зарегистрируйтесь через Яндекс ID
         </p>
-        <YandexLoginButton onClick={handleLogin} />
+        <YandexLoginButton onClick={handleLogin} disabled={loading} />
       </div>
     </div>
   );

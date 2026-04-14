@@ -1,0 +1,43 @@
+.auth-callback-page {
+  min-height: calc(100vh - 120px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.auth-callback-card {
+  width: 100%;
+  max-width: 520px;
+  background: rgba(17, 24, 39, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 28px;
+  text-align: center;
+}
+
+.auth-callback-title {
+  margin: 0 0 14px;
+  color: #f9fafb;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.auth-callback-error {
+  margin: 0 0 16px;
+  color: #fca5a5;
+}
+
+.auth-callback-button {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: #2563eb;
+  color: #f9fafb;
+  cursor: pointer;
+}
+
+.auth-callback-button:hover {
+  background: #1d4ed8;
+}
+
