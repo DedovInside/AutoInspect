@@ -1,38 +1,50 @@
+-- +migrate Up
 CREATE TABLE models (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    version     VARCHAR(50) UNIQUE NOT NULL,
-    name        VARCHAR(255) NOT NULL,  -- "VW Polo 5 Base Model"
-    
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    version        VARCHAR(50) UNIQUE NOT NULL,
+    name           VARCHAR(255) NOT NULL,
+
+    -- Спецификация автомобиля
+    car_make       VARCHAR(100) NOT NULL,
+    car_model      VARCHAR(100) NOT NULL,
+    car_generation VARCHAR(100),
+    year_from      INTEGER,
+    year_to        INTEGER,
+
     -- Хранилище
-    weights_path TEXT NOT NULL,  -- MinIO path
-    config_path  TEXT,           -- путь к конфигу модели
-    
-    -- Метаданные
-    car_make     VARCHAR(100),   -- "Volkswagen"
-    car_model    VARCHAR(100),   -- "Polo 5"
-    
-    -- Статус
-    status       VARCHAR(20) DEFAULT 'training' 
-                 CHECK (status IN ('training', 'ready', 'active', 'deprecated')),
-    active       BOOLEAN DEFAULT FALSE,
-    
-    -- Метрики качества (из training)
-    metrics_json JSONB,  -- {"accuracy": 0.95, "mAP": 0.89, "loss": 0.12}
-    
-    -- История
-    parent_model_id UUID REFERENCES models(id),  -- для доменной адаптации
-    trained_at      TIMESTAMPTZ,
-    description     TEXT,
-    created_at      TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    created_by      UUID REFERENCES users(id)  -- кто создал (admin/owner)
+    weights_path   TEXT NOT NULL,
+    config_path    TEXT,
+
+    -- Runtime-статус модели
+    status         VARCHAR(20) NOT NULL DEFAULT 'ready'
+                   CHECK (status IN ('ready', 'active', 'deprecated')),
+    active         BOOLEAN NOT NULL DEFAULT FALSE,
+
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CHECK (year_from IS NULL OR year_from >= 1900),
+    CHECK (year_to IS NULL OR year_to >= 1900),
+    CHECK (year_from IS NULL OR year_to IS NULL OR year_from <= year_to)
 );
 
--- Только одна активная модель
-CREATE UNIQUE INDEX idx_models_active ON models(active) WHERE active = TRUE;
-CREATE INDEX idx_models_status ON models(status);
-CREATE INDEX idx_models_car_model ON models(car_model);
+-- Только одна активная модель для конкретной спецификации авто
+CREATE UNIQUE INDEX idx_models_active_per_car_spec
+ON models (
+    car_make,
+    car_model,
+    COALESCE(car_generation, ''),
+    COALESCE(year_from, -1),
+    COALESCE(year_to, -1)
+)
+WHERE active = TRUE;
 
--- Trigger для автоматического updated_at (используем функцию из первой миграции)
+-- Индексы для быстрого подбора нужной модели
+CREATE INDEX idx_models_car_lookup ON models(car_make, car_model, car_generation);
+CREATE INDEX idx_models_year_range ON models(year_from, year_to);
+CREATE INDEX idx_models_status ON models(status);
+
+-- Trigger для автоматического updated_at (функция создана в 000001)
 CREATE TRIGGER update_models_updated_at
     BEFORE UPDATE ON models
     FOR EACH ROW

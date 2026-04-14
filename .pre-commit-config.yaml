@@ -1,0 +1,78 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: check-json
+      - id: check-yaml
+      - id: mixed-line-ending
+      - id: no-commit-to-branch
+        args: [--branch, main, --branch, master]
+      - id: check-added-large-files
+        args: [--maxkb, '500']
+
+  - repo: local
+    hooks:
+      - id: go-fmt
+        name: go-fmt
+        entry: powershell -Command "cd backend; gofmt -l -w ."
+        language: system
+        files: ^backend/.*\.go$
+        types: [go]
+        pass_filenames: false
+
+      - id: go-imports
+        name: go-imports
+        entry: powershell -Command "cd backend; goimports -l -w ."
+        language: system
+        files: ^backend/.*\.go$
+        types: [go]
+        pass_filenames: false
+        require_serial: true
+
+      - id: go-mod-tidy
+        name: go-mod-tidy
+        entry: powershell -Command "cd backend; go mod tidy"
+        language: system
+        files: ^backend/go\.mod$
+        pass_filenames: false
+
+      - id: go-mod-verify
+        name: go-mod-verify
+        entry: powershell -Command "cd backend; go mod verify"
+        language: system
+        files: ^backend/go\.mod$
+        pass_filenames: false
+
+      - id: go-vet
+        name: go-vet
+        entry: powershell -Command "cd backend; go vet ./..."
+        language: system
+        files: ^backend/.*\.go$
+        types: [go]
+        pass_filenames: false
+
+      - id: golangci-lint
+        name: golangci-lint (backend)
+        entry: powershell -Command "cd backend; golangci-lint run --config=.golangci.yml --timeout=5m"
+        language: system
+        files: ^backend/.*\.go$
+        types: [go]
+        pass_filenames: false
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+        args: ["--verbose"]
+
+  - repo: local
+    hooks:
+      - id: gosec
+        name: gosec
+        entry: powershell -Command "cd backend; gosec -exclude-dir=internal/repository/postgres/db ./..."
+        language: system
+        files: ^backend/.*\.go$
+        pass_filenames: false

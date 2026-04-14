@@ -1,0 +1,78 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  concurrency: 8
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gocritic
+    - misspell
+    - goconst
+    - prealloc
+    - bodyclose
+    - sqlclosecheck
+    - gocyclo
+    - gocognit
+
+  settings:
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+        - style
+      disabled-checks:
+        - commentFormatting
+    gocyclo:
+      min-complexity: 15
+    gocognit:
+      min-complexity: 20
+    goconst:
+      min-len: 2
+      min-occurrences: 2
+    misspell:
+      locale: US
+    prealloc:
+      simple: true
+      range-loops: true
+      for-loops: true
+
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      # Исключить всю папку со сгенерированным sqlc кодом
+      - path: internal/repository/db
+        linters:
+          - "*"
+
+      # Не требовать обработку ошибок для fmt.Print* в main.go
+      - path: main\.go
+        linters:
+          - errcheck
+        text: "Error return value of `fmt\\.(Print|Printf|Println)` is not checked"
+
+      # Игнорировать замыкания в тестах
+      - path: _test\.go
+        text: "Using the variable on range scope .* in function literal"
+
+      # Снизить строгость проверок сложности в тестах
+      - path: _test\.go
+        linters:
+          - gocyclo
+          - gocognit
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
