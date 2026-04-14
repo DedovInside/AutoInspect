@@ -82,7 +82,7 @@ type AuthConfig struct {
 
 	YandexClientID     string `env:"YANDEX_CLIENT_ID" env-required:"true"`
 	YandexClientSecret string `env:"YANDEX_CLIENT_SECRET" env-required:"true"`
-	YandexRedirectURL  string `env:"YANDEX_REDIRECT_URL" env-default:"http://localhost:8080/v1/auth/yandex/callback"`
+	YandexRedirectURL  string `env:"YANDEX_REDIRECT_URL" env-default:"http://localhost:5173/auth/callback"`
 }
 
 // type WorkerConfig struct {
