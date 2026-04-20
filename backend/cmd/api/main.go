@@ -13,8 +13,8 @@ import (
 
 	"github.com/DedovInside/AutoInspect/backend/internal/api"
 	"github.com/DedovInside/AutoInspect/backend/internal/api/handlers"
+	rediscache "github.com/DedovInside/AutoInspect/backend/internal/cache/redis"
 	"github.com/DedovInside/AutoInspect/backend/internal/config"
-	rediscache "github.com/DedovInside/AutoInspect/backend/internal/queue/redis"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository/postgres"
 	"github.com/DedovInside/AutoInspect/backend/internal/service"
 )

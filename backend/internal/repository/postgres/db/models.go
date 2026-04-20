@@ -10,39 +10,24 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type Analysis struct {
-	ID            pgtype.UUID
-	UserID        pgtype.UUID
-	Status        string
-	CarMake       string
-	CarModel      string
-	CarGeneration *string
-	CarYear       *int32
-	ImageKey      string
-	ImageMetadata []byte
-	ModelVersion  *string
-	ModelID       pgtype.UUID
-	ResultJson    []byte
-	ErrorMessage  *string
-	ErrorCode     *string
-	RetryCount    *int32
-	CreatedAt     pgtype.Timestamptz
-	UpdatedAt     pgtype.Timestamptz
-	ProcessedAt   pgtype.Timestamptz
-}
-
-type AuditLog struct {
-	ID         int64
-	UserID     pgtype.UUID
-	Action     string
-	EntityType *string
-	EntityID   pgtype.UUID
-	IpAddress  *netip.Addr
-	UserAgent  *string
-	RequestID  pgtype.UUID
-	Details    []byte
-	StatusCode *int32
-	CreatedAt  pgtype.Timestamptz
+// Асинхронные задачи анализа изображений и результаты ML
+type AnalysisJob struct {
+	ID               pgtype.UUID
+	UserID           pgtype.UUID
+	IdempotencyKey   *string
+	CarMake          *string
+	CarModel         *string
+	CarGeneration    *string
+	CarYear          *int32
+	ImageKeys        []byte
+	CorrelationID    pgtype.UUID
+	Status           string
+	ErrorMessage     *string
+	Result           []byte
+	UsedModelVersion *string
+	RequestedAt      pgtype.Timestamptz
+	StartedAt        pgtype.Timestamptz
+	CompletedAt      pgtype.Timestamptz
 }
 
 type AuthOauthIdentity struct {
@@ -70,21 +55,19 @@ type AuthSession struct {
 	UpdatedAt     pgtype.Timestamptz
 }
 
-type Model struct {
-	ID            pgtype.UUID
-	Version       string
-	Name          string
-	CarMake       string
-	CarModel      string
-	CarGeneration *string
-	YearFrom      *int32
-	YearTo        *int32
-	WeightsPath   string
-	ConfigPath    *string
-	Status        string
-	Active        bool
-	CreatedAt     pgtype.Timestamptz
-	UpdatedAt     pgtype.Timestamptz
+// Реестр ML-моделей, привязанных к маркам/моделям/годам авто
+type CarModel struct {
+	ID           pgtype.UUID
+	Make         string
+	Model        string
+	Generation   *string
+	YearFrom     int32
+	YearTo       *int32
+	ModelS3Key   string
+	ModelVersion string
+	IsUniversal  *bool
+	IsActive     *bool
+	CreatedAt    pgtype.Timestamptz
 }
 
 type User struct {

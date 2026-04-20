@@ -19,19 +19,17 @@ type AnalysisJob struct {
 	ID     uuid.UUID `json:"id" db:"id"`
 	UserID uuid.UUID `json:"user_id" db:"user_id"`
 
-	// Информация об авто (снэпшот на момент запроса)
+	IdempotencyKey *string `json:"idempotency_key,omitempty" db:"idempotency_key"`
+
 	CarMake       string `json:"car_make" db:"car_make"`
 	CarModel      string `json:"car_model" db:"car_model"`
 	CarGeneration string `json:"car_generation" db:"car_generation"`
 	CarYear       int    `json:"car_year" db:"car_year"`
 
-	// Ссылки на картинки в MinIO
 	ImageKeys []string `json:"image_keys" db:"image_keys"` // Храним как JSONB или отдельной таблицей, в домене слайс
 
-	// Для корреляции с Kafka
 	CorrelationID uuid.UUID `json:"correlation_id" db:"correlation_id"`
 
-	// Состояние и результат
 	Status       JobStatus `json:"status" db:"status"`
 	ErrorMessage *string   `json:"error_message,omitempty" db:"error_message"`
 

@@ -11,18 +11,31 @@ import (
 )
 
 type Querier interface {
+	CreateAnalysisJob(ctx context.Context, arg CreateAnalysisJobParams) error
 	CreateAuthSession(ctx context.Context, arg CreateAuthSessionParams) error
+	CreateCarModel(ctx context.Context, arg CreateCarModelParams) error
 	CreateOAuthIdentity(ctx context.Context, arg CreateOAuthIdentityParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) error
 	DeleteUser(ctx context.Context, id pgtype.UUID) (int64, error)
+	FindActiveCarModel(ctx context.Context, arg FindActiveCarModelParams) (CarModel, error)
+	GetAnalysisJobByCorrelationID(ctx context.Context, correlationID pgtype.UUID) (AnalysisJob, error)
+	GetAnalysisJobByID(ctx context.Context, id pgtype.UUID) (AnalysisJob, error)
+	GetAnalysisJobByUserAndIdempotencyKey(ctx context.Context, arg GetAnalysisJobByUserAndIdempotencyKeyParams) (AnalysisJob, error)
 	GetAuthSessionByTokenHash(ctx context.Context, tokenHash string) (AuthSession, error)
 	GetOAuthIdentityByProviderSubject(ctx context.Context, arg GetOAuthIdentityByProviderSubjectParams) (AuthOauthIdentity, error)
+	GetUniversalCarModel(ctx context.Context) (CarModel, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
+	ListAnalysisJobsByUserID(ctx context.Context, arg ListAnalysisJobsByUserIDParams) ([]AnalysisJob, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
+	MarkAnalysisJobStarted(ctx context.Context, id pgtype.UUID) (int64, error)
 	RevokeAuthSession(ctx context.Context, arg RevokeAuthSessionParams) (int64, error)
 	RevokeFamily(ctx context.Context, arg RevokeFamilyParams) error
 	TouchLastUsed(ctx context.Context, arg TouchLastUsedParams) (int64, error)
+	UpdateAnalysisJobResult(ctx context.Context, arg UpdateAnalysisJobResultParams) (int64, error)
+	UpdateAnalysisJobResultByCorrelationID(ctx context.Context, arg UpdateAnalysisJobResultByCorrelationIDParams) (int64, error)
+	UpdateAnalysisJobStatus(ctx context.Context, arg UpdateAnalysisJobStatusParams) (int64, error)
+	UpdateAnalysisJobStatusByCorrelationID(ctx context.Context, arg UpdateAnalysisJobStatusByCorrelationIDParams) (int64, error)
 	UpdateLastLogin(ctx context.Context, id pgtype.UUID) (int64, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (int64, error)
 }
