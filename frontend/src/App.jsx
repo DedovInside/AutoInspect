@@ -51,7 +51,7 @@ function App() {
           />
 
           <Route 
-            path="/result" 
+            path="/result/:id" 
             element={
               <ProtectedRoute>
                 <RoleBasedRoute allowedRoles={["USER", "SERVICE", "ADMIN"]}>

@@ -3,24 +3,42 @@ import { useNavigate } from "react-router-dom";
 import Button from "../../components/Button/Button";
 import FileUploader from "../../components/FileUploader/FileUploader";
 import BrandSelector from "../../components/BrandSelector/BrandSelector";
+import { uploadImages } from "../../services/analysisService";
 
 function UploadPage() {
   const [files, setFiles] = useState([]);
   const [brand, setBrand] = useState("");
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    setError("");
+  
     if (files.length === 0) {
-      alert("Выберите файл/файлы");
-      return;
-    }
-
-    if (!brand) {
-      alert("Выберите марку автомобиля");
+      setError("Выберите изображение/я");
       return;
     }
   
-    navigate("/result", { state: { files, brand } });
+    if (!brand) {
+      setError("Выберите марку автомобиля");
+      return;
+    }
+  
+    try {
+      setLoading(true);
+  
+      const result = await uploadImages(files, brand);
+  
+      const analysisId = result.analysis_id;
+  
+      navigate(`/result/${analysisId}`);
+    } catch (err) {
+      console.error(err);
+      setError("Не удалось отправить изображения");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -31,9 +49,13 @@ function UploadPage() {
 
       <FileUploader onFileSelect={setFiles} />
 
-      <Button onClick={handleSubmit}>
-          Отправить
+      {error && <p style={{ color: "red"}}>{error}</p>}
+
+      <Button onClick={handleSubmit} disabled={loading}>
+          {loading ? "Отправка..." : "Отправить"}
       </Button>
+
+      {loading && <p>Идет загрузка</p>}
 
       <p>
         Если вашей марки нет в списке, анализ может быть проведён с использованием общей модели при выбори "Другое". Точность может быть немного ниже.
