@@ -1,11 +1,12 @@
 import './Header.css';
 import { Link, useNavigate } from "react-router-dom";
-import { getStoredUser, hasAccessToken, logout } from "../../services/authService";
+import { getStoredUser, hasAccessToken, logout, getUserRole } from "../../services/authService";
 
 function Header() {
   const navigate = useNavigate();
   const token = hasAccessToken();
   const user = getStoredUser();
+  const role = getUserRole();
 
   const displayName = user?.username || "Пользователь";
   const email = user?.email || "";
@@ -36,6 +37,14 @@ function Header() {
             <>
               <Link to="/upload">Анализ</Link>
               <Link to="/history">История</Link>
+
+              {role === "SERVICE" && (
+                <Link to="/service-profile">Профиль сервиса</Link>
+              )}
+
+              {role === "ADMIN" && (
+                <Link to="/admin">Админ панель</Link>
+              )}
 
               <div className="profile-menu">
                 <button type="button" className="profile-trigger" aria-label="Профиль пользователя">

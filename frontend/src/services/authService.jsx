@@ -180,3 +180,11 @@ export async function logout() {
 
   clearSession();
 }
+
+export function getUserRole() {
+  if (import.meta.env.DEV && import.meta.env.VITE_DEV_ROLE) {
+    return import.meta.env.VITE_DEV_ROLE;
+  }
+  const user = getStoredUser();
+  return user?.role || "USER";
+}

@@ -6,7 +6,9 @@ import UploadPage from './pages/UploadPage/UploadPage';
 import ResultPage from './pages/ResultPage/ResultPage';
 import HistoryPage from './pages/HistoryPage/HistoryPage';
 import AdminPage from './pages/AdminPage/AdminPage';
+import ServiceProfilePage from './pages/ServiceProfilePage/ServiceProfilePage';
 import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute';
+import RoleBasedRoute from './components/RoleBasedRoute/RoleBasedRoute';
 import Layout from './components/Layout/Layout';
 import { hasAccessToken } from './services/authService';
 
@@ -30,7 +32,9 @@ function App() {
             path="/home" 
             element={
               <ProtectedRoute>
-                <HomePage />
+                <RoleBasedRoute allowedRoles={["USER", "SERVICE", "ADMIN"]}>
+                  <HomePage />
+                </RoleBasedRoute>
               </ProtectedRoute>
             } 
           />
@@ -39,7 +43,9 @@ function App() {
             path="/upload" 
             element={
               <ProtectedRoute>
-                <UploadPage />
+                <RoleBasedRoute allowedRoles={["USER", "SERVICE", "ADMIN"]}>
+                  <UploadPage />
+                </RoleBasedRoute>
               </ProtectedRoute>
             } 
           />
@@ -48,7 +54,9 @@ function App() {
             path="/result" 
             element={
               <ProtectedRoute>
-                <ResultPage />
+                <RoleBasedRoute allowedRoles={["USER", "SERVICE", "ADMIN"]}>
+                  <ResultPage />
+                </RoleBasedRoute>
               </ProtectedRoute>
             } 
           />
@@ -57,7 +65,20 @@ function App() {
             path="/history" 
             element={
               <ProtectedRoute>
-                <HistoryPage />
+                <RoleBasedRoute allowedRoles={["USER", "SERVICE", "ADMIN"]}>
+                  <HistoryPage />
+                </RoleBasedRoute>
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/service-profile" 
+            element={
+              <ProtectedRoute>
+                <RoleBasedRoute allowedRoles={["SERVICE"]}>
+                  <ServiceProfilePage />
+                </RoleBasedRoute>
               </ProtectedRoute>
             } 
           />
@@ -66,7 +87,9 @@ function App() {
             path="/admin" 
             element={
               <ProtectedRoute>
-                <AdminPage />
+                <RoleBasedRoute allowedRoles={["ADMIN"]}>
+                  <AdminPage />
+                </RoleBasedRoute>
               </ProtectedRoute>
             } 
           />
