@@ -33,11 +33,11 @@ ML-часть AutoInspect - это каскад моделей компьюте�
 
 ### Fine-tuned ResNet18: классификация ракурса
 
-- Модель (Hugging Face): https://huggingface.co/mitbersh/car-view
+- Модель (Hugging Face): https://huggingface.co/mitbersh/car-view-classification
 - Инференс-ноутбук (Kaggle): https://www.kaggle.com/code/brshtskmit/infer-car-view
 - Обучение (Kaggle): https://www.kaggle.com/code/brshtskmit/train-view-model
 - Метрики и эксперименты (Comet): https://www.comet.com/brshtsk/car-perspective
-- Датасет (Hugging Face): https://huggingface.co/datasets/mitbersh/car-view
+- Датасет (Hugging Face): https://huggingface.co/datasets/mitbersh/car-view-classification
 
 На базе `View Model` сделаны инструменты для подготовки датасета сегментации:
 - [SuperviselyPerspective](https://github.com/brshtsk/SuperviselyPerspective)

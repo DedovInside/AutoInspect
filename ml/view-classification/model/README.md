@@ -1,7 +1,7 @@
 # AutoInspect Car View Classifier
 
 [![Project](https://img.shields.io/badge/Project-AutoInspect-black?logo=github)](https://github.com/DedovInside/AutoInspect/tree/ml/ml)
-[![Hugging Face](https://img.shields.io/badge/Hugging%20Face-car--view-yellow?logo=huggingface)](https://huggingface.co/mitbersh/car-view)
+[![Hugging Face](https://img.shields.io/badge/Hugging%20Face-car--view-yellow?logo=huggingface)](https://huggingface.co/mitbersh/car-view-classification)
 [![PyTorch](https://img.shields.io/badge/PyTorch-ResNet18%20Two--Head-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![Task](https://img.shields.io/badge/Task-Car%20View%20Classification-blue)]()
 [![Classes](https://img.shields.io/badge/Classes-9-success)]()
@@ -31,7 +31,7 @@ pip install -r requirements.infer.txt
 #### 2. Скачать модель
 
 ```bash
-python -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='mitbersh/car-view', filename='car_view_model.pth', local_dir='.')"
+python -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='mitbersh/car-view-classification', filename='car_view_model.pth', local_dir='.')"
 ```
 
 #### 3. Запустить инференс
@@ -58,7 +58,7 @@ CLASS_NAMES = [
 
 ## Датасет
 
-Публичный датасет: [mitbersh/car-view dataset](https://huggingface.co/datasets/mitbersh/car-view)
+Публичный датасет: [mitbersh/car-view-classification dataset](https://huggingface.co/datasets/mitbersh/car-view-classification)
 
 Датасет состоит из **synthetic** и **real** частей:
 
