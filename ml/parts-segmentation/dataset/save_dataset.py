@@ -6,7 +6,7 @@ import json
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, Set
+from typing import Dict, Iterable, List, Set
 
 REQUIRED_COLUMNS = {"image", "annotation", "view", "split"}
 ALLOWED_SPLITS = {"train", "val", "test"}
@@ -67,6 +67,12 @@ def parse_args() -> argparse.Namespace:
         help="Number of parallel upload workers for upload_large_folder().",
     )
     parser.add_argument(
+        "--upload-mode",
+        choices=("datasetdict", "raw-folder"),
+        default="datasetdict",
+        help="Upload mode. datasetdict gives reliable image previews in Data Studio.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Only validate and print plan without uploading.",
@@ -98,6 +104,10 @@ def print_format_guide() -> None:
     print("  image,annotation,view,split")
     print("Example row:")
     print("  img/sample.png,ann/sample.png.json,front-left,train")
+    print()
+    print("Upload modes:")
+    print("  datasetdict (default): pushes typed image dataset for better Data Studio preview")
+    print("  raw-folder: uploads folder as-is via upload_large_folder")
 
 
 def _assert(condition: bool, message: str) -> None:
@@ -355,7 +365,123 @@ def print_distribution(stats: DatasetStats) -> None:
             print(f"    {view}: {count} ({share:.2f}%)")
 
 
-def upload_to_hf(
+def _read_text_file(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+def _collect_records_split_dirs(images_dir: Path) -> Dict[str, List[dict]]:
+    records_by_split: Dict[str, List[dict]] = {split: [] for split in sorted(ALLOWED_SPLITS)}
+    car_view_tag_ids = load_car_view_tag_ids(images_dir / "meta.json")
+
+    for split in sorted(ALLOWED_SPLITS):
+        split_dir = images_dir / split
+        img_dir = split_dir / "img"
+        ann_dir = split_dir / "ann"
+        img_info_dir = split_dir / "img_info"
+
+        image_files = sorted(
+            p for p in img_dir.rglob("*") if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
+        )
+        for image_abs in image_files:
+            image_rel = image_abs.relative_to(img_dir).as_posix()
+
+            ann_abs = find_annotation_for_image(image_abs, img_dir, ann_dir)
+            if ann_abs is None:
+                raise ValueError(f"missing annotation for {split}/img/{image_rel}")
+
+            img_info_abs = find_img_info_for_image(image_abs, img_dir, img_info_dir)
+            if img_info_abs is None:
+                raise ValueError(f"missing img_info for {split}/img/{image_rel}")
+
+            records_by_split[split].append(
+                {
+                    "image": str(image_abs),
+                    "split": split,
+                    "view": extract_car_view_from_img_info(img_info_abs, car_view_tag_ids),
+                    "image_rel": image_rel,
+                    "annotation_rel": ann_abs.relative_to(split_dir).as_posix(),
+                    "img_info_rel": img_info_abs.relative_to(split_dir).as_posix(),
+                    "annotation_json": _read_text_file(ann_abs),
+                    "img_info_json": _read_text_file(img_info_abs),
+                }
+            )
+
+    return records_by_split
+
+
+def _collect_records_legacy(images_dir: Path, split_csv: Path) -> Dict[str, List[dict]]:
+    records_by_split: Dict[str, List[dict]] = {split: [] for split in sorted(ALLOWED_SPLITS)}
+
+    for row in _read_rows(split_csv):
+        image_rel = (row.get("image") or "").strip()
+        ann_rel = (row.get("annotation") or "").strip()
+        split = (row.get("split") or "").strip()
+        view = (row.get("view") or "").strip() or "unknown"
+
+        if split not in ALLOWED_SPLITS:
+            continue
+
+        image_abs = images_dir / Path(image_rel)
+        ann_abs = images_dir / Path(ann_rel)
+        records_by_split[split].append(
+            {
+                "image": str(image_abs),
+                "split": split,
+                "view": view,
+                "image_rel": image_rel,
+                "annotation_rel": ann_rel,
+                "annotation_json": _read_text_file(ann_abs),
+            }
+        )
+
+    return records_by_split
+
+
+def upload_datasetdict_to_hf(
+    repo_id: str,
+    images_dir: Path,
+    split_csv: Path,
+    dataset_format: str,
+    token: str | None,
+    revision: str,
+    private: bool,
+) -> None:
+    from huggingface_hub import HfApi
+
+    try:
+        datasets_module = __import__("datasets", fromlist=["Dataset", "DatasetDict", "Image"])
+    except ImportError as error:
+        raise RuntimeError(
+            "datasetdict upload mode requires the 'datasets' package. "
+            "Install dependencies from dataset/requirements.txt"
+        ) from error
+
+    Dataset = datasets_module.Dataset
+    DatasetDict = datasets_module.DatasetDict
+    Image = datasets_module.Image
+
+    if dataset_format == "split_dirs":
+        records_by_split = _collect_records_split_dirs(images_dir)
+    else:
+        records_by_split = _collect_records_legacy(images_dir, split_csv)
+
+    dataset_splits = {}
+    for split in sorted(ALLOWED_SPLITS):
+        records = records_by_split.get(split, [])
+        if not records:
+            continue
+        ds = Dataset.from_list(records)
+        dataset_splits[split] = ds.cast_column("image", Image())
+
+    _assert(bool(dataset_splits), "No samples to upload after conversion to DatasetDict")
+    dataset_dict = DatasetDict(dataset_splits)
+
+    api = HfApi(token=token)
+    api.create_repo(repo_id=repo_id, repo_type="dataset", private=private, exist_ok=True)
+    dataset_dict.push_to_hub(repo_id=repo_id, token=token, private=private, revision=revision)
+
+
+def upload_raw_folder_to_hf(
     repo_id: str,
     images_dir: Path,
     token: str | None,
@@ -379,7 +505,7 @@ def upload_to_hf(
 
 
 def main() -> None:
-    # Run: python save_dataset.py --repo-id mitbersh/car-parts-segmentation --images-dir ../images/out
+    # Run: python save_dataset.py --repo-id mitbersh/car-parts-segmentation --images-dir ../images/out --upload-mode datasetdict
     args = parse_args()
 
     if args.print_format:
@@ -401,16 +527,28 @@ def main() -> None:
     if args.dry_run:
         print("\n[dry-run] Upload skipped.")
         print(f"[dry-run] Target repo: {args.repo_id} (revision: {args.revision})")
+        print(f"[dry-run] Upload mode: {args.upload_mode}")
         return
 
-    upload_to_hf(
-        repo_id=args.repo_id,
-        images_dir=images_dir,
-        token=args.token,
-        revision=args.revision,
-        private=args.private,
-        num_workers=args.num_workers,
-    )
+    if args.upload_mode == "datasetdict":
+        upload_datasetdict_to_hf(
+            repo_id=args.repo_id,
+            images_dir=images_dir,
+            split_csv=split_csv,
+            dataset_format=stats.dataset_format,
+            token=args.token,
+            revision=args.revision,
+            private=args.private,
+        )
+    else:
+        upload_raw_folder_to_hf(
+            repo_id=args.repo_id,
+            images_dir=images_dir,
+            token=args.token,
+            revision=args.revision,
+            private=args.private,
+            num_workers=args.num_workers,
+        )
     print("\nUpload completed.")
 
 
