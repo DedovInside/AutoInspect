@@ -13,13 +13,14 @@ ML-часть AutoInspect - это каскад моделей компьюте�
 
 ## Что уже готово
 
-| Модуль | Назначение | Статус | Артефакты |
-|---|---|---|---|
-| View Model | Классификация ракурса фото авто | `READY` | Hugging Face, Kaggle, Comet |
-| Part Segmentation | Сегментация деталей авто (coarse/tuned/detailed) | `IN PROGRESS` | Датасет и пайплайн в работе |
-| Damage Segmentation | Сегментация зон повреждений | `IN PROGRESS` | Базовый датасет подготовлен |
+| Модуль                      | Назначение                        | Статус | Артефакты                                                      |
+|-----------------------------|-----------------------------------|---|----------------------------------------------------------------|
+| View Model                  | Классификация ракурса фото авто   | `READY` | Hugging Face, Kaggle, Comet                                    |
+| Part Segmentation (general) | Сегментация деталей авто (general)| `IN PROGRESS` | Датасет подготовлен, проведен Smoke-test. Ведутся эксперименты |
+| Part Segmentation (tunned)  | Сегментация деталей авто (tuned)  | `IN PROGRESS` | Базовый датасет подготовлен, разработка пайплайна дообучения   |
+| Damage Segmentation         | Сегментация зон повреждений       | `IN PROGRESS` | Базовый датасет подготовлен                                    |
 
-> Сейчас полностью доступна модель 1 (View Model). Модули 2-3 находятся в активной разработке.
+> Сейчас полностью доступна модель 1 (View Model) и Baseline модели 2 (Part Segmentation). Модули 2-3 находятся в активной разработке.
 
 ## Архитектура ML-каскада
 
@@ -49,8 +50,11 @@ ML-часть AutoInspect - это каскад моделей компьюте�
 
 Базовая сегментация крупных частей авто (дверь, бампер, крыло и т.д.).
 Используется как универсальный сегментатор и как база для specialized-моделей.
+За основу взят датасет от HITL, к парным деталям (фара, дверь и т.д.) добавлен тэг side (left/right).
 
-- Адаптированный датасет (Supervisely): https://app.supervisely.com/projects/373665/datasets/1128482
+- Обучение (Kaggle, Smoke-Test): https://www.kaggle.com/code/brshtskmit/train-car-parts-segmentation-smoke-test-yolov26
+- Адаптированный датасет: [Supervisely](https://huggingface.co/datasets/mitbersh/car-parts-segmentation-raw),
+[YOLO](https://huggingface.co/datasets/mitbersh/car-parts-segmentation-yolo)
 - Исходный набор: [Humans In The Loop](https://humansintheloop.org/resources/datasets/car-parts-and-car-damages-dataset/)
 - Для обогащения разметки использовались:
   - [SuperviselyPerspective](https://github.com/brshtsk/SuperviselyPerspective)

@@ -505,7 +505,7 @@ def upload_raw_folder_to_hf(
 
 
 def main() -> None:
-    # Run: python save_dataset.py --repo-id mitbersh/car-parts-segmentation --images-dir ../images/out --upload-mode datasetdict
+    # Run: python save_dataset.py --repo-id mitbersh/car-parts-segmentation-raw --images-dir ../../images/out --upload-mode datasetdict
     args = parse_args()
 
     if args.print_format:

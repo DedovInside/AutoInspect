@@ -351,7 +351,7 @@ def format_view_distribution(distribution: Dict[str, Dict[str, float]]) -> str:
 
 
 def main() -> None:
-    # Run: python split.py --images-dir "..\images\source"
+    # Run: python split.py --images-dir "..\..\images\source"
     args = parse_args()
     ratios = validate_ratios(args.train_ratio, args.val_ratio, args.test_ratio)
     output_dir = args.output_dir if args.output_dir is not None else args.images_dir / "out"
