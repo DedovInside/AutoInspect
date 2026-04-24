@@ -4,9 +4,9 @@ import argparse
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Sequence
+from typing import Dict, Iterable, Sequence
 
-from huggingface_hub import HfApi
+from huggingface_hub import HfApi, get_token
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
 SPLITS = ("train", "val", "test")
@@ -36,7 +36,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--token",
         default=None,
-        help="HF token. If omitted, uses HF_TOKEN or HUGGINGFACE_HUB_TOKEN env var.",
+        help="HF token. If omitted, uses HF_TOKEN/HUGGINGFACE_HUB_TOKEN or token from `hf auth login`.",
     )
 
     visibility_group = parser.add_mutually_exclusive_group()
@@ -53,6 +53,11 @@ def parse_args() -> argparse.Namespace:
         "--commit-message",
         default="Upload YOLO dataset",
         help="Commit message for upload.",
+    )
+    parser.add_argument(
+        "--create-only",
+        action="store_true",
+        help="Create dataset repository only and exit without uploading files.",
     )
     parser.add_argument(
         "--include",
@@ -73,7 +78,7 @@ def parse_args() -> argparse.Namespace:
 def resolve_token(cli_token: str | None) -> str | None:
     if cli_token:
         return cli_token
-    return os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_HUB_TOKEN")
+    return os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_HUB_TOKEN") or get_token()
 
 
 def resolve_private_flag(args: argparse.Namespace) -> bool | None:
@@ -82,6 +87,33 @@ def resolve_private_flag(args: argparse.Namespace) -> bool | None:
     if args.public:
         return False
     return None
+
+
+def resolve_repo_id(api: HfApi, repo_id: str) -> str:
+    cleaned = repo_id.strip()
+    if "/" in cleaned:
+        return cleaned
+
+    whoami_info = api.whoami()
+    username = whoami_info.get("name")
+    if not isinstance(username, str) or not username:
+        raise Exception("Cannot resolve Hugging Face username from token. Use repo-id as username/repo.")
+
+    return f"{username}/{cleaned}"
+
+
+def create_dataset_repo(api: HfApi, repo_id: str, private: bool | None, token: str | None) -> str:
+    create_repo_kwargs = {
+        "repo_id": repo_id,
+        "repo_type": "dataset",
+        "exist_ok": True,
+        "token": token,
+    }
+    if private is not None:
+        create_repo_kwargs["private"] = private
+
+    created = api.create_repo(**create_repo_kwargs)
+    return str(created)
 
 
 def validate_dataset_yaml(source_dir: Path) -> None:
@@ -153,28 +185,21 @@ def validate_yolo_dataset(source_dir: Path) -> ValidationReport:
 def upload_dataset(
     source_dir: Path,
     repo_id: str,
-    token: str,
+    token: str | None,
     private: bool | None,
     revision: str,
     path_in_repo: str,
     commit_message: str,
     allow_patterns: Sequence[str] | None,
     ignore_patterns: Sequence[str] | None,
-) -> str:
+) -> tuple[str, str]:
     api = HfApi(token=token)
+    resolved_repo_id = resolve_repo_id(api, repo_id)
 
-    create_repo_kwargs = {
-        "repo_id": repo_id,
-        "repo_type": "dataset",
-        "exist_ok": True,
-        "token": token,
-    }
-    if private is not None:
-        create_repo_kwargs["private"] = private
-    api.create_repo(**create_repo_kwargs)
+    create_dataset_repo(api=api, repo_id=resolved_repo_id, private=private, token=token)
 
     commit_info = api.upload_folder(
-        repo_id=repo_id,
+        repo_id=resolved_repo_id,
         repo_type="dataset",
         folder_path=str(source_dir),
         revision=revision,
@@ -184,7 +209,8 @@ def upload_dataset(
         allow_patterns=list(allow_patterns) if allow_patterns else None,
         ignore_patterns=list(ignore_patterns) if ignore_patterns else None,
     )
-    return getattr(commit_info, "commit_url", "") or getattr(commit_info, "oid", "") or "uploaded"
+    commit_ref = getattr(commit_info, "commit_url", "") or getattr(commit_info, "oid", "") or "uploaded"
+    return resolved_repo_id, commit_ref
 
 
 def main() -> None:
@@ -208,12 +234,24 @@ def main() -> None:
 
     token = resolve_token(args.token)
     if not token:
-        raise Exception("HF token is required. Pass --token or set HF_TOKEN/HUGGINGFACE_HUB_TOKEN.")
+        raise Exception(
+            "HF token not found. Pass --token, set HF_TOKEN/HUGGINGFACE_HUB_TOKEN, or run `hf auth login`."
+        )
 
     private = resolve_private_flag(args)
-    result = upload_dataset(
+    api = HfApi(token=token)
+    resolved_repo_id = resolve_repo_id(api, args.repo_id)
+    create_ref = create_dataset_repo(api=api, repo_id=resolved_repo_id, private=private, token=token)
+    print(f"Repository is ready: {resolved_repo_id}")
+    print(f"Repository URL: {create_ref}")
+
+    if args.create_only:
+        print("Create-only enabled: upload skipped.")
+        return
+
+    uploaded_repo_id, result = upload_dataset(
         source_dir=source_dir,
-        repo_id=args.repo_id,
+        repo_id=resolved_repo_id,
         token=token,
         private=private,
         revision=args.revision,
@@ -223,7 +261,7 @@ def main() -> None:
         ignore_patterns=args.exclude,
     )
 
-    print(f"Uploaded to dataset repo: {args.repo_id}")
+    print(f"Uploaded to dataset repo: {uploaded_repo_id}")
     if result:
         print(f"Hub commit: {result}")
 
