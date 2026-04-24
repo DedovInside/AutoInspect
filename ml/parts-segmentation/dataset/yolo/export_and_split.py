@@ -12,6 +12,21 @@ from typing import Dict, List, Sequence, Tuple
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
 SEED = 84
 VALID_SIDES = {"left", "right"}
+SIDE_REQUIRED_CLASS_TITLES = {
+    "Headlight",
+    "Tail-light",
+    "Mirror",
+    "Front-window",
+    "Back-window",
+    "Front-door",
+    "Back-door",
+    "Front-wheel",
+    "Back-wheel",
+    "Fender",
+    "Quarter-panel",
+    "Rocker-panel",
+}
+SIDE_REQUIRED_CLASSES = {re.sub(r"\s+", "-", title.strip().lower()) for title in SIDE_REQUIRED_CLASS_TITLES}
 
 
 @dataclass(frozen=True)
@@ -114,11 +129,22 @@ def extract_side_value(tags: Sequence[object]) -> str | None:
 
 def compose_yolo_class_name(class_title: str, side: str | None) -> str:
     base = normalize_class_name(class_title)
+
+    if side is None and base in SIDE_REQUIRED_CLASSES:
+        raise Exception(
+            f"Class '{class_title}' requires side tag with left/right, but tag is missing."
+        )
+
+    if side is not None and base not in SIDE_REQUIRED_CLASSES:
+        raise Exception(
+            f"Class '{class_title}' has side='{side}', but side is allowed only for: {sorted(SIDE_REQUIRED_CLASSES)}"
+        )
+
     if side is None:
         return base
-    if base.startswith("left-") or base.startswith("right-"):
+    if base.startswith("left_") or base.startswith("right_"):
         return base
-    return f"{side}-{base}"
+    return f"{side}_{base}"
 
 
 def find_annotation_for_image(image_path: Path, img_dir: Path, ann_dir: Path) -> Path | None:
@@ -350,7 +376,7 @@ def materialize_yolo_dataset(
 
 
 def main() -> None:
-    # Run: python export_and_split.py --images-dir "..\images\source" --output-dir "..\images\out"
+    # Run: python export_and_split.py --images-dir "..\..\images\source" --output-dir "..\..\images\out"
     args = parse_args()
     ratios = validate_ratios(args.train_ratio, args.val_ratio, args.test_ratio)
     output_dir = args.output_dir if args.output_dir is not None else args.images_dir / "yolo"
