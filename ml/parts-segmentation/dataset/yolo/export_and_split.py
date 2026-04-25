@@ -668,6 +668,33 @@ def write_split_report(output_dir: Path, report: Dict[str, Any]) -> Path:
     return report_path
 
 
+def build_split_images_manifest(
+    assignments: Sequence[Tuple[Sample, str]], ratios: Dict[str, float], seed: int
+) -> Dict[str, Any]:
+    splits: Dict[str, List[str]] = {split: [] for split in SPLITS}
+
+    for sample, split in assignments:
+        splits[split].append(sample.image_rel)
+
+    return {
+        "seed": seed,
+        "ratios": ratios,
+        "splits": {
+            split: sorted(image_names)
+            for split, image_names in splits.items()
+        },
+    }
+
+
+def write_split_images_manifest(output_dir: Path, manifest: Dict[str, Any]) -> Path:
+    manifest_path = output_dir / "split_images.json"
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    return manifest_path
+
+
 def main() -> None:
     # Run: python export_and_split.py --images-dir "..\..\images\source" --output-dir "..\..\images\out"
     args = parse_args()
@@ -682,7 +709,16 @@ def main() -> None:
 
     split_stats = materialize_yolo_dataset(assignments, output_dir, class_to_id)
     write_dataset_yaml(output_dir, class_names)
-    split_report_path = write_split_report(output_dir, build_split_report(assignments, ratios, args.seed))
+
+    split_report_path = write_split_report(
+        output_dir,
+        build_split_report(assignments, ratios, args.seed),
+    )
+
+    split_images_path = write_split_images_manifest(
+        output_dir,
+        build_split_images_manifest(assignments, ratios, args.seed),
+    )
 
     print(f"Created YOLO dataset in: {output_dir}")
     print(f"Total images: {len(assignments)}")
@@ -696,6 +732,7 @@ def main() -> None:
     print(f"Skipped invalid objects: {skipped_objects}")
     print(f"dataset.yaml: {output_dir / 'dataset.yaml'}")
     print(f"split_report.json: {split_report_path}")
+    print(f"split_images.json: {split_images_path}")
 
 
 if __name__ == "__main__":

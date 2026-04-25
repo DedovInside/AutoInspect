@@ -1,6 +1,9 @@
 import os
 import random
+import argparse
 import csv
+import json
+import warnings
 
 import cv2
 import numpy as np
@@ -8,13 +11,10 @@ from PIL import Image
 from tqdm import tqdm
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
 
-CAR_DIR = os.path.join(PROJECT_DIR, 'images', 'carvana', 'train')
-MASK_DIR = os.path.join(PROJECT_DIR, 'images', 'carvana', 'train_masks')
-BG_DIR = os.path.join(PROJECT_DIR, 'images', 'backgrounds')
-HITL_DIR = os.path.join(PROJECT_DIR, 'images', 'hitl-views')
-OUTPUT_DIR = os.path.join(SCRIPT_DIR, 'blended')
+DEFAULT_IMAGES_DIR = os.path.join(os.path.dirname(SCRIPT_DIR), 'images')
+DEFAULT_OUTPUT_DIR = os.path.join(SCRIPT_DIR, 'blended')
+DEFAULT_SPLIT_IMAGES_PATH = os.path.join(SCRIPT_DIR, 'split_images.json')
 META_FILENAME = 'meta.csv'
 
 AUGMENTATION_FACTOR = 1
@@ -268,76 +268,39 @@ def get_unique_save_path(directory, filename):
     return candidate
 
 
-if AUGMENTATION_FACTOR != 1:
-    raise ValueError('AUGMENTATION_FACTOR поддерживается только со значением 1')
+def load_real_split_map(split_images_path):
+    if not os.path.exists(split_images_path):
+        raise FileNotFoundError(f'Не найден файл со сплитами HITL: {split_images_path}')
 
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-for category in CATEGORIES:
-    os.makedirs(os.path.join(OUTPUT_DIR, category), exist_ok=True)
+    with open(split_images_path, 'r', encoding='utf-8') as split_file:
+        split_config = json.load(split_file)
 
-print(f'Папки созданы в: {OUTPUT_DIR}')
+    split_map = {}
+    split_groups = split_config.get('splits', {})
+    for raw_split_name, file_names in split_groups.items():
+        if raw_split_name == 'train':
+            target_split = 'train'
+        elif raw_split_name in ['val', 'test']:
+            target_split = 'val'
+        else:
+            raise ValueError(f'Неизвестный split в split_images.json: {raw_split_name}')
 
-car_files = [f for f in os.listdir(CAR_DIR) if f.lower().endswith('.jpg')]
-bg_files = [f for f in os.listdir(BG_DIR) if f.lower().endswith(('.jpg', '.png', '.jpeg'))]
+        for file_name in file_names:
+            if file_name in split_map:
+                raise ValueError(f'Файл указан в split_images.json несколько раз: {file_name}')
+            split_map[file_name] = target_split
 
-print(f'Найдено машин Carvana: {len(car_files)}')
-print(f'Найдено фонов: {len(bg_files)}')
+    return split_map
 
-meta_rows = []
 
-synthetic_counter = 0
-for car_file in tqdm(car_files, desc='Synthetic from Carvana'):
-    mask_file = car_file.replace('.jpg', '_mask.gif')
-    mask_path = os.path.join(MASK_DIR, mask_file)
-    car_path = os.path.join(CAR_DIR, car_file)
+def get_real_split(original_name, real_split_map):
+    try:
+        return real_split_map[original_name]
+    except KeyError as exc:
+        raise ValueError(
+            f'Real фото отсутствует в split_images.json: {original_name}'
+        ) from exc
 
-    if not os.path.exists(mask_path):
-        continue
-
-    img_car = cv2.imread(car_path)
-    if img_car is None:
-        continue
-
-    pil_mask = Image.open(mask_path).convert('L')
-    img_mask = np.array(pil_mask)
-
-    img_car, img_mask = crop_car_content(img_car, img_mask, padding=20)
-    img_car, img_mask = augment_car_rotation(img_car, img_mask)
-
-    view_name = get_view_from_filename(car_file)
-    if view_name == 'unknown':
-        continue
-
-    random_bg = random.choice(bg_files)
-    bg_path = os.path.join(BG_DIR, random_bg)
-
-    if view_name in ['left', 'right']:
-        scale = random.uniform(1.0, 1.05)
-    elif view_name in ['front', 'back']:
-        scale = random.uniform(1.15, 1.25)
-    else:
-        scale = random.uniform(1.05, 1.15)
-
-    result_img = blend_images(img_car, img_mask, bg_path, target_size=SAVE_SIZE, scale=scale)
-    if result_img is None:
-        continue
-
-    car_base_name = os.path.splitext(car_file)[0]
-    save_name = f'synthetic_{car_base_name}.jpg'
-    save_dir = os.path.join(OUTPUT_DIR, view_name)
-    save_path = get_unique_save_path(save_dir, save_name)
-    cv2.imwrite(save_path, result_img)
-
-    meta_rows.append(
-        {
-            'filename': os.path.basename(save_path),
-            'relative_path': os.path.relpath(save_path, OUTPUT_DIR),
-            'view': view_name,
-            'source': 'synthetic',
-            'original_name': car_file,
-        }
-    )
-    synthetic_counter += 1
 
 
 def iter_hitl_files(hitl_root):
@@ -351,40 +314,210 @@ def iter_hitl_files(hitl_root):
                 yield view_name, os.path.join(root, file_name)
 
 
-real_counter = 0
-for view_name, source_path in tqdm(list(iter_hitl_files(HITL_DIR)), desc='Real from HITL'):
-    img_real = cv2.imread(source_path)
-    if img_real is None:
-        continue
 
-    img_real = resize_long_side(img_real, target_long_side=SAVE_SIZE)
-
-    source_name = os.path.splitext(os.path.basename(source_path))[0]
-    save_name = f'real_{source_name}.jpg'
-    save_dir = os.path.join(OUTPUT_DIR, view_name)
-    save_path = get_unique_save_path(save_dir, save_name)
-    cv2.imwrite(save_path, img_real)
-
-    meta_rows.append(
-        {
-            'filename': os.path.basename(save_path),
-            'relative_path': os.path.relpath(save_path, OUTPUT_DIR),
-            'view': view_name,
-            'source': 'real',
-            'original_name': os.path.basename(source_path),
-        }
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description='Prepare blended synthetic/real dataset and write meta.csv.',
     )
-    real_counter += 1
-
-meta_path = os.path.join(OUTPUT_DIR, META_FILENAME)
-with open(meta_path, 'w', newline='', encoding='utf-8') as meta_file:
-    writer = csv.DictWriter(
-        meta_file,
-        fieldnames=['filename', 'relative_path', 'view', 'source', 'original_name'],
+    parser.add_argument(
+        '--images-dir',
+        default=DEFAULT_IMAGES_DIR,
+        help=(
+            'Path to images directory. Expected subfolders: '
+            'carvana/train, carvana/train_masks, backgrounds, hitl-views. '
+            f'Default: {DEFAULT_IMAGES_DIR}'
+        ),
     )
-    writer.writeheader()
-    writer.writerows(meta_rows)
+    parser.add_argument(
+        '--output-dir',
+        default=DEFAULT_OUTPUT_DIR,
+        help=f'Output directory for blended dataset. Default: {DEFAULT_OUTPUT_DIR}',
+    )
+    parser.add_argument(
+        '--split-images-path',
+        default=DEFAULT_SPLIT_IMAGES_PATH,
+        help=f'Path to split_images.json. Default: {DEFAULT_SPLIT_IMAGES_PATH}',
+    )
+    parser.add_argument(
+        '--seed',
+        type=int,
+        default=None,
+        help='Optional random seed for reproducible synthetic generation.',
+    )
+    return parser.parse_args()
 
-print(f'Сохранено synthetic: {synthetic_counter}')
-print(f'Сохранено real: {real_counter}')
-print(f'Сохранено meta: {meta_path} (строк: {len(meta_rows)})')
+
+def build_paths(images_dir):
+    return {
+        'car_dir': os.path.join(images_dir, 'carvana', 'train'),
+        'mask_dir': os.path.join(images_dir, 'carvana', 'train_masks'),
+        'bg_dir': os.path.join(images_dir, 'backgrounds'),
+        'hitl_dir': os.path.join(images_dir, 'hitl-views'),
+    }
+
+
+def validate_input_dirs(paths):
+    missing_dirs = [path for path in paths.values() if not os.path.isdir(path)]
+    if missing_dirs:
+        missing_text = '\n'.join(f'  - {path}' for path in missing_dirs)
+        raise FileNotFoundError(f'Не найдены обязательные директории:\n{missing_text}')
+
+
+def prepare_dataset(images_dir, output_dir, split_images_path, seed=42):
+    if AUGMENTATION_FACTOR != 1:
+        raise ValueError('AUGMENTATION_FACTOR поддерживается только со значением 1')
+
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+
+    paths = build_paths(images_dir)
+    validate_input_dirs(paths)
+
+    os.makedirs(output_dir, exist_ok=True)
+    for category in CATEGORIES:
+        os.makedirs(os.path.join(output_dir, category), exist_ok=True)
+
+    print(f'Папки созданы в: {output_dir}')
+
+    real_split_map = load_real_split_map(split_images_path)
+    print(f'Загружено HITL split-правил: {len(real_split_map)}')
+
+    car_files = [
+        f for f in os.listdir(paths['car_dir'])
+        if f.lower().endswith('.jpg')
+    ]
+    bg_files = [
+        f for f in os.listdir(paths['bg_dir'])
+        if f.lower().endswith(('.jpg', '.png', '.jpeg'))
+    ]
+
+    if not bg_files:
+        raise ValueError(f'Не найдено фонов в директории: {paths["bg_dir"]}')
+
+    print(f'Найдено машин Carvana: {len(car_files)}')
+    print(f'Найдено фонов: {len(bg_files)}')
+
+    meta_rows = []
+
+    synthetic_counter = 0
+    for car_file in tqdm(car_files, desc='Synthetic from Carvana'):
+        mask_file = car_file.replace('.jpg', '_mask.gif')
+        mask_path = os.path.join(paths['mask_dir'], mask_file)
+        car_path = os.path.join(paths['car_dir'], car_file)
+
+        if not os.path.exists(mask_path):
+            continue
+
+        img_car = cv2.imread(car_path)
+        if img_car is None:
+            continue
+
+        pil_mask = Image.open(mask_path).convert('L')
+        img_mask = np.array(pil_mask)
+
+        img_car, img_mask = crop_car_content(img_car, img_mask, padding=20)
+        img_car, img_mask = augment_car_rotation(img_car, img_mask)
+
+        view_name = get_view_from_filename(car_file)
+        if view_name == 'unknown':
+            continue
+
+        random_bg = random.choice(bg_files)
+        bg_path = os.path.join(paths['bg_dir'], random_bg)
+
+        if view_name in ['left', 'right']:
+            scale = random.uniform(1.0, 1.05)
+        elif view_name in ['front', 'back']:
+            scale = random.uniform(1.15, 1.25)
+        else:
+            scale = random.uniform(1.05, 1.15)
+
+        result_img = blend_images(img_car, img_mask, bg_path, target_size=SAVE_SIZE, scale=scale)
+        if result_img is None:
+            continue
+
+        car_base_name = os.path.splitext(car_file)[0]
+        save_name = f'synthetic_{car_base_name}.jpg'
+        save_dir = os.path.join(output_dir, view_name)
+        save_path = get_unique_save_path(save_dir, save_name)
+        cv2.imwrite(save_path, result_img)
+
+        meta_rows.append(
+            {
+                'filename': os.path.basename(save_path),
+                'relative_path': os.path.relpath(save_path, output_dir),
+                'view': view_name,
+                'source': 'synthetic',
+                'original_name': car_file,
+                'split': 'train',
+            }
+        )
+        synthetic_counter += 1
+
+    real_counter = 0
+    hitl_files = list(iter_hitl_files(paths['hitl_dir']))
+    for view_name, source_path in tqdm(hitl_files, desc='Real from HITL'):
+        img_real = cv2.imread(source_path)
+        if img_real is None:
+            continue
+
+        img_real = resize_long_side(img_real, target_long_side=SAVE_SIZE)
+
+        original_name = os.path.basename(source_path)
+        split_name = get_real_split(original_name, real_split_map)
+
+        source_name = os.path.splitext(original_name)[0]
+        save_name = f'real_{source_name}.jpg'
+        save_dir = os.path.join(output_dir, view_name)
+        expected_save_path = os.path.join(save_dir, save_name)
+        save_path = get_unique_save_path(save_dir, save_name)
+
+        if save_path != expected_save_path:
+            warnings.warn(
+                'Real файл сохраняется с переименованием из-за занятого имени: '
+                f'{save_name} -> {os.path.basename(save_path)}',
+                RuntimeWarning,
+            )
+
+        cv2.imwrite(save_path, img_real)
+
+        meta_rows.append(
+            {
+                'filename': os.path.basename(save_path),
+                'relative_path': os.path.relpath(save_path, output_dir),
+                'view': view_name,
+                'source': 'real',
+                'original_name': original_name,
+                'split': split_name,
+            }
+        )
+        real_counter += 1
+
+    meta_path = os.path.join(output_dir, META_FILENAME)
+    with open(meta_path, 'w', newline='', encoding='utf-8') as meta_file:
+        writer = csv.DictWriter(
+            meta_file,
+            fieldnames=['filename', 'relative_path', 'view', 'source', 'original_name', 'split'],
+        )
+        writer.writeheader()
+        writer.writerows(meta_rows)
+
+    print(f'Сохранено synthetic: {synthetic_counter}')
+    print(f'Сохранено real: {real_counter}')
+    print(f'Сохранено meta: {meta_path} (строк: {len(meta_rows)})')
+
+
+def main():
+    # Run: python prepare_dataset.py --images-dir ../images
+    args = parse_args()
+    prepare_dataset(
+        images_dir=args.images_dir,
+        output_dir=args.output_dir,
+        split_images_path=args.split_images_path,
+        seed=args.seed,
+    )
+
+
+if __name__ == '__main__':
+    main()
