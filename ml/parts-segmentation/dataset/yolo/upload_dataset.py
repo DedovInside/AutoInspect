@@ -214,7 +214,7 @@ def upload_dataset(
 
 
 def main() -> None:
-    # Run: python save_dataset.py --repo-id "car-parts-segmentation-yolo" --source-dir "..\..\images\out"
+    # Run: python upload_dataset.py --repo-id "car-parts-segmentation-yolo" --source-dir "..\..\images\out"
     args = parse_args()
     source_dir = args.source_dir.resolve()
 
