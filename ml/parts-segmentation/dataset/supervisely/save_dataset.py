@@ -10,6 +10,7 @@ from typing import Dict, Iterable, List, Set
 
 REQUIRED_COLUMNS = {"image", "annotation", "view", "split"}
 ALLOWED_SPLITS = {"train", "val", "test"}
+DEFAULT_DATASET_SPLIT = "train"
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
 
 
@@ -23,7 +24,7 @@ class DatasetStats:
 
 def parse_args() -> argparse.Namespace:
     script_dir = Path(__file__).resolve().parent
-    default_images_dir = script_dir.parent / "images" / "out"
+    default_images_dir = script_dir.parent / "images" / "source"
 
     parser = argparse.ArgumentParser(
         description="Validate and upload parts-segmentation dataset folder to Hugging Face Hub."
@@ -37,7 +38,7 @@ def parse_args() -> argparse.Namespace:
         "--images-dir",
         type=Path,
         default=default_images_dir,
-        help="Path to local dataset folder (default: ../images/out).",
+        help="Path to local dataset folder (default: ../images/source).",
     )
     parser.add_argument(
         "--split-csv",
@@ -86,7 +87,14 @@ def parse_args() -> argparse.Namespace:
 
 
 def print_format_guide() -> None:
-    print("Expected folder format (new):")
+    print("Expected folder format (current, no split):")
+    print("  images/source/")
+    print("    img/<image files>")
+    print("    ann/<matching annotation json files>")
+    print("    img_info/<matching img_info json files>")
+    print("    meta.json")
+    print()
+    print("Split dirs format is also supported:")
     print("  images/out/")
     for split in sorted(ALLOWED_SPLITS):
         print(f"    {split}/img/<image files>")
@@ -329,10 +337,64 @@ def validate_split_dirs_dataset(images_dir: Path) -> DatasetStats:
     )
 
 
+def validate_flat_source_dataset(images_dir: Path) -> DatasetStats:
+    _assert(images_dir.exists() and images_dir.is_dir(), f"dataset dir not found: {images_dir}")
+
+    img_dir = images_dir / "img"
+    ann_dir = images_dir / "ann"
+    img_info_dir = images_dir / "img_info"
+    meta_path = images_dir / "meta.json"
+
+    _assert(img_dir.exists() and img_dir.is_dir(), f"img dir not found: {img_dir}")
+    _assert(ann_dir.exists() and ann_dir.is_dir(), f"ann dir not found: {ann_dir}")
+    _assert(img_info_dir.exists() and img_info_dir.is_dir(), f"img_info dir not found: {img_info_dir}")
+    _assert(meta_path.exists() and meta_path.is_file(), f"meta.json not found: {meta_path}")
+
+    car_view_tag_ids = load_car_view_tag_ids(meta_path)
+    split_counter: Counter = Counter()
+    split_view_counter: Dict[str, Counter] = defaultdict(Counter)
+    sample_count = 0
+
+    image_files = sorted(
+        p for p in img_dir.rglob("*") if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
+    )
+    for image_abs in image_files:
+        sample_count += 1
+        image_rel = image_abs.relative_to(img_dir).as_posix()
+
+        ann_abs = find_annotation_for_image(image_abs, img_dir, ann_dir)
+        if ann_abs is None:
+            raise ValueError(f"missing annotation for img/{image_rel}")
+
+        img_info_abs = find_img_info_for_image(image_abs, img_dir, img_info_dir)
+        if img_info_abs is None:
+            raise ValueError(f"missing img_info for img/{image_rel}")
+
+        view = extract_car_view_from_img_info(img_info_abs, car_view_tag_ids)
+        split_counter[DEFAULT_DATASET_SPLIT] += 1
+        split_view_counter[DEFAULT_DATASET_SPLIT][view] += 1
+
+    _assert(sample_count > 0, "dataset has no images in img folder")
+
+    return DatasetStats(
+        split_counter=split_counter,
+        split_view_counter=dict(split_view_counter),
+        sample_count=sample_count,
+        dataset_format="flat_source",
+    )
+
+
 def validate_dataset(images_dir: Path, split_csv: Path) -> DatasetStats:
-    has_split_dirs = all((images_dir / split).exists() for split in ALLOWED_SPLITS)
+    has_split_dirs = all((images_dir / split).exists() and (images_dir / split).is_dir() for split in ALLOWED_SPLITS)
     if has_split_dirs:
         return validate_split_dirs_dataset(images_dir)
+
+    has_flat_source = all(
+        (images_dir / subset).exists() and (images_dir / subset).is_dir()
+        for subset in ("img", "ann", "img_info")
+    ) and (images_dir / "meta.json").exists() and (images_dir / "meta.json").is_file()
+    if has_flat_source:
+        return validate_flat_source_dataset(images_dir)
 
     if split_csv.exists() and split_csv.is_file():
         return validate_legacy_dataset(images_dir, split_csv)
@@ -341,7 +403,9 @@ def validate_dataset(images_dir: Path, split_csv: Path) -> DatasetStats:
         "Could not detect dataset format. Expected either '\n"
         "1) split dirs: <images-dir>/{train,val,test}/{img,ann,img_info} + meta.json\n"
         "or\n"
-        "2) legacy: <images-dir>/img, <images-dir>/ann, and split.csv"
+        "2) flat source: <images-dir>/{img,ann,img_info} + meta.json\n"
+        "or\n"
+        "3) legacy: <images-dir>/img, <images-dir>/ann, and split.csv"
     )
 
 
@@ -409,6 +473,44 @@ def _collect_records_split_dirs(images_dir: Path) -> Dict[str, List[dict]]:
     return records_by_split
 
 
+def _collect_records_flat_source(images_dir: Path) -> Dict[str, List[dict]]:
+    records_by_split: Dict[str, List[dict]] = {split: [] for split in sorted(ALLOWED_SPLITS)}
+    car_view_tag_ids = load_car_view_tag_ids(images_dir / "meta.json")
+
+    img_dir = images_dir / "img"
+    ann_dir = images_dir / "ann"
+    img_info_dir = images_dir / "img_info"
+
+    image_files = sorted(
+        p for p in img_dir.rglob("*") if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
+    )
+    for image_abs in image_files:
+        image_rel = image_abs.relative_to(img_dir).as_posix()
+
+        ann_abs = find_annotation_for_image(image_abs, img_dir, ann_dir)
+        if ann_abs is None:
+            raise ValueError(f"missing annotation for img/{image_rel}")
+
+        img_info_abs = find_img_info_for_image(image_abs, img_dir, img_info_dir)
+        if img_info_abs is None:
+            raise ValueError(f"missing img_info for img/{image_rel}")
+
+        records_by_split[DEFAULT_DATASET_SPLIT].append(
+            {
+                "image": str(image_abs),
+                "split": DEFAULT_DATASET_SPLIT,
+                "view": extract_car_view_from_img_info(img_info_abs, car_view_tag_ids),
+                "image_rel": image_rel,
+                "annotation_rel": ann_abs.relative_to(images_dir).as_posix(),
+                "img_info_rel": img_info_abs.relative_to(images_dir).as_posix(),
+                "annotation_json": _read_text_file(ann_abs),
+                "img_info_json": _read_text_file(img_info_abs),
+            }
+        )
+
+    return records_by_split
+
+
 def _collect_records_legacy(images_dir: Path, split_csv: Path) -> Dict[str, List[dict]]:
     records_by_split: Dict[str, List[dict]] = {split: [] for split in sorted(ALLOWED_SPLITS)}
 
@@ -462,6 +564,8 @@ def upload_datasetdict_to_hf(
 
     if dataset_format == "split_dirs":
         records_by_split = _collect_records_split_dirs(images_dir)
+    elif dataset_format == "flat_source":
+        records_by_split = _collect_records_flat_source(images_dir)
     else:
         records_by_split = _collect_records_legacy(images_dir, split_csv)
 
@@ -505,7 +609,7 @@ def upload_raw_folder_to_hf(
 
 
 def main() -> None:
-    # Run: python save_dataset.py --repo-id mitbersh/car-parts-segmentation-raw --images-dir ../../images/out --upload-mode datasetdict
+    # Run: python save_dataset.py --repo-id mitbersh/car-parts-segmentation-raw --images-dir ../../images/source --upload-mode datasetdict
     args = parse_args()
 
     if args.print_format:
