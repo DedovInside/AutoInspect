@@ -3,13 +3,19 @@ package api
 import (
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/DedovInside/AutoInspect/backend/internal/api/handlers"
 	"github.com/DedovInside/AutoInspect/backend/internal/api/middleware"
 	"github.com/DedovInside/AutoInspect/backend/internal/service"
-	"github.com/gin-gonic/gin"
 )
 
-func NewGinRouter(authHandler *handlers.AuthHandler, tokenManager *service.TokenManager, cache service.SessionCache) *gin.Engine {
+func NewGinRouter(
+	authHandler *handlers.AuthHandler,
+	analysisHandler *handlers.AnalysisHandler,
+	tokenManager *service.TokenManager,
+	cache service.SessionCache,
+) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Recovery())
 
@@ -26,6 +32,16 @@ func NewGinRouter(authHandler *handlers.AuthHandler, tokenManager *service.Token
 	authGroup.Use(middleware.Auth(tokenManager, cache))
 	authGroup.GET("/me", authHandler.Me)
 	authGroup.POST("/logout", authHandler.Logout)
+
+	analysisGroup := router.Group("/v1/analyses")
+	analysisGroup.Use(middleware.Auth(tokenManager, cache))
+
+	analysisGroup.POST("", analysisHandler.Submit)
+	analysisGroup.GET("/:id", analysisHandler.GetByID)
+	analysisGroup.GET("", analysisHandler.ListMine)
+	analysisGroup.GET("/:id/images/:idx", analysisHandler.GetPresignedImageURL)
+
+	router.GET("/v1/analyses/ws", middleware.WSAuth(tokenManager, cache), analysisHandler.WSHandler)
 
 	return router
 }

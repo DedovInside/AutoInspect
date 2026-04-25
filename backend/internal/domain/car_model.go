@@ -24,6 +24,13 @@ type CarModel struct {
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }
 
+type CarInfo struct {
+	Make       string `json:"make"`
+	Model      string `json:"model"`
+	Generation string `json:"generation"`
+	Year       int    `json:"year"`
+}
+
 func (cm *CarModel) MatchesQuery(carMake, model, generation string, year int) bool {
 	if cm.Make != carMake || cm.Model != model {
 		return false

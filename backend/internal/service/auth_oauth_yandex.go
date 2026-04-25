@@ -50,8 +50,10 @@ func (s *AuthService) handleExistingYandexIdentity(
 	if !user.IsActive {
 		return nil, domain.ErrUnauthorized
 	}
+
 	ipAddr := stringToNetIPPtr(ipAddress)
 	result, _, err := s.issueTokensWithRepos(ctx, user, userAgent, ipAddr, uuid.Nil, sessionsTx)
+
 	if err != nil {
 		return nil, err
 	}
@@ -83,6 +85,7 @@ func (s *AuthService) getOrCreateYandexUserByEmail(
 	if username == "" {
 		username = strings.Split(profile.DefaultEmail, "@")[0]
 	}
+
 	username = fmt.Sprintf("%s_%s", username, uuid.NewString()[:6])
 
 	user = &domain.User{
@@ -96,6 +99,7 @@ func (s *AuthService) getOrCreateYandexUserByEmail(
 		CreatedAt:     now,
 		UpdatedAt:     now,
 	}
+
 	if err := usersTx.Create(ctx, user); err != nil {
 		return nil, err
 	}
@@ -137,9 +141,11 @@ func (s *AuthService) processYandexOAuth(
 	identity, err := identitiesTx.GetByProviderSubject(ctx, domain.OAuthProviderYandex, profile.ID)
 	if err == nil {
 		result, err := s.handleExistingYandexIdentity(ctx, usersTx, sessionsTx, identity, userAgent, ipAddress)
+
 		if err != nil {
 			return nil, err
 		}
+
 		if err := tx.Commit(ctx); err != nil {
 			return nil, domain.ErrInternal
 		}
@@ -149,6 +155,7 @@ func (s *AuthService) processYandexOAuth(
 	}
 
 	user, err := s.getOrCreateYandexUserByEmail(ctx, usersTx, profile)
+
 	if err != nil {
 		return nil, err
 	}
@@ -173,20 +180,27 @@ func (s *AuthService) ExchangeYandexCode(ctx context.Context, code, state string
 	if s.yandex == nil {
 		return nil, domain.ErrUnauthorized
 	}
+
 	if strings.TrimSpace(code) == "" {
 		return nil, domain.ErrInvalidInput
 	}
+
 	if s.cache == nil {
 		return nil, errors.New("yandex oauth requires cache for state management")
 	}
+
 	ok, err := s.cache.ConsumeOAuthState(ctx, state)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if !ok {
 		return nil, domain.ErrUnauthorized
 	}
+
 	profile, err := s.yandex.ExchangeCodeAndFetchProfile(ctx, code)
+
 	if err != nil {
 		return nil, err
 	}

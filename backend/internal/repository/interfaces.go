@@ -48,18 +48,12 @@ type AnalysisJobRepository interface {
 	UpdateStatusByCorrelationID(ctx context.Context, correlationID uuid.UUID, status domain.JobStatus, errorMessage *string) error
 	UpdateResult(ctx context.Context, id uuid.UUID, result *domain.AnalysisResult, modelVersion string) error
 	UpdateResultByCorrelationID(ctx context.Context, correlationID uuid.UUID, result *domain.AnalysisResult, modelVersion string) error
-	MarkStarted(ctx context.Context, id uuid.UUID) error
 }
 
 type FileRepository interface {
-	// Upload загружает файл и возвращает его S3-ключ
 	Upload(ctx context.Context, bucket, objectKey string, data io.Reader, contentType string, size int64) error
-	// Download возвращает читатель для скачивания файла
 	Download(ctx context.Context, bucket, objectKey string) (io.ReadCloser, error)
-	// Exists проверяет наличие объекта
 	Exists(ctx context.Context, bucket, objectKey string) (bool, error)
-	// Delete удаляет объект
 	Delete(ctx context.Context, bucket, objectKey string) error
-	// GetPresignedURL генерирует временную ссылку для публичного доступа (для фронтенда)
 	GetPresignedURL(ctx context.Context, bucket, objectKey string, expires time.Duration) (string, error)
 }

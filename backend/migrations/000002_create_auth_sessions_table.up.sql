@@ -23,3 +23,5 @@ CREATE TRIGGER update_auth_sessions_updated_at
     BEFORE UPDATE ON auth_sessions
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE auth_sessions IS 'Таблица для хранения сессий пользователей, поддерживающая механизмы замены и отзыва токенов';

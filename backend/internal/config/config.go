@@ -16,11 +16,12 @@ type Config struct {
 }
 
 type HTTPConfig struct {
-	Host            string        `env:"HTTP_HOST" env-default:"0.0.0.0"`
-	Port            string        `env:"HTTP_PORT" env-default:"8080"`
-	ReadTimeout     time.Duration `env:"HTTP_READ_TIMEOUT" env-default:"10s"`
-	WriteTimeout    time.Duration `env:"HTTP_WRITE_TIMEOUT" env-default:"10s"`
-	ShutdownTimeout time.Duration `env:"HTTP_SHUTDOWN_TIMEOUT" env-default:"30s"`
+	Host             string        `env:"HTTP_HOST" env-default:"0.0.0.0"`
+	Port             string        `env:"HTTP_PORT" env-default:"8080"`
+	ReadTimeout      time.Duration `env:"HTTP_READ_TIMEOUT" env-default:"10s"`
+	WriteTimeout     time.Duration `env:"HTTP_WRITE_TIMEOUT" env-default:"10s"`
+	ShutdownTimeout  time.Duration `env:"HTTP_SHUTDOWN_TIMEOUT" env-default:"30s"`
+	WSAllowedOrigins []string      `env:"WS_ALLOWED_ORIGINS" env-default:"http://localhost:5173,http://localhost:3000,http://localhost:8080"`
 }
 
 type DatabaseConfig struct {
@@ -40,6 +41,8 @@ type RedisConfig struct {
 	CacheName         string        `env:"REDIS_CACHE_NAME" env-default:"autoinspect:analysis:cache"`
 	MaxRetries        int           `env:"REDIS_MAX_RETRIES" env-default:"3"`
 	VisibilityTimeout time.Duration `env:"REDIS_VISIBILITY_TIMEOUT" env-default:"5m"`
+
+	NotifyChannel string `env:"REDIS_NOTIFY_CHANNEL" env-default:"notify:analysis:job"`
 }
 
 type AuthConfig struct {
@@ -55,7 +58,7 @@ type AuthConfig struct {
 
 	YandexClientID     string `env:"YANDEX_CLIENT_ID" env-required:"true"`
 	YandexClientSecret string `env:"YANDEX_CLIENT_SECRET" env-required:"true"`
-	YandexRedirectURL  string `env:"YANDEX_REDIRECT_URL" env-default:"http://localhost:5173/auth/callback"`
+	YandexRedirectURL  string `env:"YANDEX_REDIRECT_URL" env-default:"http://localhost:8080/v1/auth/yandex/callback"`
 }
 
 type S3Config struct {
@@ -69,6 +72,8 @@ type S3Config struct {
 	BucketUploads string `env:"S3_BUCKET_UPLOADS" env-default:"autoinspect-uploads"`
 	BucketModels  string `env:"S3_BUCKET_MODELS" env-default:"autoinspect-models"`
 	BucketResults string `env:"S3_BUCKET_RESULTS" env-default:"autoinspect-results"`
+
+	PresignedURLTTL time.Duration `env:"S3_PRESIGNED_URL_TTL" env-default:"15m"`
 }
 
 type KafkaConfig struct {
@@ -77,7 +82,7 @@ type KafkaConfig struct {
 	TopicAnalysisRequest string `env:"KAFKA_TOPIC_ANALYSIS_REQUEST" env-default:"autoinspect.analysis.request"`
 	TopicAnalysisResult  string `env:"KAFKA_TOPIC_ANALYSIS_RESULT" env-default:"autoinspect.analysis.result"`
 
-	RequiredAcks string `env:"KAFKA_REQUIRED_ACKS" env-default:"1"`
+	RequiredAcks string `env:"KAFKA_REQUIRED_ACKS" env-default:"all"`
 
 	MaxRetries int `env:"KAFKA_PRODUCER_MAX_RETRIES" env-default:"3"`
 

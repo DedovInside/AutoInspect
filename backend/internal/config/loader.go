@@ -83,6 +83,9 @@ func validateEnvironment(cfg *Config) error {
 	if cfg.HTTP.Port == "" {
 		return fmt.Errorf("HTTP_PORT cannot be empty")
 	}
+	if len(cfg.HTTP.WSAllowedOrigins) == 0 {
+		return fmt.Errorf("WS_ALLOWED_ORIGINS cannot be empty")
+	}
 	if strings.TrimSpace(cfg.Database.URL) == "" {
 		return fmt.Errorf("DATABASE_URL cannot be empty")
 	}
@@ -147,6 +150,9 @@ func validateS3(cfg *Config) error {
 	}
 	if strings.TrimSpace(cfg.S3.BucketUploads) == "" || strings.TrimSpace(cfg.S3.BucketModels) == "" || strings.TrimSpace(cfg.S3.BucketResults) == "" {
 		return fmt.Errorf("S3 bucket names are required")
+	}
+	if cfg.S3.PresignedURLTTL <= 0 {
+		return fmt.Errorf("S3_PRESIGNED_URL_TTL must be greater than 0")
 	}
 
 	if cfg.S3.Endpoint != "" {

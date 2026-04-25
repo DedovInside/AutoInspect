@@ -28,7 +28,6 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	ListAnalysisJobsByUserID(ctx context.Context, arg ListAnalysisJobsByUserIDParams) ([]AnalysisJob, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
-	MarkAnalysisJobStarted(ctx context.Context, id pgtype.UUID) (int64, error)
 	RevokeAuthSession(ctx context.Context, arg RevokeAuthSessionParams) (int64, error)
 	RevokeFamily(ctx context.Context, arg RevokeFamilyParams) error
 	TouchLastUsed(ctx context.Context, arg TouchLastUsedParams) (int64, error)

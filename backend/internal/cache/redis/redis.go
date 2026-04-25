@@ -66,3 +66,7 @@ func (c *Client) ConsumeOAuthState(ctx context.Context, state string) (bool, err
 
 	return result > 0, nil
 }
+
+func (c *Client) Raw() *goredis.Client {
+	return c.client
+}

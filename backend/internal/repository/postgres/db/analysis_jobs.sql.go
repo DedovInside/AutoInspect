@@ -229,21 +229,6 @@ func (q *Queries) ListAnalysisJobsByUserID(ctx context.Context, arg ListAnalysis
 	return items, nil
 }
 
-const markAnalysisJobStarted = `-- name: MarkAnalysisJobStarted :execrows
-UPDATE analysis_jobs
-SET status = 'processing',
-    started_at = NOW()
-WHERE id = $1 AND status = 'pending'
-`
-
-func (q *Queries) MarkAnalysisJobStarted(ctx context.Context, id pgtype.UUID) (int64, error) {
-	result, err := q.db.Exec(ctx, markAnalysisJobStarted, id)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
 const updateAnalysisJobResult = `-- name: UpdateAnalysisJobResult :execrows
 UPDATE analysis_jobs
 SET status = 'completed',
@@ -251,6 +236,7 @@ SET status = 'completed',
     used_model_version = $2,
     completed_at = NOW()
 WHERE id = $3
+  AND status = 'pending'
 `
 
 type UpdateAnalysisJobResultParams struct {
@@ -274,6 +260,7 @@ SET status = 'completed',
     used_model_version = $2,
     completed_at = NOW()
 WHERE correlation_id = $3
+  AND status = 'pending'
 `
 
 type UpdateAnalysisJobResultByCorrelationIDParams struct {
@@ -296,6 +283,7 @@ SET status = $1,
     error_message = $2,
     completed_at = CASE WHEN $1 IN ('completed', 'failed') THEN NOW() ELSE completed_at END
 WHERE id = $3
+  AND status = 'pending'
 `
 
 type UpdateAnalysisJobStatusParams struct {
@@ -318,6 +306,7 @@ SET status = $1,
     error_message = $2,
     completed_at = CASE WHEN $1 IN ('completed', 'failed') THEN NOW() ELSE completed_at END
 WHERE correlation_id = $3
+  AND status = 'pending'
 `
 
 type UpdateAnalysisJobStatusByCorrelationIDParams struct {

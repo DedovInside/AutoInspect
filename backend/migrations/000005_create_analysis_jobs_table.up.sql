@@ -14,7 +14,7 @@ CREATE TABLE analysis_jobs
     image_keys         JSONB       NOT NULL CHECK (jsonb_typeof(image_keys) = 'array'),
     correlation_id     UUID UNIQUE NOT NULL,
 
-    status             VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+    status             VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')),
     error_message      TEXT,
 
     result             JSONB,
@@ -29,7 +29,7 @@ CREATE INDEX idx_analysis_jobs_user_history
     ON analysis_jobs (user_id, requested_at DESC);
 
 CREATE INDEX idx_analysis_jobs_status_pending
-    ON analysis_jobs (status) WHERE status IN ('pending', 'processing');
+    ON analysis_jobs (status) WHERE status = 'pending';
 
 CREATE INDEX idx_analysis_jobs_result_gin
     ON analysis_jobs USING GIN (result);
@@ -38,5 +38,4 @@ CREATE UNIQUE INDEX idx_analysis_jobs_idempotency
     ON analysis_jobs(user_id, idempotency_key)
     WHERE idempotency_key IS NOT NULL;
 
-COMMENT
-ON TABLE analysis_jobs IS 'Асинхронные задачи анализа изображений и результаты ML';
+COMMENT ON TABLE analysis_jobs IS 'Асинхронные задачи анализа изображений и результаты ML';

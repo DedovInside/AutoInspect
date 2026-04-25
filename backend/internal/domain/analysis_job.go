@@ -9,10 +9,9 @@ import (
 type JobStatus string
 
 const (
-	StatusPending    JobStatus = "pending"
-	StatusProcessing JobStatus = "processing"
-	StatusCompleted  JobStatus = "completed"
-	StatusFailed     JobStatus = "failed"
+	StatusPending   JobStatus = "pending"
+	StatusCompleted JobStatus = "completed"
+	StatusFailed    JobStatus = "failed"
 )
 
 type AnalysisJob struct {
@@ -26,7 +25,7 @@ type AnalysisJob struct {
 	CarGeneration string `json:"car_generation" db:"car_generation"`
 	CarYear       int    `json:"car_year" db:"car_year"`
 
-	ImageKeys []string `json:"image_keys" db:"image_keys"` // Храним как JSONB или отдельной таблицей, в домене слайс
+	ImageKeys []string `json:"image_keys" db:"image_keys"`
 
 	CorrelationID uuid.UUID `json:"correlation_id" db:"correlation_id"`
 

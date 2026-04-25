@@ -32,3 +32,5 @@ CREATE TRIGGER update_users_updated_at
     BEFORE UPDATE ON users
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE users IS 'Таблица для хранения информации о пользователях, включая аутентификацию и роли';

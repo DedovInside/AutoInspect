@@ -65,14 +65,16 @@ UPDATE analysis_jobs
 SET status = $1,
     error_message = $2,
     completed_at = CASE WHEN $1 IN ('completed', 'failed') THEN NOW() ELSE completed_at END
-WHERE id = $3;
+WHERE id = $3
+  AND status = 'pending';
 
 -- name: UpdateAnalysisJobStatusByCorrelationID :execrows
 UPDATE analysis_jobs
 SET status = $1,
     error_message = $2,
     completed_at = CASE WHEN $1 IN ('completed', 'failed') THEN NOW() ELSE completed_at END
-WHERE correlation_id = $3;
+WHERE correlation_id = $3
+  AND status = 'pending';
 
 -- name: UpdateAnalysisJobResult :execrows
 UPDATE analysis_jobs
@@ -80,7 +82,8 @@ SET status = 'completed',
     result = $1,
     used_model_version = $2,
     completed_at = NOW()
-WHERE id = $3;
+WHERE id = $3
+  AND status = 'pending';
 
 -- name: UpdateAnalysisJobResultByCorrelationID :execrows
 UPDATE analysis_jobs
@@ -88,10 +91,5 @@ SET status = 'completed',
     result = $1,
     used_model_version = $2,
     completed_at = NOW()
-WHERE correlation_id = $3;
-
--- name: MarkAnalysisJobStarted :execrows
-UPDATE analysis_jobs
-SET status = 'processing',
-    started_at = NOW()
-WHERE id = $1 AND status = 'pending';
+WHERE correlation_id = $3
+  AND status = 'pending';

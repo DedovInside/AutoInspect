@@ -10,3 +10,5 @@ CREATE TABLE auth_oauth_identities (
 );
 
 CREATE INDEX idx_auth_oauth_identities_user_id ON auth_oauth_identities(user_id);
+
+COMMENT ON TABLE auth_oauth_identities IS 'Таблица для хранения связей между пользователями и их OAuth-учетными записями (Google, Facebook и т.д.)';

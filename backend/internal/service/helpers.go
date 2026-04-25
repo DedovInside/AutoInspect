@@ -8,7 +8,9 @@ func stringToNetIPPtr(s *string) *netip.Addr {
 	if s == nil {
 		return nil
 	}
+
 	ip, err := netip.ParseAddr(*s)
+
 	if err != nil {
 		return nil
 	}

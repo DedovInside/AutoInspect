@@ -28,6 +28,7 @@ func New(ctx context.Context, cfg *config.S3Config) (*Client, error) {
 			credentials.NewStaticCredentialsProvider(cfg.AccessKey, cfg.SecretKey, ""),
 		),
 	)
+
 	if err != nil {
 		return nil, fmt.Errorf("load aws sdk config: %w", err)
 	}
@@ -66,12 +67,14 @@ func (c *Client) HealthCheck(ctx context.Context) error {
 		if bucket == "" {
 			continue
 		}
+
 		if _, ok := seen[bucket]; ok {
 			continue
 		}
 		seen[bucket] = struct{}{}
 
 		_, err := c.client.HeadBucket(ctx, &s3.HeadBucketInput{Bucket: aws.String(bucket)})
+
 		if err != nil {
 			return fmt.Errorf("s3 health check failed for bucket %q: %w", bucket, err)
 		}

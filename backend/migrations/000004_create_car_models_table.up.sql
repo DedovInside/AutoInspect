@@ -6,7 +6,7 @@ CREATE TABLE car_models
     model         VARCHAR(100) NOT NULL,
     generation    VARCHAR(100),
     year_from     INTEGER      NOT NULL,
-    year_to       INTEGER, -- NULL означает "по настоящее время"
+    year_to       INTEGER,
 
     model_s3_key  VARCHAR(500) NOT NULL,
     model_version VARCHAR(50)  NOT NULL,
@@ -26,5 +26,4 @@ CREATE INDEX idx_car_models_lookup
 CREATE INDEX idx_car_models_universal
     ON car_models (is_universal) WHERE is_universal = true AND is_active = true;
 
-COMMENT
-ON TABLE car_models IS 'Реестр ML-моделей, привязанных к маркам/моделям/годам авто';
+COMMENT ON TABLE car_models IS 'Реестр ML-моделей, привязанных к маркам/моделям/годам авто';

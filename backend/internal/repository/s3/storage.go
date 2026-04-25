@@ -14,7 +14,6 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Upload загружает файл в бакет
 func (c *Client) Upload(ctx context.Context, bucket, objectKey string, data io.Reader, contentType string, size int64) error {
 	input := &s3.PutObjectInput{
 		Bucket:      aws.String(bucket),
@@ -28,9 +27,11 @@ func (c *Client) Upload(ctx context.Context, bucket, objectKey string, data io.R
 	}
 
 	_, err := c.client.PutObject(ctx, input)
+
 	if err != nil {
 		return fmt.Errorf("s3 put object: %w", err)
 	}
+
 	return nil
 }
 
@@ -39,9 +40,11 @@ func (c *Client) Download(ctx context.Context, bucket, objectKey string) (io.Rea
 		Bucket: aws.String(bucket),
 		Key:    aws.String(objectKey),
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("s3 get object: %w", err)
 	}
+
 	return resp.Body, nil
 }
 
@@ -50,12 +53,14 @@ func (c *Client) Exists(ctx context.Context, bucket, objectKey string) (bool, er
 		Bucket: aws.String(bucket),
 		Key:    aws.String(objectKey),
 	})
+
 	if err != nil {
 		if isNotFoundError(err) {
 			return false, nil
 		}
 		return false, fmt.Errorf("s3 head object: %w", err)
 	}
+
 	return true, nil
 }
 
@@ -64,9 +69,11 @@ func (c *Client) Delete(ctx context.Context, bucket, objectKey string) error {
 		Bucket: aws.String(bucket),
 		Key:    aws.String(objectKey),
 	})
+
 	if err != nil {
 		return fmt.Errorf("s3 delete object: %w", err)
 	}
+
 	return nil
 }
 
@@ -77,9 +84,11 @@ func (c *Client) GetPresignedURL(ctx context.Context, bucket, objectKey string, 
 	}, func(opts *s3.PresignOptions) {
 		opts.Expires = expires
 	})
+
 	if err != nil {
 		return "", fmt.Errorf("s3 presign get object: %w", err)
 	}
+
 	return req.URL, nil
 }
 
@@ -89,6 +98,7 @@ func isNotFoundError(err error) bool {
 	}
 
 	var apiErr smithy.APIError
+
 	if errors.As(err, &apiErr) {
 		switch strings.TrimSpace(apiErr.ErrorCode()) {
 		case "NotFound", "NoSuchKey", "NoSuchBucket":
@@ -97,6 +107,7 @@ func isNotFoundError(err error) bool {
 	}
 
 	var respErr *smithyhttp.ResponseError
+
 	if errors.As(err, &respErr) {
 		return respErr.HTTPStatusCode() == 404
 	}

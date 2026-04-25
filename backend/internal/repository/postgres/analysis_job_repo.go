@@ -9,6 +9,7 @@ import (
 	"github.com/DedovInside/AutoInspect/backend/internal/repository/postgres/db"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -42,6 +43,10 @@ func (r *AnalysisJobRepo) Create(ctx context.Context, job *domain.AnalysisJob) e
 
 	err = r.queries.CreateAnalysisJob(ctx, params)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return domain.ErrAlreadyExists
+		}
 		return domain.ErrInternal
 	}
 	return nil
@@ -90,11 +95,13 @@ func (r *AnalysisJobRepo) GetByUserAndIdempotencyKey(ctx context.Context, userID
 
 func (r *AnalysisJobRepo) GetByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*domain.AnalysisJob, error) {
 	limit32, err := intToInt32Checked(limit)
+
 	if err != nil {
 		return nil, domain.ErrInvalidInput
 	}
 
 	offset32, err := intToInt32Checked(offset)
+
 	if err != nil {
 		return nil, domain.ErrInvalidInput
 	}
@@ -107,11 +114,13 @@ func (r *AnalysisJobRepo) GetByUserID(ctx context.Context, userID uuid.UUID, lim
 	}
 
 	dbJobs, err := r.queries.ListAnalysisJobsByUserID(ctx, params)
+
 	if err != nil {
 		return nil, domain.ErrInternal
 	}
 
 	jobs := make([]*domain.AnalysisJob, len(dbJobs))
+
 	for i := range dbJobs {
 		jobs[i] = toDomainAnalysisJob(&dbJobs[i])
 	}
@@ -127,9 +136,11 @@ func (r *AnalysisJobRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status
 	}
 
 	rowsAffected, err := r.queries.UpdateAnalysisJobStatus(ctx, params)
+
 	if err != nil {
 		return domain.ErrInternal
 	}
+
 	if rowsAffected == 0 {
 		return domain.ErrJobNotFound
 	}
@@ -157,6 +168,7 @@ func (r *AnalysisJobRepo) UpdateResult(ctx context.Context, id uuid.UUID, result
 	pgID := pgtype.UUID{Bytes: id, Valid: true}
 
 	resultJSON, err := json.Marshal(result)
+
 	if err != nil {
 		return domain.ErrInternal
 	}
@@ -168,9 +180,11 @@ func (r *AnalysisJobRepo) UpdateResult(ctx context.Context, id uuid.UUID, result
 	}
 
 	rowsAffected, err := r.queries.UpdateAnalysisJobResult(ctx, params)
+
 	if err != nil {
 		return domain.ErrInternal
 	}
+
 	if rowsAffected == 0 {
 		return domain.ErrJobNotFound
 	}
@@ -190,21 +204,11 @@ func (r *AnalysisJobRepo) UpdateResultByCorrelationID(ctx context.Context, corre
 	}
 
 	rowsAffected, err := r.queries.UpdateAnalysisJobResultByCorrelationID(ctx, params)
-	if err != nil {
-		return domain.ErrInternal
-	}
-	if rowsAffected == 0 {
-		return domain.ErrJobNotFound
-	}
-	return nil
-}
 
-func (r *AnalysisJobRepo) MarkStarted(ctx context.Context, id uuid.UUID) error {
-	pgID := pgtype.UUID{Bytes: id, Valid: true}
-	rowsAffected, err := r.queries.MarkAnalysisJobStarted(ctx, pgID)
 	if err != nil {
 		return domain.ErrInternal
 	}
+
 	if rowsAffected == 0 {
 		return domain.ErrJobNotFound
 	}

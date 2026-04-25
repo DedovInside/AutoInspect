@@ -30,6 +30,7 @@ type AnalysisJob struct {
 	CompletedAt      pgtype.Timestamptz
 }
 
+// Таблица для хранения связей между пользователями и их OAuth-учетными записями (Google, Facebook и т.д.)
 type AuthOauthIdentity struct {
 	ID             pgtype.UUID
 	UserID         pgtype.UUID
@@ -39,6 +40,7 @@ type AuthOauthIdentity struct {
 	CreatedAt      pgtype.Timestamptz
 }
 
+// Таблица для хранения сессий пользователей, поддерживающая механизмы замены и отзыва токенов
 type AuthSession struct {
 	ID            pgtype.UUID
 	UserID        pgtype.UUID
@@ -70,6 +72,7 @@ type CarModel struct {
 	CreatedAt    pgtype.Timestamptz
 }
 
+// Таблица для хранения информации о пользователях, включая аутентификацию и роли
 type User struct {
 	ID            pgtype.UUID
 	Username      string
