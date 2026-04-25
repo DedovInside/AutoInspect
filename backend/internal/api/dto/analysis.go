@@ -11,7 +11,7 @@ type CreateAnalysisRequest struct {
 	Make       string `form:"make" json:"make" binding:"required,min=1,max=100"`
 	Model      string `form:"model" json:"model" binding:"required,min=1,max=100"`
 	Generation string `form:"generation" json:"generation" binding:"max=100"`
-	Year       int    `form:"year" json:"year" binding:"omitempty,min=1900,max=2100"`
+	Year       int    `form:"year" json:"year" binding:"required,min=1900,max=2100"`
 }
 
 type CreateAnalysisResponse struct {
@@ -61,8 +61,16 @@ type PresignedImageURLResponse struct {
 }
 
 type AnalysisResultResponse struct {
+	ModelID      string                        `json:"model_id"`
+	ModelVersion string                        `json:"model_version"`
+	BatchID      string                        `json:"batch_id"`
+	Results      []ImageAnalysisResultResponse `json:"results"`
+}
+
+type ImageAnalysisResultResponse struct {
+	ImageID         string                   `json:"image_id"`
+	ImageURI        string                   `json:"image_uri"`
 	ImageInfo       ImageMetaResponse        `json:"image"`
-	ModelVersion    string                   `json:"model_version"`
 	DamageInstances []DamageInstanceResponse `json:"damage_instances"`
 	PartsSummary    []PartSummaryResponse    `json:"parts_summary"`
 }
@@ -82,12 +90,14 @@ type DamageInstanceResponse struct {
 }
 
 type PartAssociationResponse struct {
-	PartName   string  `json:"part_name"`
+	Name       string  `json:"name"`
+	Side       string  `json:"side,omitempty"`
 	Confidence float64 `json:"confidence"`
 }
 
 type PartSummaryResponse struct {
-	PartName    string         `json:"part_name"`
+	Name        string         `json:"name"`
+	Side        string         `json:"side,omitempty"`
 	DamageCount int            `json:"damage_count"`
 	DamageTypes map[string]int `json:"damage_types"`
 }
@@ -152,42 +162,64 @@ func toAnalysisResultResponse(result *domain.AnalysisResult) *AnalysisResultResp
 	}
 
 	out := &AnalysisResultResponse{
+		ModelID:      result.ModelID,
+		ModelVersion: result.ModelVersion,
+		BatchID:      result.BatchID,
+		Results:      make([]ImageAnalysisResultResponse, 0, len(result.Results)),
+	}
+
+	for i := range result.Results {
+		out.Results = append(out.Results, toImageAnalysisResultResponse(&result.Results[i]))
+	}
+
+	return out
+}
+
+func toImageAnalysisResultResponse(result *domain.ImageAnalysisResult) ImageAnalysisResultResponse {
+	out := ImageAnalysisResultResponse{
+		ImageID:  result.ImageID,
+		ImageURI: result.ImageURI,
 		ImageInfo: ImageMetaResponse{
 			Width:  result.ImageInfo.Width,
 			Height: result.ImageInfo.Height,
 		},
-		ModelVersion:    result.ModelVersion,
 		DamageInstances: make([]DamageInstanceResponse, 0, len(result.DamageInstances)),
 		PartsSummary:    make([]PartSummaryResponse, 0, len(result.PartsSummary)),
 	}
 
-	for _, d := range result.DamageInstances {
-		dto := DamageInstanceResponse{
-			ID:         d.ID,
-			DamageType: d.DamageType,
-			Polygon:    d.Polygon,
-			BBox:       d.BBox,
-			Confidence: d.Confidence,
-			Parts:      make([]PartAssociationResponse, 0, len(d.Parts)),
-		}
-
-		for _, p := range d.Parts {
-			dto.Parts = append(dto.Parts, PartAssociationResponse{
-				PartName:   p.PartName,
-				Confidence: p.Confidence,
-			})
-		}
-
-		out.DamageInstances = append(out.DamageInstances, dto)
+	for i := range result.DamageInstances {
+		out.DamageInstances = append(out.DamageInstances, toDamageInstanceResponse(&result.DamageInstances[i]))
 	}
+	for _, summary := range result.PartsSummary {
+		out.PartsSummary = append(out.PartsSummary, toPartSummaryResponse(summary))
+	}
+	return out
+}
 
-	for _, s := range result.PartsSummary {
-		out.PartsSummary = append(out.PartsSummary, PartSummaryResponse{
-			PartName:    s.PartName,
-			DamageCount: s.DamageCount,
-			DamageTypes: s.DamageTypes,
+func toDamageInstanceResponse(damage *domain.DamageInstance) DamageInstanceResponse {
+	out := DamageInstanceResponse{
+		ID:         damage.ID,
+		DamageType: damage.DamageType,
+		Polygon:    damage.Polygon,
+		BBox:       damage.BBox,
+		Confidence: damage.Confidence,
+		Parts:      make([]PartAssociationResponse, 0, len(damage.Parts)),
+	}
+	for _, part := range damage.Parts {
+		out.Parts = append(out.Parts, PartAssociationResponse{
+			Name:       part.Name,
+			Side:       part.Side,
+			Confidence: part.Confidence,
 		})
 	}
-
 	return out
+}
+
+func toPartSummaryResponse(summary domain.PartSummary) PartSummaryResponse {
+	return PartSummaryResponse{
+		Name:        summary.Name,
+		Side:        summary.Side,
+		DamageCount: summary.DamageCount,
+		DamageTypes: summary.DamageTypes,
+	}
 }

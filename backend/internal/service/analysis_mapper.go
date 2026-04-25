@@ -7,8 +7,11 @@ import (
 	analysisv1 "github.com/DedovInside/AutoInspect/backend/internal/proto/gen/go/analysis/v1"
 )
 
-func DomainToProtoRequest(job *domain.AnalysisJob, modelS3Key string) *analysisv1.AnalysisRequest {
+func DomainToProtoRequest(job *domain.AnalysisJob, model *domain.CarModel) *analysisv1.AnalysisRequest {
 	if job == nil {
+		return nil
+	}
+	if model == nil {
 		return nil
 	}
 
@@ -21,8 +24,9 @@ func DomainToProtoRequest(job *domain.AnalysisJob, modelS3Key string) *analysisv
 			Generation: job.CarGeneration,
 			Year:       carYearToProto(job.CarYear),
 		},
-		ImageS3Keys: safeStringSlice(job.ImageKeys),
-		ModelS3Key:  modelS3Key,
+		ImageS3Keys:       safeStringSlice(job.ImageKeys),
+		ModelS3Key:        model.ModelS3Key,
+		PartsCatalogS3Key: model.PartsCatalogS3Key,
 	}
 }
 
@@ -40,11 +44,28 @@ func ProtoToDomainResult(protoResult *analysisv1.AnalysisResult) *domain.Analysi
 	}
 
 	return &domain.AnalysisResult{
-		ImageInfo:       protoImageMeta(protoResult.ImageInfo),
-		ModelVersion:    protoResult.ModelVersion,
-		DamageInstances: protoDamages(protoResult.Damages),
-		PartsSummary:    protoPartsSummary(protoResult.PartsSummary),
+		ModelID:      protoResult.ModelId,
+		ModelVersion: protoResult.ModelVersion,
+		BatchID:      protoResult.BatchId,
+		Results:      protoImageResults(protoResult.Results),
 	}
+}
+
+func protoImageResults(results []*analysisv1.ImageAnalysisResult) []domain.ImageAnalysisResult {
+	out := make([]domain.ImageAnalysisResult, 0, len(results))
+	for _, result := range results {
+		if result == nil {
+			continue
+		}
+		out = append(out, domain.ImageAnalysisResult{
+			ImageID:         result.ImageId,
+			ImageURI:        result.ImageUri,
+			ImageInfo:       protoImageMeta(result.Image),
+			DamageInstances: protoDamages(result.DamageInstances),
+			PartsSummary:    protoPartsSummary(result.PartsSummary),
+		})
+	}
+	return out
 }
 
 func protoImageMeta(info *analysisv1.ImageInfo) domain.ImageMeta {
@@ -104,7 +125,8 @@ func protoPartAssociations(parts []*analysisv1.PartAssociation) []domain.PartAss
 	for _, p := range parts {
 		if p != nil {
 			out = append(out, domain.PartAssociation{
-				PartName:   p.PartName,
+				Name:       p.Name,
+				Side:       p.Side,
 				Confidence: float64(p.Confidence),
 			})
 		}
@@ -125,7 +147,8 @@ func protoPartsSummary(summary []*analysisv1.PartSummary) []domain.PartSummary {
 
 func protoPartSummary(summary *analysisv1.PartSummary) domain.PartSummary {
 	return domain.PartSummary{
-		PartName:    summary.PartName,
+		Name:        summary.Name,
+		Side:        summary.Side,
 		DamageCount: int(summary.DamageCount),
 		DamageTypes: protoDamageTypeCounts(summary.DamageTypes),
 	}

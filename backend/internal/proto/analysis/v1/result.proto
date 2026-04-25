@@ -8,10 +8,18 @@ message AnalysisResult {
   string status = 2;
   string error_message = 3;
 
-  string model_version = 4;
-  ImageInfo image_info = 5;
-  repeated DamageInstance damages = 6;
-  repeated PartSummary parts_summary = 7;
+  string model_id = 4;
+  string model_version = 5;
+  string batch_id = 6;
+  repeated ImageAnalysisResult results = 7;
+}
+
+message ImageAnalysisResult {
+  string image_id = 1;
+  string image_uri = 2;
+  ImageInfo image = 3;
+  repeated DamageInstance damage_instances = 4;
+  repeated PartSummary parts_summary = 5;
 }
 
 message ImageInfo {
@@ -41,12 +49,14 @@ message BBox {
 }
 
 message PartAssociation {
-  string part_name = 1;
-  float confidence = 2;
+  string name = 1;
+  string side = 2;
+  float confidence = 3;
 }
 
 message PartSummary {
-  string part_name = 1;
-  int32 damage_count = 2;
-  map<string, int32> damage_types = 3;
+  string name = 1;
+  string side = 2;
+  int32 damage_count = 3;
+  map<string, int32> damage_types = 4;
 }

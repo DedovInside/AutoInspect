@@ -14,22 +14,23 @@ import (
 const createCarModel = `-- name: CreateCarModel :exec
 INSERT INTO car_models (
     id, make, model, generation, year_from, year_to,
-    model_s3_key, model_version, is_universal, is_active, created_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    model_s3_key, parts_catalog_s3_key, model_version, is_universal, is_active, created_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 `
 
 type CreateCarModelParams struct {
-	ID           pgtype.UUID
-	Make         string
-	Model        string
-	Generation   *string
-	YearFrom     int32
-	YearTo       *int32
-	ModelS3Key   string
-	ModelVersion string
-	IsUniversal  *bool
-	IsActive     *bool
-	CreatedAt    pgtype.Timestamptz
+	ID                pgtype.UUID
+	Make              string
+	Model             string
+	Generation        *string
+	YearFrom          int32
+	YearTo            *int32
+	ModelS3Key        string
+	PartsCatalogS3Key string
+	ModelVersion      string
+	IsUniversal       *bool
+	IsActive          *bool
+	CreatedAt         pgtype.Timestamptz
 }
 
 func (q *Queries) CreateCarModel(ctx context.Context, arg CreateCarModelParams) error {
@@ -41,6 +42,7 @@ func (q *Queries) CreateCarModel(ctx context.Context, arg CreateCarModelParams) 
 		arg.YearFrom,
 		arg.YearTo,
 		arg.ModelS3Key,
+		arg.PartsCatalogS3Key,
 		arg.ModelVersion,
 		arg.IsUniversal,
 		arg.IsActive,
@@ -51,7 +53,7 @@ func (q *Queries) CreateCarModel(ctx context.Context, arg CreateCarModelParams) 
 
 const findActiveCarModel = `-- name: FindActiveCarModel :one
 SELECT id, make, model, generation, year_from, year_to,
-       model_s3_key, model_version, is_universal, is_active, created_at
+       model_s3_key, parts_catalog_s3_key, model_version, is_universal, is_active, created_at
 FROM car_models
 WHERE is_active = true
   AND make = $1
@@ -88,6 +90,7 @@ func (q *Queries) FindActiveCarModel(ctx context.Context, arg FindActiveCarModel
 		&i.YearFrom,
 		&i.YearTo,
 		&i.ModelS3Key,
+		&i.PartsCatalogS3Key,
 		&i.ModelVersion,
 		&i.IsUniversal,
 		&i.IsActive,
@@ -98,7 +101,7 @@ func (q *Queries) FindActiveCarModel(ctx context.Context, arg FindActiveCarModel
 
 const getUniversalCarModel = `-- name: GetUniversalCarModel :one
 SELECT id, make, model, generation, year_from, year_to,
-       model_s3_key, model_version, is_universal, is_active, created_at
+       model_s3_key, parts_catalog_s3_key, model_version, is_universal, is_active, created_at
 FROM car_models
 WHERE is_active = true
   AND is_universal = true
@@ -116,6 +119,7 @@ func (q *Queries) GetUniversalCarModel(ctx context.Context) (CarModel, error) {
 		&i.YearFrom,
 		&i.YearTo,
 		&i.ModelS3Key,
+		&i.PartsCatalogS3Key,
 		&i.ModelVersion,
 		&i.IsUniversal,
 		&i.IsActive,

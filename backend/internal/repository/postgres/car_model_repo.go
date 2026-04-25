@@ -58,16 +58,17 @@ func (r *CarModelRepo) CreateModel(ctx context.Context, cm *domain.CarModel) err
 	}
 
 	params := db.CreateCarModelParams{
-		ID:           pgtype.UUID{Bytes: cm.ID, Valid: true},
-		Make:         cm.Make,
-		Model:        cm.Model,
-		Generation:   stringPtrOrNil(cm.Generation),
-		YearFrom:     yearFrom32,
-		ModelS3Key:   cm.ModelS3Key,
-		ModelVersion: cm.ModelVersion,
-		IsUniversal:  boolPtr(cm.IsUniversal),
-		IsActive:     boolPtr(cm.IsActive),
-		CreatedAt:    pgtype.Timestamptz{Time: cm.CreatedAt, Valid: true},
+		ID:                pgtype.UUID{Bytes: cm.ID, Valid: true},
+		Make:              cm.Make,
+		Model:             cm.Model,
+		Generation:        stringPtrOrNil(cm.Generation),
+		YearFrom:          yearFrom32,
+		ModelS3Key:        cm.ModelS3Key,
+		PartsCatalogS3Key: cm.PartsCatalogS3Key,
+		ModelVersion:      cm.ModelVersion,
+		IsUniversal:       boolPtr(cm.IsUniversal),
+		IsActive:          boolPtr(cm.IsActive),
+		CreatedAt:         pgtype.Timestamptz{Time: cm.CreatedAt, Valid: true},
 	}
 	if cm.YearTo > 0 {
 		y, err := intToInt32Checked(cm.YearTo)
@@ -106,16 +107,17 @@ func toDomainCarModel(dbModel *db.CarModel) *domain.CarModel {
 	}
 
 	return &domain.CarModel{
-		ID:           fromPgUUID(dbModel.ID),
-		Make:         dbModel.Make,
-		Model:        dbModel.Model,
-		Generation:   generation,
-		YearFrom:     int(dbModel.YearFrom),
-		YearTo:       yearTo,
-		ModelS3Key:   dbModel.ModelS3Key,
-		ModelVersion: dbModel.ModelVersion,
-		IsUniversal:  isUniversal,
-		IsActive:     isActive,
-		CreatedAt:    dbModel.CreatedAt.Time,
+		ID:                fromPgUUID(dbModel.ID),
+		Make:              dbModel.Make,
+		Model:             dbModel.Model,
+		Generation:        generation,
+		YearFrom:          int(dbModel.YearFrom),
+		YearTo:            yearTo,
+		ModelS3Key:        dbModel.ModelS3Key,
+		PartsCatalogS3Key: dbModel.PartsCatalogS3Key,
+		ModelVersion:      dbModel.ModelVersion,
+		IsUniversal:       isUniversal,
+		IsActive:          isActive,
+		CreatedAt:         dbModel.CreatedAt.Time,
 	}
 }

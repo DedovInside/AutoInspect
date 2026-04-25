@@ -59,17 +59,18 @@ type AuthSession struct {
 
 // Реестр ML-моделей, привязанных к маркам/моделям/годам авто
 type CarModel struct {
-	ID           pgtype.UUID
-	Make         string
-	Model        string
-	Generation   *string
-	YearFrom     int32
-	YearTo       *int32
-	ModelS3Key   string
-	ModelVersion string
-	IsUniversal  *bool
-	IsActive     *bool
-	CreatedAt    pgtype.Timestamptz
+	ID                pgtype.UUID
+	Make              string
+	Model             string
+	Generation        *string
+	YearFrom          int32
+	YearTo            *int32
+	ModelS3Key        string
+	PartsCatalogS3Key string
+	ModelVersion      string
+	IsUniversal       *bool
+	IsActive          *bool
+	CreatedAt         pgtype.Timestamptz
 }
 
 // Таблица для хранения информации о пользователях, включая аутентификацию и роли

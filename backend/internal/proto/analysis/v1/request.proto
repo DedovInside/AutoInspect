@@ -10,6 +10,7 @@ message AnalysisRequest {
   CarInfo car_info = 3;
   repeated string image_s3_keys = 4;
   string model_s3_key = 5;
+  string parts_catalog_s3_key = 6;
 }
 
 message CarInfo {

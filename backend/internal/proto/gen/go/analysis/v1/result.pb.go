@@ -27,10 +27,10 @@ type AnalysisResult struct {
 	CorrelationId string                 `protobuf:"bytes,1,opt,name=correlation_id,json=correlationId,proto3" json:"correlation_id,omitempty"`
 	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
 	ErrorMessage  string                 `protobuf:"bytes,3,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
-	ModelVersion  string                 `protobuf:"bytes,4,opt,name=model_version,json=modelVersion,proto3" json:"model_version,omitempty"`
-	ImageInfo     *ImageInfo             `protobuf:"bytes,5,opt,name=image_info,json=imageInfo,proto3" json:"image_info,omitempty"`
-	Damages       []*DamageInstance      `protobuf:"bytes,6,rep,name=damages,proto3" json:"damages,omitempty"`
-	PartsSummary  []*PartSummary         `protobuf:"bytes,7,rep,name=parts_summary,json=partsSummary,proto3" json:"parts_summary,omitempty"`
+	ModelId       string                 `protobuf:"bytes,4,opt,name=model_id,json=modelId,proto3" json:"model_id,omitempty"`
+	ModelVersion  string                 `protobuf:"bytes,5,opt,name=model_version,json=modelVersion,proto3" json:"model_version,omitempty"`
+	BatchId       string                 `protobuf:"bytes,6,opt,name=batch_id,json=batchId,proto3" json:"batch_id,omitempty"`
+	Results       []*ImageAnalysisResult `protobuf:"bytes,7,rep,name=results,proto3" json:"results,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -86,6 +86,13 @@ func (x *AnalysisResult) GetErrorMessage() string {
 	return ""
 }
 
+func (x *AnalysisResult) GetModelId() string {
+	if x != nil {
+		return x.ModelId
+	}
+	return ""
+}
+
 func (x *AnalysisResult) GetModelVersion() string {
 	if x != nil {
 		return x.ModelVersion
@@ -93,21 +100,90 @@ func (x *AnalysisResult) GetModelVersion() string {
 	return ""
 }
 
-func (x *AnalysisResult) GetImageInfo() *ImageInfo {
+func (x *AnalysisResult) GetBatchId() string {
 	if x != nil {
-		return x.ImageInfo
+		return x.BatchId
+	}
+	return ""
+}
+
+func (x *AnalysisResult) GetResults() []*ImageAnalysisResult {
+	if x != nil {
+		return x.Results
 	}
 	return nil
 }
 
-func (x *AnalysisResult) GetDamages() []*DamageInstance {
+type ImageAnalysisResult struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ImageId         string                 `protobuf:"bytes,1,opt,name=image_id,json=imageId,proto3" json:"image_id,omitempty"`
+	ImageUri        string                 `protobuf:"bytes,2,opt,name=image_uri,json=imageUri,proto3" json:"image_uri,omitempty"`
+	Image           *ImageInfo             `protobuf:"bytes,3,opt,name=image,proto3" json:"image,omitempty"`
+	DamageInstances []*DamageInstance      `protobuf:"bytes,4,rep,name=damage_instances,json=damageInstances,proto3" json:"damage_instances,omitempty"`
+	PartsSummary    []*PartSummary         `protobuf:"bytes,5,rep,name=parts_summary,json=partsSummary,proto3" json:"parts_summary,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ImageAnalysisResult) Reset() {
+	*x = ImageAnalysisResult{}
+	mi := &file_analysis_v1_result_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImageAnalysisResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImageAnalysisResult) ProtoMessage() {}
+
+func (x *ImageAnalysisResult) ProtoReflect() protoreflect.Message {
+	mi := &file_analysis_v1_result_proto_msgTypes[1]
 	if x != nil {
-		return x.Damages
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImageAnalysisResult.ProtoReflect.Descriptor instead.
+func (*ImageAnalysisResult) Descriptor() ([]byte, []int) {
+	return file_analysis_v1_result_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *ImageAnalysisResult) GetImageId() string {
+	if x != nil {
+		return x.ImageId
+	}
+	return ""
+}
+
+func (x *ImageAnalysisResult) GetImageUri() string {
+	if x != nil {
+		return x.ImageUri
+	}
+	return ""
+}
+
+func (x *ImageAnalysisResult) GetImage() *ImageInfo {
+	if x != nil {
+		return x.Image
 	}
 	return nil
 }
 
-func (x *AnalysisResult) GetPartsSummary() []*PartSummary {
+func (x *ImageAnalysisResult) GetDamageInstances() []*DamageInstance {
+	if x != nil {
+		return x.DamageInstances
+	}
+	return nil
+}
+
+func (x *ImageAnalysisResult) GetPartsSummary() []*PartSummary {
 	if x != nil {
 		return x.PartsSummary
 	}
@@ -124,7 +200,7 @@ type ImageInfo struct {
 
 func (x *ImageInfo) Reset() {
 	*x = ImageInfo{}
-	mi := &file_analysis_v1_result_proto_msgTypes[1]
+	mi := &file_analysis_v1_result_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -136,7 +212,7 @@ func (x *ImageInfo) String() string {
 func (*ImageInfo) ProtoMessage() {}
 
 func (x *ImageInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_analysis_v1_result_proto_msgTypes[1]
+	mi := &file_analysis_v1_result_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -149,7 +225,7 @@ func (x *ImageInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImageInfo.ProtoReflect.Descriptor instead.
 func (*ImageInfo) Descriptor() ([]byte, []int) {
-	return file_analysis_v1_result_proto_rawDescGZIP(), []int{1}
+	return file_analysis_v1_result_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ImageInfo) GetWidth() int32 {
@@ -180,7 +256,7 @@ type DamageInstance struct {
 
 func (x *DamageInstance) Reset() {
 	*x = DamageInstance{}
-	mi := &file_analysis_v1_result_proto_msgTypes[2]
+	mi := &file_analysis_v1_result_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -192,7 +268,7 @@ func (x *DamageInstance) String() string {
 func (*DamageInstance) ProtoMessage() {}
 
 func (x *DamageInstance) ProtoReflect() protoreflect.Message {
-	mi := &file_analysis_v1_result_proto_msgTypes[2]
+	mi := &file_analysis_v1_result_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -205,7 +281,7 @@ func (x *DamageInstance) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DamageInstance.ProtoReflect.Descriptor instead.
 func (*DamageInstance) Descriptor() ([]byte, []int) {
-	return file_analysis_v1_result_proto_rawDescGZIP(), []int{2}
+	return file_analysis_v1_result_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *DamageInstance) GetId() string {
@@ -260,7 +336,7 @@ type Point struct {
 
 func (x *Point) Reset() {
 	*x = Point{}
-	mi := &file_analysis_v1_result_proto_msgTypes[3]
+	mi := &file_analysis_v1_result_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -272,7 +348,7 @@ func (x *Point) String() string {
 func (*Point) ProtoMessage() {}
 
 func (x *Point) ProtoReflect() protoreflect.Message {
-	mi := &file_analysis_v1_result_proto_msgTypes[3]
+	mi := &file_analysis_v1_result_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -285,7 +361,7 @@ func (x *Point) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Point.ProtoReflect.Descriptor instead.
 func (*Point) Descriptor() ([]byte, []int) {
-	return file_analysis_v1_result_proto_rawDescGZIP(), []int{3}
+	return file_analysis_v1_result_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Point) GetX() int32 {
@@ -314,7 +390,7 @@ type BBox struct {
 
 func (x *BBox) Reset() {
 	*x = BBox{}
-	mi := &file_analysis_v1_result_proto_msgTypes[4]
+	mi := &file_analysis_v1_result_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -326,7 +402,7 @@ func (x *BBox) String() string {
 func (*BBox) ProtoMessage() {}
 
 func (x *BBox) ProtoReflect() protoreflect.Message {
-	mi := &file_analysis_v1_result_proto_msgTypes[4]
+	mi := &file_analysis_v1_result_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -339,7 +415,7 @@ func (x *BBox) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BBox.ProtoReflect.Descriptor instead.
 func (*BBox) Descriptor() ([]byte, []int) {
-	return file_analysis_v1_result_proto_rawDescGZIP(), []int{4}
+	return file_analysis_v1_result_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *BBox) GetXMin() int32 {
@@ -372,15 +448,16 @@ func (x *BBox) GetYMax() int32 {
 
 type PartAssociation struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	PartName      string                 `protobuf:"bytes,1,opt,name=part_name,json=partName,proto3" json:"part_name,omitempty"`
-	Confidence    float32                `protobuf:"fixed32,2,opt,name=confidence,proto3" json:"confidence,omitempty"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Side          string                 `protobuf:"bytes,2,opt,name=side,proto3" json:"side,omitempty"`
+	Confidence    float32                `protobuf:"fixed32,3,opt,name=confidence,proto3" json:"confidence,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PartAssociation) Reset() {
 	*x = PartAssociation{}
-	mi := &file_analysis_v1_result_proto_msgTypes[5]
+	mi := &file_analysis_v1_result_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -392,7 +469,7 @@ func (x *PartAssociation) String() string {
 func (*PartAssociation) ProtoMessage() {}
 
 func (x *PartAssociation) ProtoReflect() protoreflect.Message {
-	mi := &file_analysis_v1_result_proto_msgTypes[5]
+	mi := &file_analysis_v1_result_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -405,12 +482,19 @@ func (x *PartAssociation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PartAssociation.ProtoReflect.Descriptor instead.
 func (*PartAssociation) Descriptor() ([]byte, []int) {
-	return file_analysis_v1_result_proto_rawDescGZIP(), []int{5}
+	return file_analysis_v1_result_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *PartAssociation) GetPartName() string {
+func (x *PartAssociation) GetName() string {
 	if x != nil {
-		return x.PartName
+		return x.Name
+	}
+	return ""
+}
+
+func (x *PartAssociation) GetSide() string {
+	if x != nil {
+		return x.Side
 	}
 	return ""
 }
@@ -424,16 +508,17 @@ func (x *PartAssociation) GetConfidence() float32 {
 
 type PartSummary struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	PartName      string                 `protobuf:"bytes,1,opt,name=part_name,json=partName,proto3" json:"part_name,omitempty"`
-	DamageCount   int32                  `protobuf:"varint,2,opt,name=damage_count,json=damageCount,proto3" json:"damage_count,omitempty"`
-	DamageTypes   map[string]int32       `protobuf:"bytes,3,rep,name=damage_types,json=damageTypes,proto3" json:"damage_types,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Side          string                 `protobuf:"bytes,2,opt,name=side,proto3" json:"side,omitempty"`
+	DamageCount   int32                  `protobuf:"varint,3,opt,name=damage_count,json=damageCount,proto3" json:"damage_count,omitempty"`
+	DamageTypes   map[string]int32       `protobuf:"bytes,4,rep,name=damage_types,json=damageTypes,proto3" json:"damage_types,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PartSummary) Reset() {
 	*x = PartSummary{}
-	mi := &file_analysis_v1_result_proto_msgTypes[6]
+	mi := &file_analysis_v1_result_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -445,7 +530,7 @@ func (x *PartSummary) String() string {
 func (*PartSummary) ProtoMessage() {}
 
 func (x *PartSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_analysis_v1_result_proto_msgTypes[6]
+	mi := &file_analysis_v1_result_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -458,12 +543,19 @@ func (x *PartSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PartSummary.ProtoReflect.Descriptor instead.
 func (*PartSummary) Descriptor() ([]byte, []int) {
-	return file_analysis_v1_result_proto_rawDescGZIP(), []int{6}
+	return file_analysis_v1_result_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *PartSummary) GetPartName() string {
+func (x *PartSummary) GetName() string {
 	if x != nil {
-		return x.PartName
+		return x.Name
+	}
+	return ""
+}
+
+func (x *PartSummary) GetSide() string {
+	if x != nil {
+		return x.Side
 	}
 	return ""
 }
@@ -486,16 +578,21 @@ var File_analysis_v1_result_proto protoreflect.FileDescriptor
 
 const file_analysis_v1_result_proto_rawDesc = "" +
 	"\n" +
-	"\x18analysis/v1/result.proto\x12\x17autoinspect.analysis.v1\"\xea\x02\n" +
+	"\x18analysis/v1/result.proto\x12\x17autoinspect.analysis.v1\"\x97\x02\n" +
 	"\x0eAnalysisResult\x12%\n" +
 	"\x0ecorrelation_id\x18\x01 \x01(\tR\rcorrelationId\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\tR\x06status\x12#\n" +
-	"\rerror_message\x18\x03 \x01(\tR\ferrorMessage\x12#\n" +
-	"\rmodel_version\x18\x04 \x01(\tR\fmodelVersion\x12A\n" +
-	"\n" +
-	"image_info\x18\x05 \x01(\v2\".autoinspect.analysis.v1.ImageInfoR\timageInfo\x12A\n" +
-	"\adamages\x18\x06 \x03(\v2'.autoinspect.analysis.v1.DamageInstanceR\adamages\x12I\n" +
-	"\rparts_summary\x18\a \x03(\v2$.autoinspect.analysis.v1.PartSummaryR\fpartsSummary\"9\n" +
+	"\rerror_message\x18\x03 \x01(\tR\ferrorMessage\x12\x19\n" +
+	"\bmodel_id\x18\x04 \x01(\tR\amodelId\x12#\n" +
+	"\rmodel_version\x18\x05 \x01(\tR\fmodelVersion\x12\x19\n" +
+	"\bbatch_id\x18\x06 \x01(\tR\abatchId\x12F\n" +
+	"\aresults\x18\a \x03(\v2,.autoinspect.analysis.v1.ImageAnalysisResultR\aresults\"\xa6\x02\n" +
+	"\x13ImageAnalysisResult\x12\x19\n" +
+	"\bimage_id\x18\x01 \x01(\tR\aimageId\x12\x1b\n" +
+	"\timage_uri\x18\x02 \x01(\tR\bimageUri\x128\n" +
+	"\x05image\x18\x03 \x01(\v2\".autoinspect.analysis.v1.ImageInfoR\x05image\x12R\n" +
+	"\x10damage_instances\x18\x04 \x03(\v2'.autoinspect.analysis.v1.DamageInstanceR\x0fdamageInstances\x12I\n" +
+	"\rparts_summary\x18\x05 \x03(\v2$.autoinspect.analysis.v1.PartSummaryR\fpartsSummary\"9\n" +
 	"\tImageInfo\x12\x14\n" +
 	"\x05width\x18\x01 \x01(\x05R\x05width\x12\x16\n" +
 	"\x06height\x18\x02 \x01(\x05R\x06height\"\x8e\x02\n" +
@@ -516,16 +613,18 @@ const file_analysis_v1_result_proto_rawDesc = "" +
 	"\x05x_min\x18\x01 \x01(\x05R\x04xMin\x12\x13\n" +
 	"\x05y_min\x18\x02 \x01(\x05R\x04yMin\x12\x13\n" +
 	"\x05x_max\x18\x03 \x01(\x05R\x04xMax\x12\x13\n" +
-	"\x05y_max\x18\x04 \x01(\x05R\x04yMax\"N\n" +
-	"\x0fPartAssociation\x12\x1b\n" +
-	"\tpart_name\x18\x01 \x01(\tR\bpartName\x12\x1e\n" +
+	"\x05y_max\x18\x04 \x01(\x05R\x04yMax\"Y\n" +
+	"\x0fPartAssociation\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
+	"\x04side\x18\x02 \x01(\tR\x04side\x12\x1e\n" +
 	"\n" +
-	"confidence\x18\x02 \x01(\x02R\n" +
-	"confidence\"\xe7\x01\n" +
-	"\vPartSummary\x12\x1b\n" +
-	"\tpart_name\x18\x01 \x01(\tR\bpartName\x12!\n" +
-	"\fdamage_count\x18\x02 \x01(\x05R\vdamageCount\x12X\n" +
-	"\fdamage_types\x18\x03 \x03(\v25.autoinspect.analysis.v1.PartSummary.DamageTypesEntryR\vdamageTypes\x1a>\n" +
+	"confidence\x18\x03 \x01(\x02R\n" +
+	"confidence\"\xf2\x01\n" +
+	"\vPartSummary\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
+	"\x04side\x18\x02 \x01(\tR\x04side\x12!\n" +
+	"\fdamage_count\x18\x03 \x01(\x05R\vdamageCount\x12X\n" +
+	"\fdamage_types\x18\x04 \x03(\v25.autoinspect.analysis.v1.PartSummary.DamageTypesEntryR\vdamageTypes\x1a>\n" +
 	"\x10DamageTypesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01BYZWgithub.com/DedovInside/AutoInspect/backend/internal/proto/gen/go/analysis/v1;analysisv1b\x06proto3"
@@ -542,30 +641,32 @@ func file_analysis_v1_result_proto_rawDescGZIP() []byte {
 	return file_analysis_v1_result_proto_rawDescData
 }
 
-var file_analysis_v1_result_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_analysis_v1_result_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_analysis_v1_result_proto_goTypes = []any{
-	(*AnalysisResult)(nil),  // 0: autoinspect.analysis.v1.AnalysisResult
-	(*ImageInfo)(nil),       // 1: autoinspect.analysis.v1.ImageInfo
-	(*DamageInstance)(nil),  // 2: autoinspect.analysis.v1.DamageInstance
-	(*Point)(nil),           // 3: autoinspect.analysis.v1.Point
-	(*BBox)(nil),            // 4: autoinspect.analysis.v1.BBox
-	(*PartAssociation)(nil), // 5: autoinspect.analysis.v1.PartAssociation
-	(*PartSummary)(nil),     // 6: autoinspect.analysis.v1.PartSummary
-	nil,                     // 7: autoinspect.analysis.v1.PartSummary.DamageTypesEntry
+	(*AnalysisResult)(nil),      // 0: autoinspect.analysis.v1.AnalysisResult
+	(*ImageAnalysisResult)(nil), // 1: autoinspect.analysis.v1.ImageAnalysisResult
+	(*ImageInfo)(nil),           // 2: autoinspect.analysis.v1.ImageInfo
+	(*DamageInstance)(nil),      // 3: autoinspect.analysis.v1.DamageInstance
+	(*Point)(nil),               // 4: autoinspect.analysis.v1.Point
+	(*BBox)(nil),                // 5: autoinspect.analysis.v1.BBox
+	(*PartAssociation)(nil),     // 6: autoinspect.analysis.v1.PartAssociation
+	(*PartSummary)(nil),         // 7: autoinspect.analysis.v1.PartSummary
+	nil,                         // 8: autoinspect.analysis.v1.PartSummary.DamageTypesEntry
 }
 var file_analysis_v1_result_proto_depIdxs = []int32{
-	1, // 0: autoinspect.analysis.v1.AnalysisResult.image_info:type_name -> autoinspect.analysis.v1.ImageInfo
-	2, // 1: autoinspect.analysis.v1.AnalysisResult.damages:type_name -> autoinspect.analysis.v1.DamageInstance
-	6, // 2: autoinspect.analysis.v1.AnalysisResult.parts_summary:type_name -> autoinspect.analysis.v1.PartSummary
-	3, // 3: autoinspect.analysis.v1.DamageInstance.polygon:type_name -> autoinspect.analysis.v1.Point
-	4, // 4: autoinspect.analysis.v1.DamageInstance.bbox:type_name -> autoinspect.analysis.v1.BBox
-	5, // 5: autoinspect.analysis.v1.DamageInstance.parts:type_name -> autoinspect.analysis.v1.PartAssociation
-	7, // 6: autoinspect.analysis.v1.PartSummary.damage_types:type_name -> autoinspect.analysis.v1.PartSummary.DamageTypesEntry
-	7, // [7:7] is the sub-list for method output_type
-	7, // [7:7] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	1, // 0: autoinspect.analysis.v1.AnalysisResult.results:type_name -> autoinspect.analysis.v1.ImageAnalysisResult
+	2, // 1: autoinspect.analysis.v1.ImageAnalysisResult.image:type_name -> autoinspect.analysis.v1.ImageInfo
+	3, // 2: autoinspect.analysis.v1.ImageAnalysisResult.damage_instances:type_name -> autoinspect.analysis.v1.DamageInstance
+	7, // 3: autoinspect.analysis.v1.ImageAnalysisResult.parts_summary:type_name -> autoinspect.analysis.v1.PartSummary
+	4, // 4: autoinspect.analysis.v1.DamageInstance.polygon:type_name -> autoinspect.analysis.v1.Point
+	5, // 5: autoinspect.analysis.v1.DamageInstance.bbox:type_name -> autoinspect.analysis.v1.BBox
+	6, // 6: autoinspect.analysis.v1.DamageInstance.parts:type_name -> autoinspect.analysis.v1.PartAssociation
+	8, // 7: autoinspect.analysis.v1.PartSummary.damage_types:type_name -> autoinspect.analysis.v1.PartSummary.DamageTypesEntry
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_analysis_v1_result_proto_init() }
@@ -579,7 +680,7 @@ func file_analysis_v1_result_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_analysis_v1_result_proto_rawDesc), len(file_analysis_v1_result_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

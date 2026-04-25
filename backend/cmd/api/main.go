@@ -142,6 +142,11 @@ func run() error {
 
 	router := api.NewGinRouter(authHandler, analysisHandler, tokenManager, redisCacheClient)
 	server := newHTTPServer(cfg, router)
+	defer func() {
+		if closeErr := server.Close(); closeErr != nil && !errors.Is(closeErr, http.ErrServerClosed) {
+			log.Printf("warning: http server close failed: %v", closeErr)
+		}
+	}()
 
 	return serveHTTP(server, cfg.HTTP.ShutdownTimeout)
 }

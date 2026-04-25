@@ -8,8 +8,9 @@ CREATE TABLE car_models
     year_from     INTEGER      NOT NULL,
     year_to       INTEGER,
 
-    model_s3_key  VARCHAR(500) NOT NULL,
-    model_version VARCHAR(50)  NOT NULL,
+    model_s3_key         VARCHAR(500) NOT NULL,
+    parts_catalog_s3_key VARCHAR(500) NOT NULL,
+    model_version        VARCHAR(50)  NOT NULL,
 
     is_universal  BOOLEAN          DEFAULT FALSE,
     is_active     BOOLEAN          DEFAULT TRUE,

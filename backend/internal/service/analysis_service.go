@@ -77,6 +77,10 @@ func (s *AnalysisService) SubmitAnalysis(
 		return nil, err
 	}
 
+	if err := s.ensureModelArtifactsExist(ctx, model); err != nil {
+		return nil, err
+	}
+
 	imageKeys, err := s.uploadImages(ctx, userID, images)
 	if err != nil {
 		return nil, err
@@ -91,7 +95,7 @@ func (s *AnalysisService) SubmitAnalysis(
 		return job, nil
 	}
 
-	if err := s.publishAnalysisRequest(ctx, job, model.ModelS3Key); err != nil {
+	if err := s.publishAnalysisRequest(ctx, job, model); err != nil {
 		// Задача уже создана. На retry с тем же idempotency-key service репаблишит pending задачу.
 		return nil, fmt.Errorf("publish to Kafka: %w", err)
 	}
@@ -282,10 +286,21 @@ func (s *AnalysisService) handleCompletedAnalysisResult(
 		Timestamp: time.Now().UTC(),
 		Payload: notify.AnalysisCompletedPayload{
 			ModelVersion: protoResult.ModelVersion,
-			DamageCount:  len(domainResult.DamageInstances),
+			DamageCount:  countDamageInstances(domainResult),
 		},
 	})
 	return nil
+}
+
+func countDamageInstances(result *domain.AnalysisResult) int {
+	if result == nil {
+		return 0
+	}
+	count := 0
+	for _, imageResult := range result.Results {
+		count += len(imageResult.DamageInstances)
+	}
+	return count
 }
 
 func (s *AnalysisService) notifyJobEvent(ctx context.Context, event *notify.JobEvent) {
@@ -358,11 +373,11 @@ func (s *AnalysisService) ensurePublished(ctx context.Context, job *domain.Analy
 		return err
 	}
 
-	return s.publishAnalysisRequest(ctx, job, model.ModelS3Key)
+	return s.publishAnalysisRequest(ctx, job, model)
 }
 
-func (s *AnalysisService) publishAnalysisRequest(ctx context.Context, job *domain.AnalysisJob, modelS3Key string) error {
-	protoReq := DomainToProtoRequest(job, modelS3Key)
+func (s *AnalysisService) publishAnalysisRequest(ctx context.Context, job *domain.AnalysisJob, model *domain.CarModel) error {
+	protoReq := DomainToProtoRequest(job, model)
 	data, err := proto.Marshal(protoReq)
 
 	if err != nil {
@@ -393,17 +408,38 @@ func (s *AnalysisService) publishAnalysisRequest(ctx context.Context, job *domai
 	return nil
 }
 
+func (s *AnalysisService) ensureModelArtifactsExist(ctx context.Context, model *domain.CarModel) error {
+	if model == nil || strings.TrimSpace(model.ModelS3Key) == "" || strings.TrimSpace(model.PartsCatalogS3Key) == "" {
+		return domain.ErrInvalidModel
+	}
+	if s.fileRepo == nil {
+		return nil
+	}
+
+	if err := s.ensureModelObjectExists(ctx, model.ModelS3Key); err != nil {
+		return err
+	}
+	return s.ensureModelObjectExists(ctx, model.PartsCatalogS3Key)
+}
+
+func (s *AnalysisService) ensureModelObjectExists(ctx context.Context, objectKey string) error {
+	exists, err := s.fileRepo.Exists(ctx, s.s3Cfg.BucketModels, objectKey)
+	if err != nil {
+		return fmt.Errorf("check model artifact %q: %w", objectKey, err)
+	}
+	if !exists {
+		return fmt.Errorf("%w: model artifact %q not found", domain.ErrInvalidModel, objectKey)
+	}
+	return nil
+}
+
 func (s *AnalysisService) findModelForCar(ctx context.Context, carInfo domain.CarInfo) (*domain.CarModel, error) {
 	var (
 		model *domain.CarModel
 		err   error
 	)
 
-	if carInfo.Year == 0 {
-		model, err = s.modelRepo.FindActiveModel(ctx, carInfo.Make, carInfo.Model, carInfo.Generation, 0)
-	} else {
-		model, err = s.modelRepo.FindActiveModel(ctx, carInfo.Make, carInfo.Model, carInfo.Generation, carInfo.Year)
-	}
+	model, err = s.modelRepo.FindActiveModel(ctx, carInfo.Make, carInfo.Model, carInfo.Generation, carInfo.Year)
 
 	if err == nil {
 		return model, nil

@@ -23,14 +23,15 @@ const (
 )
 
 type AnalysisRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	CorrelationId string                 `protobuf:"bytes,1,opt,name=correlation_id,json=correlationId,proto3" json:"correlation_id,omitempty"`
-	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	CarInfo       *CarInfo               `protobuf:"bytes,3,opt,name=car_info,json=carInfo,proto3" json:"car_info,omitempty"`
-	ImageS3Keys   []string               `protobuf:"bytes,4,rep,name=image_s3_keys,json=imageS3Keys,proto3" json:"image_s3_keys,omitempty"`
-	ModelS3Key    string                 `protobuf:"bytes,5,opt,name=model_s3_key,json=modelS3Key,proto3" json:"model_s3_key,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	CorrelationId     string                 `protobuf:"bytes,1,opt,name=correlation_id,json=correlationId,proto3" json:"correlation_id,omitempty"`
+	UserId            string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	CarInfo           *CarInfo               `protobuf:"bytes,3,opt,name=car_info,json=carInfo,proto3" json:"car_info,omitempty"`
+	ImageS3Keys       []string               `protobuf:"bytes,4,rep,name=image_s3_keys,json=imageS3Keys,proto3" json:"image_s3_keys,omitempty"`
+	ModelS3Key        string                 `protobuf:"bytes,5,opt,name=model_s3_key,json=modelS3Key,proto3" json:"model_s3_key,omitempty"`
+	PartsCatalogS3Key string                 `protobuf:"bytes,6,opt,name=parts_catalog_s3_key,json=partsCatalogS3Key,proto3" json:"parts_catalog_s3_key,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *AnalysisRequest) Reset() {
@@ -94,6 +95,13 @@ func (x *AnalysisRequest) GetImageS3Keys() []string {
 func (x *AnalysisRequest) GetModelS3Key() string {
 	if x != nil {
 		return x.ModelS3Key
+	}
+	return ""
+}
+
+func (x *AnalysisRequest) GetPartsCatalogS3Key() string {
+	if x != nil {
+		return x.PartsCatalogS3Key
 	}
 	return ""
 }
@@ -170,14 +178,15 @@ var File_analysis_v1_request_proto protoreflect.FileDescriptor
 
 const file_analysis_v1_request_proto_rawDesc = "" +
 	"\n" +
-	"\x19analysis/v1/request.proto\x12\x17autoinspect.analysis.v1\"\xd4\x01\n" +
+	"\x19analysis/v1/request.proto\x12\x17autoinspect.analysis.v1\"\x85\x02\n" +
 	"\x0fAnalysisRequest\x12%\n" +
 	"\x0ecorrelation_id\x18\x01 \x01(\tR\rcorrelationId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12;\n" +
 	"\bcar_info\x18\x03 \x01(\v2 .autoinspect.analysis.v1.CarInfoR\acarInfo\x12\"\n" +
 	"\rimage_s3_keys\x18\x04 \x03(\tR\vimageS3Keys\x12 \n" +
 	"\fmodel_s3_key\x18\x05 \x01(\tR\n" +
-	"modelS3Key\"g\n" +
+	"modelS3Key\x12/\n" +
+	"\x14parts_catalog_s3_key\x18\x06 \x01(\tR\x11partsCatalogS3Key\"g\n" +
 	"\aCarInfo\x12\x12\n" +
 	"\x04make\x18\x01 \x01(\tR\x04make\x12\x14\n" +
 	"\x05model\x18\x02 \x01(\tR\x05model\x12\x1e\n" +

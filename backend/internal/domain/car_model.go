@@ -14,11 +14,11 @@ type CarModel struct {
 	YearFrom   int       `json:"year_from" db:"year_from"`
 	YearTo     int       `json:"year_to" db:"year_to"`
 
-	// Путь к файлу .pth в MinIO (например: "models/volkswagen/polo/5/v1.3.0.pth")
-	ModelS3Key   string `json:"model_s3_key" db:"model_s3_key"`
-	ModelVersion string `json:"model_version" db:"model_version"`
+	ModelS3Key        string `json:"model_s3_key" db:"model_s3_key"`
+	PartsCatalogS3Key string `json:"parts_catalog_s3_key" db:"parts_catalog_s3_key"`
+	ModelVersion      string `json:"model_version" db:"model_version"`
 
-	IsUniversal bool `json:"is_universal" db:"is_universal"` // Флаг "универсальная модель"
+	IsUniversal bool `json:"is_universal" db:"is_universal"`
 	IsActive    bool `json:"is_active" db:"is_active"`
 
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
