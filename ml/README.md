@@ -1,5 +1,10 @@
 # AutoInspect - ML
 
+[![ML](https://img.shields.io/badge/ML-Computer%20Vision-F99117)]()
+[![Hugging Face](https://img.shields.io/badge/Hugging%20Face-Models%20%26%20Datasets-yellow?logo=huggingface)](https://huggingface.co/mitbersh)
+[![Kaggle](https://img.shields.io/badge/Kaggle-Training%20Notebooks-20beff?logo=kaggle&logoColor=white)](https://www.kaggle.com/brshtskmit)
+[![Comet](https://img.shields.io/badge/Comet-Experiment%20Tracking-000000)](https://www.comet.com/brshtsk)
+
 ![logo-ml](../img/logo-ml.png)
 
 ML-часть **AutoInspect** - это набор моделей компьютерного зрения для автоматической оценки повреждений автомобиля по фотографии.
