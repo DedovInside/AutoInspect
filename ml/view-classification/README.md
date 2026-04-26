@@ -16,9 +16,18 @@
   - vertical head: `front`, `center`, `back`
 - **Итоговый ракурс** собирается из предсказаний по двум осям: `front-left`, `back-right`, `left`, `front` и т.д.
 
-Модель является частью пайплайна **AutoInspect**:
+Ранее `View Model` рассматривалась как часть каскада:
 
-`view classification → car parts segmentation → damage segmentation`
+```text
+View Model -> Part Segmentation -> Damage Segmentation
+```
+
+Сейчас она не является обязательной частью runtime-пайплайна, потому что текущая `YOLOv26-s` модель для `Part Segmentation General` достаточно хорошо различает left/right детали.
+
+При этом `View Model` остается важной частью проекта, потому что использовалась для подготовки и обогащения датасета. На ее основе были сделаны инструменты:
+
+- https://github.com/brshtsk/SuperviselyPerspective
+- https://github.com/brshtsk/SuperviselyPartsTags
 
 ## Быстрый старт
 
@@ -68,10 +77,13 @@ CLASS_NAMES = [
 Источники:
 - Carvana: https://www.kaggle.com/competitions/carvana-image-masking-challenge
 - Real damaged cars: https://humansintheloop.org/resources/datasets/car-parts-and-car-damages-dataset/
+- Скрипт сборки датасета: [prepare_dataset.py](./dataset/prepare_dataset.py)
 
 Реальная часть была изначально размечена baseline-моделью, обученной на Carvana, а затем вручную скорректирована.
 
 ## Обучение
+
+Обучение проводилось в [Kaggle](https://www.kaggle.com/code/brshtskmit/train-car-view-classifier-resnet18) с логированием в [Comet](https://www.comet.com/brshtsk/car-perspective/view/new/panels).
 
 - end-to-end fine-tuning
 - оптимизатор: `AdamW`

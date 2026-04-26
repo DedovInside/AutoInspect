@@ -2,91 +2,297 @@
 
 ![logo-ml](../img/logo-ml.png)
 
-ML-часть AutoInspect - это каскад моделей компьютерного зрения:
-- классификация ракурса автомобиля (`View Model`),
-- сегментация деталей (`Part Segmentation`),
-- сегментация повреждений (`Damage Segmentation`).
+ML-часть **AutoInspect** - это набор моделей компьютерного зрения для автоматической оценки повреждений автомобиля по фотографии.
 
-Проект сделан с прицелом на production: общая модель + дообучение под конкретные марки и типы кузова.
+Проект построен с прицелом на production: есть general-модели, возможность дообучения под конкретные автомобили/домены и отдельный inference-сервис для интеграции с backend.
 
-**Автор**: Бершицкий Дмитрий Александрович
+Автор: Бершицкий Дмитрий Александрович
 
-## Что уже готово
+---
 
-| Модуль                      | Назначение                        | Статус | Артефакты                                                      |
-|-----------------------------|-----------------------------------|---|----------------------------------------------------------------|
-| View Model                  | Классификация ракурса фото авто   | `READY` | Hugging Face, Kaggle, Comet                                    |
-| Part Segmentation (general) | Сегментация деталей авто (general)| `IN PROGRESS` | Датасет подготовлен, проведен Smoke-test. Ведутся эксперименты |
-| Part Segmentation (tunned)  | Сегментация деталей авто (tuned)  | `IN PROGRESS` | Базовый датасет подготовлен, разработка пайплайна дообучения   |
-| Damage Segmentation         | Сегментация зон повреждений       | `IN PROGRESS` | Базовый датасет подготовлен                                    |
+## Статус модулей
 
-> Сейчас полностью доступна модель 1 (View Model) и Baseline модели 2 (Part Segmentation). Модули 2-3 находятся в активной разработке.
+| Модуль | Назначение | Статус |
+|---|---|---|
+| Part Segmentation General | Сегментация крупных деталей автомобиля | `READY` |
+| Damage Segmentation | Сегментация повреждений | `READY` |
+| View Model | Вспомогательная классификация ракурса / tooling для датасета | `READY / AUXILIARY` |
+| ML Inference Service | Объединение Parts + Damages в JSON для backend | `IN PROGRESS` |
+| Part Segmentation Tuned | Дообучение под конкретные авто/домены | `IN PROGRESS` |
+| Detailed Segmentation | Детальная сегментация мелких элементов | `OPTIONAL / FUTURE` |
 
-## Архитектура ML-каскада
+---
 
-1. `View Model` определяет ракурс авто (`front-left`, `back-right` и т.д.).
-2. `Part Segmentation` сегментирует релевантные детали с учетом ракурса.
-3. `Damage Segmentation` выделяет повреждения и связывает их с деталями.
+## Архитектура
 
-Итог: модельный стек определяет **что повреждено**, **где расположено** и **к какому элементу относится**.
+Текущий ML-pipeline состоит из двух основных моделей и inference-сервиса:
 
-## 1) View Model (готово)
+```text
+Input image
+    ↓
+Part Segmentation General
+    ↓
+Damage Segmentation
+    ↓
+Mask matching: damages -> parts
+    ↓
+Structured JSON response for backend
+```
 
-### Fine-tuned ResNet18: классификация ракурса
+Главная задача пайплайна - определить:
 
-- Модель (Hugging Face): https://huggingface.co/mitbersh/car-view-classification
-- Инференс-ноутбук (Kaggle): https://www.kaggle.com/code/brshtskmit/infer-car-view
-- Обучение (Kaggle): https://www.kaggle.com/code/brshtskmit/train-view-model
-- Метрики и эксперименты (Comet): https://www.comet.com/brshtsk/car-perspective
-- Датасет (Hugging Face): https://huggingface.co/datasets/mitbersh/car-view-classification
+- какие повреждения есть на автомобиле;
+- где они расположены;
+- к каким деталям относятся;
+- сколько повреждений найдено на каждой детали.
 
-На базе `View Model` сделаны инструменты для подготовки датасета сегментации:
-- [SuperviselyPerspective](https://github.com/brshtsk/SuperviselyPerspective)
-- [SuperviselyPartsTags](https://github.com/brshtsk/SuperviselyPartsTags)
+---
 
-## 2) Part Segmentation (в разработке)
+## 1. Part Segmentation General
 
-### 2a. Coarse (General)
+`Part Segmentation General` - основная модель сегментации крупных деталей автомобиля.
 
-Базовая сегментация крупных частей авто (дверь, бампер, крыло и т.д.).
-Используется как универсальный сегментатор и как база для specialized-моделей.
-За основу взят датасет от HITL, к парным деталям (фара, дверь и т.д.) добавлен тэг side (left/right).
+Модель определяет внешние элементы автомобиля:
 
-- Обучение (Kaggle, Smoke-Test): https://www.kaggle.com/code/brshtskmit/train-car-parts-segmentation-smoke-test-yolov26
-- Адаптированный датасет: [Supervisely](https://huggingface.co/datasets/mitbersh/car-parts-segmentation-raw),
-[YOLO](https://huggingface.co/datasets/mitbersh/car-parts-segmentation-yolo)
-- Исходный набор: [Humans In The Loop](https://humansintheloop.org/resources/datasets/car-parts-and-car-damages-dataset/)
-- Для обогащения разметки использовались:
-  - [SuperviselyPerspective](https://github.com/brshtsk/SuperviselyPerspective)
-  - [SuperviselyPartsTags](https://github.com/brshtsk/SuperviselyPartsTags)
+- двери;
+- бамперы;
+- капот;
+- багажник;
+- крылья;
+- фары;
+- окна;
+- колеса;
+- зеркала;
+- другие крупные кузовные элементы.
 
-### 2b. Coarse (Tuned)
+Для парных деталей учитывается сторона: `left` / `right`. Это важно, потому что AutoInspect должен не просто найти повреждение, а понять, какая именно деталь повреждена: например, `left front door`, `right headlight`, `left fender`.
 
-Дообучаемая версия `Coarse (General)` под конкретные авто/домены.
+### Артефакты
 
-- Статус: `IN PROGRESS`
-- План: шаблон датасета + notebook дообучения + базовые метрики
+- Модель: https://huggingface.co/mitbersh/car-parts-segmentation
+- Обучение: https://www.kaggle.com/code/brshtskmit/train-car-parts-segmentation-yolov26-s
+- Датасет RAW/Supervisely: https://huggingface.co/datasets/mitbersh/car-parts-segmentation-raw
+- Датасет YOLO: https://huggingface.co/datasets/mitbersh/car-parts-segmentation-yolo
+- Исходный датасет HITL: https://humansintheloop.org/resources/datasets/car-parts-and-car-damages-dataset/
 
-### 2c. Detailed
+### Особенности
 
-Детальная сегментация мелких элементов (ниже уровня крупных панелей).
+При обучении особое внимание уделялось корректному определению стороны деталей. Поэтому качество модели оценивалось не только через стандартные segmentation-метрики, но и через корректность распознавания `side` для парных элементов. Датасет HITL был адаптирован с помощью Supervisely Apps для добавления тегов `side` и подготовки масок для обучения.
 
-- Статус: `IN PROGRESS`
-- План: расширенная схема классов + пайплайн дообучения + сравнение с coarse-моделью
+---
 
-## 3) Damage Segmentation (в разработке)
+## 2. Damage Segmentation
 
-Отдельный контур сегментации повреждений с последующей привязкой к деталям авто.
+`Damage Segmentation` - модель сегментации повреждений автомобиля.
 
-- Базовый датасет: https://app.supervisely.com/projects/373665/datasets/1128482
-- Статус: `IN PROGRESS`
-- План: baseline-модель + валидация на реальных кейсах
+Она выделяет зоны повреждений и используется вместе с `Part Segmentation General`.
 
-## Дорожная карта
+### Артефакты
 
-- [x] Релиз `View Model` и публичных артефактов
-- [ ] Релиз `Part Segmentation Coarse (General)`
-- [ ] Релиз `Part Segmentation Coarse (Tuned)`
-- [ ] Релиз `Part Segmentation Detailed`
-- [ ] Релиз `Damage Segmentation`
-- [ ] Единый end-to-end пайплайн оценки повреждений
+- Модель: https://huggingface.co/mitbersh/car-damage-segmentation
+- Датасет YOLO: https://huggingface.co/datasets/mitbersh/car-damage-segmentation-yolo
+- Исходный датасет CArDD: https://cardd-ustc.github.io/
+
+### Назначение
+
+Модель используется для:
+
+- поиска повреждений;
+- получения масок повреждений;
+- классификации типов повреждений;
+- последующего сопоставления повреждений с деталями автомобиля.
+
+---
+
+## 3. ML Inference Service
+
+`ML Inference Service` - это слой между ML-моделями и backend-частью приложения.
+
+Сервис выполняет:
+
+1. запуск `Part Segmentation General`;
+2. запуск `Damage Segmentation`;
+3. сопоставление масок повреждений с масками деталей;
+4. агрегацию повреждений по деталям;
+5. формирование итогового JSON-ответа для backend.
+
+Главная логика:
+
+```text
+damage instance -> affected car parts
+```
+
+Например, если маска повреждения пересекается с масками `Hood` и `Front bumper`, сервис должен связать это повреждение с соответствующими деталями и confidence-значениями.
+
+### Статус
+
+Сервис находится в разработке.
+
+Планируется:
+
+- API для inference;
+- batch inference;
+- JSON-контракт;
+- Docker-образ;
+- интеграция с backend;
+- поддержка `model_id` и `model_version`.
+
+---
+
+## 4. View Model
+
+`View Model` - вспомогательная модель классификации ракурса автомобиля.
+
+Она определяет ракурс фото, например:
+
+- `front`;
+- `rear`;
+- `side`;
+- `front-left`;
+- `front-right`;
+- `back-left`;
+- `back-right`.
+
+### Артефакты
+
+- Модель: https://huggingface.co/mitbersh/car-view-classification
+- Датасет: https://huggingface.co/datasets/mitbersh/car-view-classification
+- Inference notebook: https://www.kaggle.com/code/brshtskmit/infer-car-view
+- Training notebook: https://www.kaggle.com/code/brshtskmit/train-view-model
+- Comet experiments: https://www.comet.com/brshtsk/car-perspective
+
+### Роль в проекте
+
+Ранее `View Model` рассматривалась как часть каскада:
+
+```text
+View Model -> Part Segmentation -> Damage Segmentation
+```
+
+Сейчас она не является обязательной частью runtime-пайплайна, потому что текущая `YOLOv26-s` модель для `Part Segmentation General` достаточно хорошо различает left/right детали.
+
+При этом `View Model` остается важной частью проекта, потому что использовалась для подготовки и обогащения датасета. На ее основе были сделаны инструменты:
+
+- https://github.com/brshtsk/SuperviselyPerspective
+- https://github.com/brshtsk/SuperviselyPartsTags
+
+---
+
+## 5. Part Segmentation Tuned
+
+`Part Segmentation Tuned` - направление для дообучения general-модели под конкретные автомобили, марки, типы кузова или домены.
+
+Идея:
+
+> General-модель работает как универсальный MVP-сегментатор, а tuned-модель может давать дополнительную точность в конкретном сервисном сценарии.
+
+Примеры сценариев:
+
+- популярная модель автомобиля;
+- корпоративный клиент;
+- страховой партнер;
+- специфичные условия съемки.
+
+### План
+
+- подготовить датасет под конкретный автомобиль/домен;
+- привести классы к общей coarse-схеме;
+- запустить fine-tuning;
+- сравнить `general` и `tuned`;
+- проверить качество side-aware сегментации;
+- сохранить отдельную версию модели;
+- подключить через `model_id`.
+
+---
+
+## 6. Detailed Segmentation
+
+`Detailed Segmentation` - опциональное направление для более точной сегментации мелких элементов автомобиля.
+
+Этот модуль не входит в MVP.
+
+Для MVP важнее стабильно решить основную задачу:
+
+```text
+damage -> affected coarse part
+```
+
+Detailed-модель может быть полезна позже для advanced/enterprise-сценариев или для автосервисов, которым нужна более глубокая детализация.
+
+---
+
+## Хранение артефактов
+
+В проекте используются разные платформы для разных типов ML-артефактов.
+
+### GitHub
+
+GitHub используется как основная точка входа в проект.
+
+В репозитории хранятся:
+
+- README-документация;
+- описание архитектуры;
+- ссылки на модели;
+- ссылки на датасеты;
+- ссылки на notebooks;
+- схемы классов;
+- inference-контракты;
+- production-код сервисов.
+
+### Hugging Face
+
+Hugging Face используется для хранения:
+
+- моделей;
+- датасетов;
+- model cards;
+- quick start guide;
+- версий моделей.
+
+### Kaggle
+
+Kaggle используется для training notebooks:
+
+- обучение;
+- подготовка данных;
+- метрики;
+- визуализации;
+- train/validation predictions.
+
+### Comet
+
+Comet используется для хранения экспериментов и метрик, где это применимо.
+
+---
+
+## Roadmap
+
+### Done
+
+- [x] View Model
+- [x] View Model dataset
+- [x] SuperviselyPerspective
+- [x] SuperviselyPartsTags
+- [x] Part Segmentation General
+- [x] Damage Segmentation
+
+### In Progress
+
+- [ ] ML Inference Service
+- [ ] Damage-to-part matching
+- [ ] JSON-контракт для backend
+- [ ] Batch inference
+- [ ] Docker-образ inference-сервиса
+- [ ] Интеграция с backend
+- [ ] Pipeline для Part Segmentation Tuned
+
+### Future / Optional
+
+- [ ] Detailed Segmentation
+- [ ] Fine-tuning под конкретные автомобили
+- [ ] Поддержка нескольких `model_id`
+- [ ] Поддержка нескольких версий моделей
+- [ ] End-to-end evaluation pipeline
+
+---
