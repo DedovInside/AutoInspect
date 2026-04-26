@@ -22,7 +22,7 @@ def parse_args() -> argparse.Namespace:
     default_source_dir = script_dir.parent / "images" / "CarDD_YOLO"
 
     parser = argparse.ArgumentParser(
-        description="Validate and upload CarDD YOLO dataset to Hugging Face Hub as parquet-backed DatasetDict."
+        description="Validate and upload CarDD YOLO dataset to Hugging Face Hub."
     )
     parser.add_argument(
         "--repo-id",
@@ -33,7 +33,7 @@ def parse_args() -> argparse.Namespace:
         "--source-dir",
         type=Path,
         default=default_source_dir,
-        help="Path to YOLO dataset root (default: ../images/CarDD_YOLO).",
+        help="Path to YOLO dataset root. Default: ../images/CarDD_YOLO",
     )
     parser.add_argument(
         "--token",
@@ -53,7 +53,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--allow-missing-labels",
         action="store_true",
-        help="Allow images without label txt files. They will be exported with empty objects.",
+        help="Allow images without label txt files.",
     )
     parser.add_argument(
         "--dry-run",
@@ -94,178 +94,140 @@ def discover_splits(source_dir: Path) -> List[str]:
     images_root = source_dir / "images"
     labels_root = source_dir / "labels"
 
-    _assert(images_root.exists() and images_root.is_dir(), f"Missing directory: {images_root}")
-    _assert(labels_root.exists() and labels_root.is_dir(), f"Missing directory: {labels_root}")
+    _assert(images_root.is_dir(), f"Missing directory: {images_root}")
+    _assert(labels_root.is_dir(), f"Missing directory: {labels_root}")
 
-    image_splits = {p.name for p in images_root.iterdir() if p.is_dir()}
-    label_splits = {p.name for p in labels_root.iterdir() if p.is_dir()}
-    common = sorted(image_splits & label_splits)
+    image_splits = {path.name for path in images_root.iterdir() if path.is_dir()}
+    label_splits = {path.name for path in labels_root.iterdir() if path.is_dir()}
 
-    _assert(bool(common), "No common splits found under images/ and labels/.")
-    return common
+    splits = sorted(image_splits & label_splits)
+    _assert(bool(splits), "No common splits found under images/ and labels/.")
 
-
-def parse_yolo_segment_line(line: str, label_path: Path, line_no: int) -> dict:
-    tokens = line.strip().split()
-    _assert(len(tokens) >= 7, f"{label_path}:{line_no}: expected at least 7 tokens (class + 3 points), got {len(tokens)}")
-
-    try:
-        class_id = int(float(tokens[0]))
-    except ValueError as error:
-        raise ValueError(f"{label_path}:{line_no}: invalid class id '{tokens[0]}'") from error
-
-    try:
-        coords = [float(value) for value in tokens[1:]]
-    except ValueError as error:
-        raise ValueError(f"{label_path}:{line_no}: polygon coordinates must be numeric") from error
-
-    _assert(len(coords) % 2 == 0, f"{label_path}:{line_no}: expected even number of coordinates, got {len(coords)}")
-
-    polygon = [[coords[i], coords[i + 1]] for i in range(0, len(coords), 2)]
-    _assert(len(polygon) >= 3, f"{label_path}:{line_no}: polygon must have at least 3 points")
-
-    return {
-        "class_id": class_id,
-        "polygon": polygon,
-        "raw_line": line.strip(),
-    }
+    return splits
 
 
-def parse_label_file(label_path: Path) -> List[dict]:
+def count_label_objects(label_path: Path) -> int:
     if not label_path.exists():
-        return []
+        return 0
 
-    objects: List[dict] = []
+    count = 0
     with label_path.open("r", encoding="utf-8") as file:
-        for line_no, line in enumerate(file, start=1):
-            stripped = line.strip()
-            if not stripped:
-                continue
-            objects.append(parse_yolo_segment_line(stripped, label_path, line_no))
+        for line in file:
+            if line.strip():
+                count += 1
 
-    return objects
+    return count
 
 
-def build_records(source_dir: Path, splits: List[str], allow_missing_labels: bool) -> tuple[Dict[str, List[dict]], ValidationReport]:
+def validate_yolo_dataset(
+    source_dir: Path,
+    splits: List[str],
+    allow_missing_labels: bool,
+) -> ValidationReport:
     images_root = source_dir / "images"
     labels_root = source_dir / "labels"
 
-    records_by_split: Dict[str, List[dict]] = {split: [] for split in splits}
-    split_image_counts: Dict[str, int] = {split: 0 for split in splits}
-    split_object_counts: Dict[str, int] = {split: 0 for split in splits}
+    split_image_counts: Dict[str, int] = {}
+    split_object_counts: Dict[str, int] = {}
 
     for split in splits:
         images_dir = images_root / split
         labels_dir = labels_root / split
 
         image_files = sorted(
-            path for path in iter_files(images_dir) if path.suffix.lower() in IMAGE_EXTENSIONS
+            path
+            for path in iter_files(images_dir)
+            if path.suffix.lower() in IMAGE_EXTENSIONS
         )
+
         _assert(bool(image_files), f"No images found in split '{split}': {images_dir}")
 
+        image_count = 0
+        object_count = 0
+
         for image_path in image_files:
-            image_rel = image_path.relative_to(images_dir).as_posix()
-            label_rel = Path(image_rel).with_suffix(".txt")
-            label_path = labels_dir / label_rel
+            image_rel = image_path.relative_to(images_dir)
+            label_path = labels_dir / image_rel.with_suffix(".txt")
 
             if not label_path.exists() and not allow_missing_labels:
                 raise ValueError(
-                    f"Missing label for image '{split}/{image_rel}'. Expected: {label_path}"
+                    f"Missing label for image '{split}/{image_rel.as_posix()}'. "
+                    f"Expected: {label_path}"
                 )
 
-            objects = parse_label_file(label_path)
-            label_text = "\n".join(obj["raw_line"] for obj in objects)
+            image_count += 1
+            object_count += count_label_objects(label_path)
 
-            records_by_split[split].append(
-                {
-                    "image": str(image_path),
-                    "split": split,
-                    "image_rel": image_rel,
-                    "label_rel": label_rel.as_posix(),
-                    "label_exists": label_path.exists(),
-                    "label_text": label_text,
-                    "object_count": len(objects),
-                    "objects": objects,
-                }
-            )
-
-            split_image_counts[split] += 1
-            split_object_counts[split] += len(objects)
+        split_image_counts[split] = image_count
+        split_object_counts[split] = object_count
 
     total_images = sum(split_image_counts.values())
     total_objects = sum(split_object_counts.values())
+
     _assert(total_images > 0, "Dataset is empty: no images found.")
 
-    report = ValidationReport(
+    return ValidationReport(
         split_image_counts=split_image_counts,
         split_object_counts=split_object_counts,
         total_images=total_images,
         total_objects=total_objects,
     )
-    return records_by_split, report
 
 
 def print_report(source_dir: Path, report: ValidationReport) -> None:
     print(f"Validated YOLO dataset: {source_dir}")
     print("Split statistics:")
+
     for split in sorted(report.split_image_counts):
         images = report.split_image_counts[split]
         objects = report.split_object_counts[split]
         print(f"  {split}: images={images}, objects={objects}")
+
     print(f"Total images: {report.total_images}")
     print(f"Total objects: {report.total_objects}")
 
 
-def upload_datasetdict(
+def upload_yolo_folder(
     repo_id: str,
-    records_by_split: Dict[str, List[dict]],
-    token: str,
+    source_dir: Path,
+    token: str | None,
     revision: str,
     private: bool,
 ) -> None:
     from huggingface_hub import HfApi
 
-    try:
-        datasets_module = __import__("datasets", fromlist=["Dataset", "DatasetDict", "Image"])
-    except ImportError as error:
-        raise RuntimeError(
-            "This script requires the 'datasets' package. Install dependencies from dataset/requirements.txt"
-        ) from error
-
-    Dataset = datasets_module.Dataset
-    DatasetDict = datasets_module.DatasetDict
-    Image = datasets_module.Image
-
-    dataset_splits = {}
-    for split, records in sorted(records_by_split.items()):
-        if not records:
-            continue
-        split_dataset = Dataset.from_list(records).cast_column("image", Image())
-        dataset_splits[split] = split_dataset
-
-    _assert(bool(dataset_splits), "No records to upload after conversion.")
-
     api = HfApi(token=token)
-    api.create_repo(repo_id=repo_id, repo_type="dataset", private=private, exist_ok=True)
-    DatasetDict(dataset_splits).push_to_hub(
+
+    api.create_repo(
         repo_id=repo_id,
-        token=token,
+        repo_type="dataset",
         private=private,
+        exist_ok=True,
+    )
+
+    api.upload_folder(
+        repo_id=repo_id,
+        repo_type="dataset",
+        folder_path=str(source_dir),
+        path_in_repo=".",
         revision=revision,
+        commit_message="Upload YOLO dataset",
     )
 
 
 def main() -> None:
-    # Run: python upload_dataset.py --repo-id mitbersh/car-damage-segmentation --source-dir "..\images\CarDD_YOLO"
+    # Run: python upload_dataset.py --repo-id mitbersh/car-damage-segmentation --source-dir "../images/CarDD_YOLO"
+
     args = parse_args()
     source_dir = args.source_dir.expanduser().resolve()
 
     splits = discover_splits(source_dir)
-    records_by_split, report = build_records(
+    report = validate_yolo_dataset(
         source_dir=source_dir,
         splits=splits,
         allow_missing_labels=args.allow_missing_labels,
     )
+
     print_report(source_dir, report)
 
     if args.dry_run:
@@ -279,16 +241,16 @@ def main() -> None:
             "HF token not found. Pass --token or set HF_TOKEN/HUGGINGFACE_HUB_TOKEN."
         )
 
-    upload_datasetdict(
+    upload_yolo_folder(
         repo_id=args.repo_id,
-        records_by_split=records_by_split,
+        source_dir=source_dir,
         token=token,
         revision=args.revision,
         private=args.private,
     )
+
     print("Upload completed.")
 
 
 if __name__ == "__main__":
     main()
-
