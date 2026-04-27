@@ -8,8 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from autoinspect_infer.matcher import build_batch_summary, build_image_result
-from autoinspect_infer.yolo_utils import (
+from inference.matcher import build_batch_summary, build_image_result
+from inference.yolo_utils import (
     DAMAGE_FILENAME,
     DAMAGE_REPO_ID,
     PARTS_FILENAME,

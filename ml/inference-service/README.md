@@ -60,13 +60,13 @@ python -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id=
 #### 3. Запустить инференс
 
 ```bash
-python infer.py --source "path/to/car.jpg" --parts-model "car_parts_model.pt" --damage-model "car_damage_model.pt" --output "outputs/autoinspect_predictions.json" --retina-masks
+python inference.py --source "path/to/car.jpg" --parts-model "car_parts_model.pt" --damage-model "car_damage_model.pt" --output "outputs/autoinspect_predictions.json" --retina-masks
 ```
 
 #### 4. Визуализировать
 
 ```bash
-python visualize_predictions.py --predictions "outputs/autoinspect_predictions.json" --output-dir "outputs/visualized"
+python plot_masks.py --predictions "outputs/autoinspect_predictions.json" --output-dir "outputs/visualized"
 ```
 
 ## Основные параметры
