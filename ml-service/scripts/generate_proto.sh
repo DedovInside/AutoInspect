@@ -12,7 +12,7 @@ mkdir -p "${OUT_DIR}/analysis/v1"
 
 if ! python -c "import grpc_tools.protoc" >/dev/null 2>&1; then
   echo "grpcio-tools is not installed in the current Python environment."
-  echo "Install dependencies first: pip install -r ${ROOT_DIR}/requirements.infer.txt"
+  echo "Install dependencies first: pip install -r ${ROOT_DIR}/requirements.txt"
   exit 1
 fi
 

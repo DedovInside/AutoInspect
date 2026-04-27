@@ -7,7 +7,7 @@
 ### Установка минимальных зависимостей
 
 ```bash
-pip install -r requirements.infer.txt
+pip install -r requirements.txt
 ```
 
 ### Генерация Python protobuf-классов
@@ -20,6 +20,3 @@ pip install -r requirements.infer.txt
 - `app/generated/analysis/v1/request_pb2.py`
 - `app/generated/analysis/v1/result_pb2.py`
 
-Примечания:
-- Не редактируйте сгенерированные файлы вручную.
-- Перезапускайте генерацию после любых изменений в `request.proto` или `result.proto`.
