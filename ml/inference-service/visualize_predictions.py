@@ -34,7 +34,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--predictions",
         required=True,
-        help="Path to AutoInspect JSON produced by infer_autoinspect.py.",
+        help="Path to AutoInspect JSON produced by infer.py.",
     )
     parser.add_argument(
         "--images-root",
