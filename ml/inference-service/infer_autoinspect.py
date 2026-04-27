@@ -1,4 +1,4 @@
-"""End-to-end AutoInspect inference: parts + damages -> backend JSON."""
+"""End-to-end инференс AutoInspect."""
 
 from __future__ import annotations
 
