@@ -12,6 +12,12 @@ from app.inference.models import (
 )
 
 
+def parse_analysis_request(payload: bytes) -> AnalysisTask:
+    msg = request_pb2.AnalysisRequest()
+    msg.ParseFromString(payload)
+    return request_to_analysis_task(msg)
+
+
 def request_to_analysis_task(request: request_pb2.AnalysisRequest) -> AnalysisTask:
     if not request.correlation_id:
         raise ValueError("correlation_id is required")
@@ -40,7 +46,7 @@ def request_to_analysis_task(request: request_pb2.AnalysisRequest) -> AnalysisTa
     )
 
 
-def analysis_result_to_proto(result: AnalysisResult) -> result_pb2.AnalysisResult:
+def build_analysis_result_message(result: AnalysisResult) -> result_pb2.AnalysisResult:
     message = result_pb2.AnalysisResult(
         correlation_id=result.correlation_id,
         status=result.status,
@@ -93,6 +99,22 @@ def analysis_result_to_proto(result: AnalysisResult) -> result_pb2.AnalysisResul
                 part_summary_message.damage_types[damage_type] = int(damage_count)
 
     return message
+
+
+def analysis_result_to_proto(result: AnalysisResult) -> result_pb2.AnalysisResult:
+    return build_analysis_result_message(result)
+
+
+def build_failed_result(correlation_id: str, error_message: str) -> AnalysisResult:
+    return AnalysisResult(
+        correlation_id=correlation_id,
+        status="failed",
+        error_message=error_message,
+        model_id="",
+        model_version="",
+        batch_id=correlation_id or "",
+        results=[],
+    )
 
 
 def _validate_bbox(bbox: list[int]) -> None:

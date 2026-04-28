@@ -1,6 +1,11 @@
 import unittest
 
-from app.contracts.mapper import analysis_result_to_proto, request_to_analysis_task
+from app.contracts.mapper import (
+    analysis_result_to_proto,
+    build_analysis_result_message,
+    parse_analysis_request,
+    request_to_analysis_task,
+)
 from app.generated.analysis.v1 import request_pb2
 from app.inference.models import (
     AnalysisResult,
@@ -32,6 +37,24 @@ class MapperTests(unittest.TestCase):
         self.assertEqual(task.car_info.make, "Toyota")
         self.assertEqual(task.image_s3_keys, ["uploads/a.jpg", "uploads/b.jpg"])
         self.assertEqual(task.parts_model_s3_key, "models/v1/parts_segmentation.pt")
+
+    def test_parse_analysis_request(self) -> None:
+        request = request_pb2.AnalysisRequest(
+            correlation_id="corr-2",
+            user_id="user-2",
+            image_s3_keys=["uploads/c.jpg"],
+            parts_model_s3_key="models/v2/parts_segmentation.pt",
+            parts_config_s3_key="configs/parts_config.json",
+        )
+        request.car_info.make = "BMW"
+        request.car_info.model = "X5"
+        request.car_info.generation = "G05"
+        request.car_info.year = 2021
+
+        task = parse_analysis_request(request.SerializeToString())
+
+        self.assertEqual(task.correlation_id, "corr-2")
+        self.assertEqual(task.car_info.model, "X5")
 
     def test_analysis_result_to_proto(self) -> None:
         result = AnalysisResult(
@@ -72,7 +95,7 @@ class MapperTests(unittest.TestCase):
             ],
         )
 
-        proto = analysis_result_to_proto(result)
+        proto = build_analysis_result_message(result)
 
         self.assertEqual(proto.correlation_id, "corr-1")
         self.assertEqual(proto.status, "ok")

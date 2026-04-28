@@ -33,3 +33,11 @@ ML-pipeline ожидает путь к `parts_config.json` и используе
 ```bash
 python scripts/show_settings.py
 ```
+
+## Mock Kafka worker (этап 6)
+
+`app/kafka/worker.py` слушает `KAFKA_REQUEST_TOPIC`, парсит protobuf-запрос и публикует результат в `KAFKA_RESULT_TOPIC`.
+
+```bash
+python -m app.kafka.worker
+```
