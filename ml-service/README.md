@@ -1,41 +1,46 @@
 # ml-service
 
-## Что уже сделано
+## Кратко о сервисе
 
-- protobuf-контракты `AnalysisRequest`/`AnalysisResult` и генерация Python-классов
-- mapper: protobuf bytes ↔ dataclasses
-- mock pipeline для проверки E2E без ML-моделей
-- Kafka worker (mock) для будущего подключения транспорта
-- настройки окружения через `.env`
-- локальный кэш для S3-артефактов
+ML‑микросервис принимает `AnalysisRequest` (protobuf) из Kafka, выполняет инференс (parts + damage) и публикует `AnalysisResult`. Транспорт (Kafka/S3) отделен от ML‑логики; ML‑pipeline - чистая функция по локальным путям.
 
-## Генерация Protobuf (этап 1)
+## Интеграция для backend
 
-`ml-service` использует protobuf-контракты из `proto/analysis/v1/` и генерирует Python-классы в `app/generated/analysis/v1/`.
+### Контракты
 
-### Установка минимальных зависимостей
+- protobuf: `proto/analysis/v1/request.proto`, `proto/analysis/v1/result.proto`
+- генерация: `./scripts/generate_proto.sh` → `app/generated/analysis/v1/*.py`
 
-```bash
-pip install -r requirements.txt
-```
+### Kafka
 
-### Генерация Python protobuf-классов
+- request topic: `KAFKA_REQUEST_TOPIC`
+- result topic: `KAFKA_RESULT_TOPIC`
+- key для сообщений: `correlation_id`
 
-```bash
-./scripts/generate_proto.sh
-```
+### Request (AnalysisRequest)
 
-Скрипт генерирует:
-- `app/generated/analysis/v1/request_pb2.py`
-- `app/generated/analysis/v1/result_pb2.py`
+Поля:
+- `correlation_id`, `user_id`
+- `car_info`
+- `image_s3_keys[]`
+- `parts_model_s3_key`
+- `parts_config_s3_key`
 
-## parts_config.json (этап 2)
+### Result (AnalysisResult)
 
-ML-pipeline ожидает путь к `parts_config.json` и использует секцию `inference` для настройки части модели (например `imgsz`, `conf`, `iou`, `max_det`, `retina_masks`, `device`).
+Поля:
+- `correlation_id`, `status`, `error_message`
+- `model_id`, `model_version`, `batch_id`
+- `results[]` → `ImageAnalysisResult`
 
-## damage_config.json (этап 2.5)
+`parts_summary` **не отправляется** (считается на backend при необходимости).
 
-Параметры композиции parts↔damage находятся внутри `damage_config.json` в секции `matching`:
+### Конфиги
+
+- `parts_config.json` - секция `inference`
+- `damage_config.json` - секция `inference` + секция `matching`
+
+Пример `damage_config.json` (matching внутри):
 
 ```json
 {
@@ -55,52 +60,66 @@ ML-pipeline ожидает путь к `parts_config.json` и используе
 }
 ```
 
-## Переменные окружения (этап 3)
+### S3/MinIO и кэш
 
-Пример находится в `.env.example`.
+- скачивание в локальный кэш: `app/storage/s3_client.py`
+- модели кэшируются по ключу
+- изображения - в каталоге job по `correlation_id`
 
-## Проверка настроек
+### Ошибки
 
-```bash
-python scripts/show_settings.py
+- если обработка запроса падает, публикуется `AnalysisResult` со `status="failed"` и `error_message`
+
+### Docker/Compose
+
+Сервис собирается из `Dockerfile` и запускает `python -m app.kafka.worker`.
+
+Пример подключения в `backend/deployments/docker-compose.yml`:
+
+```yaml
+  ml-service:
+    build:
+      context: ../ml-service
+      dockerfile: Dockerfile
+    container_name: autoinspect-ml-service
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_REQUEST_TOPIC: autoinspect.analysis.request
+      KAFKA_RESULT_TOPIC: autoinspect.analysis.result
+      KAFKA_CONSUMER_GROUP: autoinspect-ml-service
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: autoinspect
+      LOCAL_CACHE_DIR: /cache
+      DAMAGE_MODEL_S3_KEY: models/general/damage_segmentation.pt
+      DAMAGE_CONFIG_S3_KEY: models/general/damage_inference_config.json
+    volumes:
+      - ml_cache:/cache
+    depends_on:
+      - kafka
+      - minio
+    restart: unless-stopped
 ```
 
-## Проверка protobuf без Kafka (CLI)
+В корневом разделе `volumes` добавьте:
 
-### 1) Сформировать protobuf-запрос
+```yaml
+  ml_cache:
+```
+
+## Настройки окружения
+
+Смотри `.env.example`. Ключевые переменные:
+- Kafka: `KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_REQUEST_TOPIC`, `KAFKA_RESULT_TOPIC`, `KAFKA_CONSUMER_GROUP`
+- S3: `S3_ENDPOINT_URL`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`
+- cache: `LOCAL_CACHE_DIR`
+- damage defaults: `DAMAGE_MODEL_S3_KEY`, `DAMAGE_CONFIG_S3_KEY`
+
+## Локальные команды (без Kafka/MinIO)
 
 ```bash
 python scripts/build_request.py --out .\tmp\request.bin
-```
-
-Можно переопределить поля через аргументы:
-
-```bash
-python scripts/build_request.py --out .\tmp\request.bin --correlation-id corr-123 --user-id user-42 --image-s3-keys uploads/a.jpg uploads/b.jpg --parts-model-s3-key models/v1/parts_segmentation.pt --parts-config-s3-key configs/parts_config.json --car-make Toyota --car-model Camry --car-generation XV70 --car-year 2022
-```
-
-### 2) Прогнать mock pipeline и вывести результат
-
-```bash
 python scripts/run_mock_flow.py --request .\tmp\request.bin --out .\tmp\result.bin
-```
-
-Скрипт выведет JSON-представление `AnalysisResult` и сохранит protobuf результат в `result.bin`.
-
-## Локальный запуск реального инференса без Kafka/MinIO
-
-Если у тебя есть локальные `.pt`, `parts_config.json` и `damage_config.json`, можно прогнать реальный адаптер так:
-
-```bash
 python scripts/run_real_inference.py --source "path\to\images" --parts-model "path\to\parts.pt" --damage-model "path\to\damage.pt" --parts-config "path\to\parts_config.json" --damage-config "path\to\damage_config.json" --out .\tmp\result.bin
-```
-
-Скрипт выведет JSON результата в stdout и при `--out` сохранит protobuf.
-
-## Mock Kafka worker (этап 6)
-
-`app/kafka/worker.py` слушает `KAFKA_REQUEST_TOPIC`, парсит protobuf-запрос и публикует результат в `KAFKA_RESULT_TOPIC`.
-
-```bash
-python -m app.kafka.worker
 ```
