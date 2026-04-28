@@ -53,10 +53,3 @@ message PartAssociation {
   string side = 2;
   float confidence = 3;
 }
-
-message PartSummary {
-  string name = 1;
-  string side = 2;
-  int32 damage_count = 3;
-  map<string, int32> damage_types = 4;
-}

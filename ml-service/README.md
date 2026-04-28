@@ -123,3 +123,5 @@ python scripts/build_request.py --out .\tmp\request.bin
 python scripts/run_mock_flow.py --request .\tmp\request.bin --out .\tmp\result.bin
 python scripts/run_real_inference.py --source "path\to\images" --parts-model "path\to\parts.pt" --damage-model "path\to\damage.pt" --parts-config "path\to\parts_config.json" --damage-config "path\to\damage_config.json" --out .\tmp\result.bin
 ```
+
+ToDo: убрать PartsSummary отовсюду
