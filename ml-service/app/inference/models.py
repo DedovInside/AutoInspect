@@ -53,7 +53,6 @@ class ImageAnalysisResult:
     width: int
     height: int
     damage_instances: list[DamageInstance] = field(default_factory=list)
-    parts_summary: list[PartSummary] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

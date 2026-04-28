@@ -12,7 +12,6 @@ from app.inference.models import (
     DamageInstance,
     ImageAnalysisResult,
     PartAssociation,
-    PartSummary,
 )
 
 
@@ -83,14 +82,6 @@ class MapperTests(unittest.TestCase):
                             ],
                         )
                     ],
-                    parts_summary=[
-                        PartSummary(
-                            name="hood",
-                            side=None,
-                            damage_count=1,
-                            damage_types={"dent": 1},
-                        )
-                    ],
                 )
             ],
         )
@@ -104,7 +95,6 @@ class MapperTests(unittest.TestCase):
         self.assertEqual(proto.results[0].image.width, 640)
         self.assertEqual(proto.results[0].damage_instances[0].bbox.x_min, 10)
         self.assertEqual(proto.results[0].damage_instances[0].parts[1].side, "left")
-        self.assertEqual(proto.results[0].parts_summary[0].damage_types["dent"], 1)
 
     def test_invalid_bbox_raises(self) -> None:
         result = AnalysisResult(
@@ -130,7 +120,6 @@ class MapperTests(unittest.TestCase):
                             parts=[],
                         )
                     ],
-                    parts_summary=[],
                 )
             ],
         )

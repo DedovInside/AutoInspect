@@ -8,7 +8,6 @@ from app.inference.models import (
     DamageInstance,
     ImageAnalysisResult,
     PartAssociation,
-    PartSummary,
 )
 
 
@@ -88,15 +87,6 @@ def build_analysis_result_message(result: AnalysisResult) -> result_pb2.Analysis
                 if part.side is not None:
                     part_message.side = part.side
 
-        for part_summary in image_result.parts_summary:
-            part_summary_message = image_message.parts_summary.add(
-                name=part_summary.name,
-                damage_count=int(part_summary.damage_count),
-            )
-            if part_summary.side is not None:
-                part_summary_message.side = part_summary.side
-            for damage_type, damage_count in part_summary.damage_types.items():
-                part_summary_message.damage_types[damage_type] = int(damage_count)
 
     return message
 
