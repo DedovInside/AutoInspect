@@ -33,6 +33,18 @@ pip install -r requirements.txt
 
 ML-pipeline ожидает путь к `parts_config.json` и использует секцию `inference` для настройки части модели (например `imgsz`, `conf`, `iou`, `max_det`, `retina_masks`, `device`).
 
+## matching_config.json (этап 2.5)
+
+Параметры композиции parts↔damage хранятся отдельно от инференса в `configs/matching_config.json`:
+
+```json
+{
+  "min_overlap": 0.05,
+  "min_assignment_score": 0.05,
+  "max_parts_per_damage": 3
+}
+```
+
 ## Переменные окружения (этап 3)
 
 Пример находится в `.env.example`.
@@ -64,6 +76,16 @@ python scripts/run_mock_flow.py --request .\tmp\request.bin --out .\tmp\result.b
 ```
 
 Скрипт выведет JSON-представление `AnalysisResult` и сохранит protobuf результат в `result.bin`.
+
+## Локальный запуск реального инференса без Kafka/MinIO
+
+Если у тебя есть локальные `.pt`, `parts_config.json`, `damage_config.json` и `matching_config.json`, можно прогнать реальный адаптер так:
+
+```bash
+python scripts/run_real_inference.py --source "path\to\images" --parts-model "path\to\parts.pt" --damage-model "path\to\damage.pt" --parts-config "path\to\parts_config.json" --damage-config "path\to\damage_config.json" --matching-config "configs\matching_config.json" --out .\tmp\result.bin
+```
+
+Скрипт выведет JSON результата в stdout и при `--out` сохранит protobuf.
 
 ## Mock Kafka worker (этап 6)
 
