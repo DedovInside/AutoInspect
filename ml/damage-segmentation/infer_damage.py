@@ -19,6 +19,7 @@ import argparse
 import json
 from pathlib import Path
 from typing import Any
+from sympy.printing.pretty.pretty_symbology import line_width
 
 from huggingface_hub import hf_hub_download
 from ultralytics import YOLO
@@ -235,6 +236,7 @@ def main() -> None:
         name=args.name,
         exist_ok=args.exist_ok,
         verbose=True,
+        line_width=1
     )
 
     records = [result_to_record(result) for result in results]

@@ -6,6 +6,8 @@
 [![Task](https://img.shields.io/badge/Task-Car%20Parts%20Segmentation-blue)]()
 [![Classes](https://img.shields.io/badge/Classes-33-success)]()
 
+![annotated](img/img.jpg)
+
 Модель сегментации основных деталей автомобиля из проекта **AutoInspect**.
 
 ## О модели
@@ -179,20 +181,17 @@ RAW/Supervisely версия: [mitbersh/car-parts-segmentation-raw](https://hugg
 
 ## Метрики
 
-> Поле оставлено пустым демонстративно. Заполнить после финального выбора run / export из Comet.
-
 | Метрика | Значение |
 |---|---:|
-| `box/mAP50` |  |
-| `box/mAP50-95` |  |
-| `seg/mAP50` |  |
-| `seg/mAP50-95` |  |
-| `lr/part_recall_bbox50` |  |
-| `lr/part_precision_bbox50` |  |
-| `lr/side_accuracy_when_found_bbox50` |  |
-| `lr/strict_side_recall_bbox50` |  |
-| `lr/strict_side_precision_bbox50` |  |
-| `lr/strict_side_f1_bbox50` |  |
+| `seg/mAP50` | 0.861366 |
+| `seg/mAP50-95` | 0.605276 |
+| `box/mAP50-95` | 0.649714 |
+| `lr/part_recall_bbox50` | 0.818702 |
+| `lr/part_precision_bbox50` | 0.856287 |
+| `lr/side_accuracy_when_found_bbox50` | 0.997669 |
+| `lr/strict_side_recall_bbox50` | 0.816794 |
+| `lr/strict_side_precision_bbox50` | 0.854291 |
+| `lr/strict_side_f1_bbox50` | 0.835122 |
 
 ## Проверка left/right качества
 

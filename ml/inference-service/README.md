@@ -4,7 +4,7 @@
 [![Hugging Face](https://img.shields.io/badge/Hugging%20Face-car--parts-yellow?logo=huggingface)](https://huggingface.co/mitbersh/car-parts-segmentation)
 [![Hugging Face](https://img.shields.io/badge/Hugging%20Face-car--damage-yellow?logo=huggingface)](https://huggingface.co/mitbersh/car-damage-segmentation)
 
-![annotated](img/annotated.png)
+![annotated](img/img.png)
 
 Отдельный inference-слой для AutoInspect: запускает две runtime-модели и возвращает единый JSON для backend.
 

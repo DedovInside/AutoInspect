@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from huggingface_hub import hf_hub_download
+from sympy.printing.pretty.pretty_symbology import line_width
 from ultralytics import YOLO
 
 
@@ -251,6 +252,7 @@ def main() -> None:
         name=args.name,
         exist_ok=args.exist_ok,
         verbose=True,
+        line_width=2
     )
 
     records = [result_to_record(result) for result in results]

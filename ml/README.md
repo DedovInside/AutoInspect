@@ -22,9 +22,9 @@ ML-часть **AutoInspect** - это набор моделей компьют�
 | Part Segmentation General | Сегментация крупных деталей автомобиля | `READY` |
 | Damage Segmentation | Сегментация повреждений | `READY` |
 | View Model | Вспомогательная классификация ракурса / tooling для датасета | `READY / AUXILIARY` |
-| ML Inference Service | Объединение Parts + Damages в JSON для backend | `IN PROGRESS` |
+| ML Inference Service | Объединение Parts + Damages в JSON для backend | `READY` |
 | Part Segmentation Tuned | Дообучение под конкретные авто/домены | `IN PROGRESS` |
-| Detailed Segmentation | Детальная сегментация мелких элементов | `OPTIONAL / FUTURE` |
+| Detailed Segmentation | Детальная сегментация мелких элементов | `IN PROGRESS` |
 
 ---
 
@@ -79,6 +79,7 @@ Structured JSON response for backend
 - Датасет RAW/Supervisely: https://huggingface.co/datasets/mitbersh/car-parts-segmentation-raw
 - Датасет YOLO: https://huggingface.co/datasets/mitbersh/car-parts-segmentation-yolo
 - Исходный датасет HITL: https://humansintheloop.org/resources/datasets/car-parts-and-car-damages-dataset/
+- Comet: https://www.comet.com/brshtsk/car-parts-test
 
 ### Особенности
 
@@ -95,8 +96,10 @@ Structured JSON response for backend
 ### Артефакты
 
 - Модель: https://huggingface.co/mitbersh/car-damage-segmentation
+- Обучение: https://www.kaggle.com/code/brshtskmit/train-car-damage-segmentation-yolov26-s-cardd
 - Датасет YOLO: https://huggingface.co/datasets/mitbersh/car-damage-segmentation-yolo
 - Исходный датасет CArDD: https://cardd-ustc.github.io/
+- Comet: https://www.comet.com/brshtsk/car-damage-test
 
 ### Назначение
 
@@ -128,19 +131,6 @@ damage instance -> affected car parts
 ```
 
 Например, если маска повреждения пересекается с масками `Hood` и `Front bumper`, сервис должен связать это повреждение с соответствующими деталями и confidence-значениями.
-
-### Статус
-
-Сервис находится в разработке.
-
-Планируется:
-
-- API для inference;
-- batch inference;
-- JSON-контракт;
-- Docker-образ;
-- интеграция с backend;
-- поддержка `model_id` и `model_version`.
 
 ---
 
@@ -185,7 +175,7 @@ View Model -> Part Segmentation -> Damage Segmentation
 
 ## 5. Part Segmentation Tuned
 
-`Part Segmentation Tuned` - направление для дообучения general-модели под конкретные автомобили, марки, типы кузова или домены.
+`Part Segmentation Tuned` - дообучение general-модели под конкретные автомобили, марки, типы кузова или домены.
 
 Идея:
 
@@ -198,37 +188,17 @@ View Model -> Part Segmentation -> Damage Segmentation
 - страховой партнер;
 - специфичные условия съемки.
 
-### План
-
-- подготовить датасет под конкретный автомобиль/домен;
-- привести классы к общей coarse-схеме;
-- запустить fine-tuning;
-- сравнить `general` и `tuned`;
-- проверить качество side-aware сегментации;
-- сохранить отдельную версию модели;
-- подключить через `model_id`.
-
 ---
 
 ## 6. Detailed Segmentation
 
-`Detailed Segmentation` - опциональное направление для более точной сегментации мелких элементов автомобиля.
+`Detailed Segmentation` - направление для более точной сегментации мелких элементов автомобиля.
 
-Этот модуль не входит в MVP.
-
-Для MVP важнее стабильно решить основную задачу:
-
-```text
-damage -> affected coarse part
-```
-
-Detailed-модель может быть полезна позже для advanced/enterprise-сценариев или для автосервисов, которым нужна более глубокая детализация.
+Detailed-модель может быть полезна для advanced/enterprise-сценариев или для автосервисов, которым нужна более глубокая детализация.
 
 ---
 
 ## Хранение артефактов
-
-В проекте используются разные платформы для разных типов ML-артефактов.
 
 ### GitHub
 
@@ -281,23 +251,19 @@ Comet используется для хранения эксперименто�
 - [x] SuperviselyPartsTags
 - [x] Part Segmentation General
 - [x] Damage Segmentation
+- [x] ML Inference Service
+- [x] Damage-to-part matching
+- [x] JSON-контракт для backend
+- [x] Batch inference
+- [x] Docker-образ inference-сервиса
+- [x] Интеграция с backend
 
 ### In Progress
 
-- [ ] ML Inference Service
-- [ ] Damage-to-part matching
-- [ ] JSON-контракт для backend
-- [ ] Batch inference
-- [ ] Docker-образ inference-сервиса
-- [ ] Интеграция с backend
 - [ ] Pipeline для Part Segmentation Tuned
-
-### Future / Optional
-
 - [ ] Detailed Segmentation
 - [ ] Fine-tuning под конкретные автомобили
 - [ ] Поддержка нескольких `model_id`
 - [ ] Поддержка нескольких версий моделей
-- [ ] End-to-end evaluation pipeline
 
 ---

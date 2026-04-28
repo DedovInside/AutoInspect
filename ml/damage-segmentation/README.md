@@ -6,6 +6,8 @@
 [![Task](https://img.shields.io/badge/Task-Car%20Damage%20Segmentation-blue)]()
 [![Classes](https://img.shields.io/badge/Classes-6-success)]()
 
+![annotated](img/img.jpg)
+
 Модель сегментации повреждений автомобиля из проекта **AutoInspect**.
 
 ## О модели
