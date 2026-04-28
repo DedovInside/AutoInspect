@@ -17,8 +17,8 @@ class MapperTests(unittest.TestCase):
             correlation_id="corr-1",
             user_id="user-1",
             image_s3_keys=["uploads/a.jpg", "uploads/b.jpg"],
-            model_s3_key="models/v1/model.pt",
-            parts_inference_config_s3_key="configs/parts_inference_config.json",
+            parts_model_s3_key="models/v1/parts_segmentation.pt",
+            parts_config_s3_key="configs/parts_config.json",
         )
         request.car_info.make = "Toyota"
         request.car_info.model = "Camry"
@@ -31,7 +31,7 @@ class MapperTests(unittest.TestCase):
         self.assertEqual(task.user_id, "user-1")
         self.assertEqual(task.car_info.make, "Toyota")
         self.assertEqual(task.image_s3_keys, ["uploads/a.jpg", "uploads/b.jpg"])
-        self.assertEqual(task.model_s3_key, "models/v1/model.pt")
+        self.assertEqual(task.parts_model_s3_key, "models/v1/parts_segmentation.pt")
 
     def test_analysis_result_to_proto(self) -> None:
         result = AnalysisResult(

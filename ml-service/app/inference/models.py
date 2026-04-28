@@ -17,8 +17,8 @@ class AnalysisTask:
     user_id: str
     car_info: CarInfo
     image_s3_keys: list[str]
-    model_s3_key: str
-    parts_inference_config_s3_key: str
+    parts_model_s3_key: str
+    parts_config_s3_key: str
 
 
 @dataclass(frozen=True)

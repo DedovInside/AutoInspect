@@ -20,6 +20,16 @@ pip install -r requirements.txt
 - `app/generated/analysis/v1/request_pb2.py`
 - `app/generated/analysis/v1/result_pb2.py`
 
-## parts_inference_config.json (этап 2)
+## parts_config.json (этап 2)
 
-ML-pipeline ожидает путь к `parts_inference_config.json` и использует секцию `inference` для настройки части модели (например `imgsz`, `conf`, `iou`, `max_det`, `retina_masks`, `device`).
+ML-pipeline ожидает путь к `parts_config.json` и использует секцию `inference` для настройки части модели (например `imgsz`, `conf`, `iou`, `max_det`, `retina_masks`, `device`).
+
+## Переменные окружения (этап 3)
+
+Пример находится в `.env.example`.
+
+## Проверка настроек
+
+```bash
+python scripts/show_settings.py
+```
