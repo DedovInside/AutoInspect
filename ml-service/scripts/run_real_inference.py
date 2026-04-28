@@ -21,7 +21,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--damage-model", required=True, help="Path to damage model .pt")
     parser.add_argument("--parts-config", required=True, help="Path to parts_config.json")
     parser.add_argument("--damage-config", required=True, help="Path to damage_config.json")
-    parser.add_argument("--matching-config", required=True, help="Path to matching_config.json")
     parser.add_argument("--model-id", default="general")
     parser.add_argument("--model-version", default="v1")
     parser.add_argument("--batch-id", default="batch-local")
@@ -43,7 +42,6 @@ def main() -> None:
         damage_model_path=Path(args.damage_model),
         parts_inference_config_path=Path(args.parts_config),
         damage_inference_config_path=Path(args.damage_config),
-        matching_config_path=Path(args.matching_config),
         model_id=args.model_id,
         model_version=args.model_version,
         batch_id=args.batch_id,

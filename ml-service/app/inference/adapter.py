@@ -102,13 +102,7 @@ class AutoInspectPipeline:
 
         raise ValueError("target must be 'parts' or 'damage'")
 
-    def _apply_matching_config(self, config_path: Path) -> None:
-        with config_path.open("r", encoding="utf-8") as handle:
-            payload = json.load(handle)
-
-        if not isinstance(payload, dict):
-            raise ValueError("matching_config must be an object")
-
+    def _apply_matching_config(self, payload: dict) -> None:
         if "min_overlap" in payload:
             self.settings.min_overlap = float(payload["min_overlap"])
         if "min_assignment_score" in payload:
@@ -124,7 +118,6 @@ class AutoInspectPipeline:
         damage_model_path: Path,
         parts_inference_config_path: Path,
         damage_inference_config_path: Path,
-        matching_config_path: Path,
         model_id: str,
         model_version: str,
         batch_id: str,
@@ -137,11 +130,16 @@ class AutoInspectPipeline:
 
         if not damage_inference_config_path.exists():
             raise FileNotFoundError(f"damage_config not found: {damage_inference_config_path}")
+        with damage_inference_config_path.open("r", encoding="utf-8") as handle:
+            damage_payload = json.load(handle)
+        if not isinstance(damage_payload, dict):
+            raise ValueError("damage_config must be an object")
         self._apply_inference_config(damage_inference_config_path, target="damage")
-
-        if not matching_config_path.exists():
-            raise FileNotFoundError(f"matching_config not found: {matching_config_path}")
-        self._apply_matching_config(matching_config_path)
+        matching = damage_payload.get("matching")
+        if matching is not None:
+            if not isinstance(matching, dict):
+                raise ValueError("damage_config.matching must be an object")
+            self._apply_matching_config(matching)
 
         parts_model = self._get_parts_model(parts_model_path)
         damage_model = self._get_damage_model(damage_model_path)
