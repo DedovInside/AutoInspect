@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 from typing import List, Optional
 
-from baseline_inference.inference import yolo_utils, matcher
-from baseline_inference.inference.yolo_utils import load_yolo, predict_one_image
+from app.inference.core import matcher, yolo_utils
+from app.inference.core.yolo_utils import load_yolo, predict_one_image
 
 from app.inference.models import (
     AnalysisResult,
@@ -43,19 +43,19 @@ class AutoInspectPipeline:
         self._parts_model_cache: dict[str, object] = {}
         self._damage_model = None
 
-    def _get_parts_model(self, model_path: Optional[str]):
-        key = model_path or "__default_parts__"
+    def _get_parts_model(self, model_path: Path):
+        key = str(model_path)
         if key in self._parts_model_cache:
             return self._parts_model_cache[key]
-        model = load_yolo(model_path, yolo_utils.PARTS_REPO_ID, yolo_utils.PARTS_FILENAME)
+        model = load_yolo(str(model_path), yolo_utils.PARTS_REPO_ID, yolo_utils.PARTS_FILENAME)
         self._parts_model_cache[key] = model
         return model
 
-    def _get_damage_model(self, model_path: Optional[str]):
-        key = model_path or "__default_damage__"
+    def _get_damage_model(self, model_path: Path):
+        key = str(model_path)
         if getattr(self, "_damage_model_key", None) == key and self._damage_model is not None:
             return self._damage_model
-        model = load_yolo(model_path, yolo_utils.DAMAGE_REPO_ID, yolo_utils.DAMAGE_FILENAME)
+        model = load_yolo(str(model_path), yolo_utils.DAMAGE_REPO_ID, yolo_utils.DAMAGE_FILENAME)
         self._damage_model = model
         self._damage_model_key = key
         return model
@@ -106,30 +106,26 @@ class AutoInspectPipeline:
         self,
         image_paths: List[Path],
         image_uris: List[str],
-        parts_model_path: Optional[Path],
-        damage_model_path: Optional[Path],
-        parts_config_path: Optional[Path] = None,
-        damage_config_path: Optional[Path] = None,
-        model_id: str = "general",
-        model_version: str = "v1",
-        batch_id: str = "batch-unknown",
-        correlation_id: str = "",
+        parts_model_path: Path,
+        damage_model_path: Path,
+        parts_inference_config_path: Path,
+        damage_inference_config_path: Path,
+        model_id: str,
+        model_version: str,
+        batch_id: str,
+        correlation_id: str,
     ) -> AnalysisResult:
         # validate inputs
-        if parts_config_path is not None:
-            config_path = Path(parts_config_path)
-            if not config_path.exists():
-                raise FileNotFoundError(f"parts_config not found: {config_path}")
-            self._apply_inference_config(config_path, target="parts")
+        if not parts_inference_config_path.exists():
+            raise FileNotFoundError(f"parts_config not found: {parts_inference_config_path}")
+        self._apply_inference_config(parts_inference_config_path, target="parts")
 
-        if damage_config_path is not None:
-            config_path = Path(damage_config_path)
-            if not config_path.exists():
-                raise FileNotFoundError(f"damage_config not found: {config_path}")
-            self._apply_inference_config(config_path, target="damage")
+        if not damage_inference_config_path.exists():
+            raise FileNotFoundError(f"damage_config not found: {damage_inference_config_path}")
+        self._apply_inference_config(damage_inference_config_path, target="damage")
 
-        parts_model = self._get_parts_model(str(parts_model_path) if parts_model_path is not None else None)
-        damage_model = self._get_damage_model(str(damage_model_path) if damage_model_path is not None else None)
+        parts_model = self._get_parts_model(parts_model_path)
+        damage_model = self._get_damage_model(damage_model_path)
 
         image_results: list[ImageAnalysisResult] = []
 
