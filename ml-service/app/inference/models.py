@@ -18,7 +18,7 @@ class AnalysisTask:
     car_info: CarInfo
     image_s3_keys: list[str]
     model_s3_key: str
-    parts_catalog_s3_key: str
+    parts_inference_config_s3_key: str
 
 
 @dataclass(frozen=True)
@@ -65,4 +65,3 @@ class AnalysisResult:
     model_version: str
     batch_id: str
     results: list[ImageAnalysisResult] = field(default_factory=list)
-

@@ -21,8 +21,8 @@ def request_to_analysis_task(request: request_pb2.AnalysisRequest) -> AnalysisTa
         raise ValueError("car_info is required")
     if not request.model_s3_key:
         raise ValueError("model_s3_key is required")
-    if not request.parts_catalog_s3_key:
-        raise ValueError("parts_catalog_s3_key is required")
+    if not request.parts_inference_config_s3_key:
+        raise ValueError("parts_inference_config_s3_key is required")
 
     car = request.car_info
     return AnalysisTask(
@@ -36,7 +36,7 @@ def request_to_analysis_task(request: request_pb2.AnalysisRequest) -> AnalysisTa
         ),
         image_s3_keys=list(request.image_s3_keys),
         model_s3_key=request.model_s3_key,
-        parts_catalog_s3_key=request.parts_catalog_s3_key,
+        parts_inference_config_s3_key=request.parts_inference_config_s3_key,
     )
 
 

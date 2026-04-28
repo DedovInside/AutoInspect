@@ -18,7 +18,7 @@ class MapperTests(unittest.TestCase):
             user_id="user-1",
             image_s3_keys=["uploads/a.jpg", "uploads/b.jpg"],
             model_s3_key="models/v1/model.pt",
-            parts_catalog_s3_key="catalogs/parts.json",
+            parts_inference_config_s3_key="configs/parts_inference_config.json",
         )
         request.car_info.make = "Toyota"
         request.car_info.model = "Camry"

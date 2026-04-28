@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19\x61nalysis/v1/request.proto\x12\x17\x61utoinspect.analysis.v1\"\xb9\x01\n\x0f\x41nalysisRequest\x12\x16\n\x0e\x63orrelation_id\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\x32\n\x08\x63\x61r_info\x18\x03 \x01(\x0b\x32 .autoinspect.analysis.v1.CarInfo\x12\x15\n\rimage_s3_keys\x18\x04 \x03(\t\x12\x14\n\x0cmodel_s3_key\x18\x05 \x01(\t\x12\x1c\n\x14parts_catalog_s3_key\x18\x06 \x01(\t\"H\n\x07\x43\x61rInfo\x12\x0c\n\x04make\x18\x01 \x01(\t\x12\r\n\x05model\x18\x02 \x01(\t\x12\x12\n\ngeneration\x18\x03 \x01(\t\x12\x0c\n\x04year\x18\x04 \x01(\x05\x42YZWgithub.com/DedovInside/AutoInspect/backend/internal/proto/gen/go/analysis/v1;analysisv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19\x61nalysis/v1/request.proto\x12\x17\x61utoinspect.analysis.v1\"\xc2\x01\n\x0f\x41nalysisRequest\x12\x16\n\x0e\x63orrelation_id\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\x32\n\x08\x63\x61r_info\x18\x03 \x01(\x0b\x32 .autoinspect.analysis.v1.CarInfo\x12\x15\n\rimage_s3_keys\x18\x04 \x03(\t\x12\x14\n\x0cmodel_s3_key\x18\x05 \x01(\t\x12%\n\x1dparts_inference_config_s3_key\x18\x06 \x01(\t\"H\n\x07\x43\x61rInfo\x12\x0c\n\x04make\x18\x01 \x01(\t\x12\r\n\x05model\x18\x02 \x01(\t\x12\x12\n\ngeneration\x18\x03 \x01(\t\x12\x0c\n\x04year\x18\x04 \x01(\x05\x42YZWgithub.com/DedovInside/AutoInspect/backend/internal/proto/gen/go/analysis/v1;analysisv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,7 +33,7 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'ZWgithub.com/DedovInside/AutoInspect/backend/internal/proto/gen/go/analysis/v1;analysisv1'
   _globals['_ANALYSISREQUEST']._serialized_start=55
-  _globals['_ANALYSISREQUEST']._serialized_end=240
-  _globals['_CARINFO']._serialized_start=242
-  _globals['_CARINFO']._serialized_end=314
+  _globals['_ANALYSISREQUEST']._serialized_end=249
+  _globals['_CARINFO']._serialized_start=251
+  _globals['_CARINFO']._serialized_end=323
 # @@protoc_insertion_point(module_scope)
