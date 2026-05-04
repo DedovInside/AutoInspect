@@ -24,9 +24,9 @@ func DomainToProtoRequest(job *domain.AnalysisJob, model *domain.CarModel) *anal
 			Generation: job.CarGeneration,
 			Year:       carYearToProto(job.CarYear),
 		},
-		ImageS3Keys:       safeStringSlice(job.ImageKeys),
-		ModelS3Key:        model.ModelS3Key,
-		PartsCatalogS3Key: model.PartsCatalogS3Key,
+		ImageS3Keys:      safeStringSlice(job.ImageKeys),
+		PartsModelS3Key:  model.PartsModelS3Key,
+		PartsConfigS3Key: model.PartsConfigS3Key,
 	}
 }
 

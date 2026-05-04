@@ -57,7 +57,7 @@ type AuthSession struct {
 	UpdatedAt     pgtype.Timestamptz
 }
 
-// Реестр ML-моделей, привязанных к маркам/моделям/годам авто
+// Реестр моделей сегментации деталей и связанных ML-артефактов
 type CarModel struct {
 	ID                pgtype.UUID
 	Make              string
@@ -65,7 +65,8 @@ type CarModel struct {
 	Generation        *string
 	YearFrom          int32
 	YearTo            *int32
-	ModelS3Key        string
+	PartsModelS3Key   string
+	PartsConfigS3Key  string
 	PartsCatalogS3Key string
 	ModelVersion      string
 	IsUniversal       *bool

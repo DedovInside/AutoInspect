@@ -409,14 +409,22 @@ func (s *AnalysisService) publishAnalysisRequest(ctx context.Context, job *domai
 }
 
 func (s *AnalysisService) ensureModelArtifactsExist(ctx context.Context, model *domain.CarModel) error {
-	if model == nil || strings.TrimSpace(model.ModelS3Key) == "" || strings.TrimSpace(model.PartsCatalogS3Key) == "" {
+	if model == nil ||
+		strings.TrimSpace(model.PartsModelS3Key) == "" ||
+		strings.TrimSpace(model.PartsConfigS3Key) == "" ||
+		strings.TrimSpace(model.PartsCatalogS3Key) == "" {
 		return domain.ErrInvalidModel
 	}
+
 	if s.fileRepo == nil {
 		return nil
 	}
 
-	if err := s.ensureModelObjectExists(ctx, model.ModelS3Key); err != nil {
+	if err := s.ensureModelObjectExists(ctx, model.PartsModelS3Key); err != nil {
+		return err
+	}
+
+	if err := s.ensureModelObjectExists(ctx, model.PartsConfigS3Key); err != nil {
 		return err
 	}
 	return s.ensureModelObjectExists(ctx, model.PartsCatalogS3Key)

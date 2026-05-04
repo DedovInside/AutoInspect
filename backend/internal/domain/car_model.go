@@ -14,7 +14,8 @@ type CarModel struct {
 	YearFrom   int       `json:"year_from" db:"year_from"`
 	YearTo     int       `json:"year_to" db:"year_to"`
 
-	ModelS3Key        string `json:"model_s3_key" db:"model_s3_key"`
+	PartsModelS3Key   string `json:"parts_model_s3_key" db:"parts_model_s3_key"`
+	PartsConfigS3Key  string `json:"parts_config_s3_key" db:"parts_config_s3_key"`
 	PartsCatalogS3Key string `json:"parts_catalog_s3_key" db:"parts_catalog_s3_key"`
 	ModelVersion      string `json:"model_version" db:"model_version"`
 
