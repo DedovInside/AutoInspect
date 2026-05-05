@@ -204,6 +204,15 @@ func userIDFromContext(c *gin.Context) (uuid.UUID, bool) {
 	return uid, true
 }
 
+func userIDOrAbort(c *gin.Context) (uuid.UUID, bool) {
+	userID, ok := middleware.UserIDFromContext(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "unauthorized", "missing user context")
+		return uuid.Nil, false
+	}
+	return userID, true
+}
+
 func tokenMetaFromContext(c *gin.Context) (string, time.Time) {
 	ctx := c.Request.Context()
 	jti, _ := ctx.Value(middleware.AccessJTIContextKey).(string)

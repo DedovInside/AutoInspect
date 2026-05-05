@@ -11,9 +11,11 @@ import (
 )
 
 type Querier interface {
+	CountActiveModelTrainingRequestsByUserID(ctx context.Context, initiatorUserID pgtype.UUID) (int32, error)
 	CreateAnalysisJob(ctx context.Context, arg CreateAnalysisJobParams) error
 	CreateAuthSession(ctx context.Context, arg CreateAuthSessionParams) error
 	CreateCarModel(ctx context.Context, arg CreateCarModelParams) error
+	CreateModelTrainingRequest(ctx context.Context, arg CreateModelTrainingRequestParams) error
 	CreateOAuthIdentity(ctx context.Context, arg CreateOAuthIdentityParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) error
 	DeactivateCarModel(ctx context.Context, id pgtype.UUID) error
@@ -24,12 +26,16 @@ type Querier interface {
 	GetAnalysisJobByUserAndIdempotencyKey(ctx context.Context, arg GetAnalysisJobByUserAndIdempotencyKeyParams) (AnalysisJob, error)
 	GetAuthSessionByTokenHash(ctx context.Context, tokenHash string) (AuthSession, error)
 	GetCarModelByID(ctx context.Context, id pgtype.UUID) (CarModel, error)
+	GetModelTrainingRequestByID(ctx context.Context, id pgtype.UUID) (ModelTrainingRequest, error)
+	GetModelTrainingRequestByUserAndIdempotencyKey(ctx context.Context, arg GetModelTrainingRequestByUserAndIdempotencyKeyParams) (ModelTrainingRequest, error)
 	GetOAuthIdentityByProviderSubject(ctx context.Context, arg GetOAuthIdentityByProviderSubjectParams) (AuthOauthIdentity, error)
 	GetUniversalCarModel(ctx context.Context) (CarModel, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	ListAnalysisJobsByUserID(ctx context.Context, arg ListAnalysisJobsByUserIDParams) ([]AnalysisJob, error)
 	ListCarModels(ctx context.Context, arg ListCarModelsParams) ([]CarModel, error)
+	ListModelTrainingRequestsByUserID(ctx context.Context, arg ListModelTrainingRequestsByUserIDParams) ([]ModelTrainingRequest, error)
+	ListModelTrainingRequestsForAdmin(ctx context.Context, arg ListModelTrainingRequestsForAdminParams) ([]ModelTrainingRequest, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
 	RevokeAuthSession(ctx context.Context, arg RevokeAuthSessionParams) (int64, error)
 	RevokeFamily(ctx context.Context, arg RevokeFamilyParams) error
@@ -39,6 +45,7 @@ type Querier interface {
 	UpdateAnalysisJobStatus(ctx context.Context, arg UpdateAnalysisJobStatusParams) (int64, error)
 	UpdateAnalysisJobStatusByCorrelationID(ctx context.Context, arg UpdateAnalysisJobStatusByCorrelationIDParams) (int64, error)
 	UpdateLastLogin(ctx context.Context, id pgtype.UUID) (int64, error)
+	UpdateModelTrainingRequestStatus(ctx context.Context, arg UpdateModelTrainingRequestStatusParams) (int64, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (int64, error)
 }
 

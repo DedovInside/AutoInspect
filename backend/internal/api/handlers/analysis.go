@@ -138,10 +138,8 @@ func (h *AnalysisHandler) GetByID(c *gin.Context) {
 }
 
 func (h *AnalysisHandler) ListMine(c *gin.Context) {
-	userID, ok := middleware.UserIDFromContext(c)
-
+	userID, ok := userIDOrAbort(c)
 	if !ok {
-		writeError(c, http.StatusUnauthorized, "unauthorized", "missing user context")
 		return
 	}
 

@@ -41,6 +41,16 @@ type CarModelRepository interface {
 	DeactivateModel(ctx context.Context, id uuid.UUID) error
 }
 
+type ModelTrainingRequestRepository interface {
+	Create(ctx context.Context, request *domain.ModelTrainingRequest) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.ModelTrainingRequest, error)
+	GetByUserAndIdempotencyKey(ctx context.Context, userID uuid.UUID, idempotencyKey string) (*domain.ModelTrainingRequest, error)
+	ListByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*domain.ModelTrainingRequest, error)
+	ListForAdmin(ctx context.Context, status *domain.ModelTrainingRequestStatus, limit, offset int) ([]*domain.ModelTrainingRequest, error)
+	CountActiveByUserID(ctx context.Context, userID uuid.UUID) (int, error)
+	UpdateStatus(ctx context.Context, input domain.UpdateModelTrainingRequestStatusInput) error
+}
+
 type AnalysisJobRepository interface {
 	Create(ctx context.Context, job *domain.AnalysisJob) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.AnalysisJob, error)

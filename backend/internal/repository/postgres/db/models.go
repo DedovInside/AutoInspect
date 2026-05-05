@@ -74,6 +74,27 @@ type CarModel struct {
 	CreatedAt         pgtype.Timestamptz
 }
 
+// Заявки пользователей на добавление или обучение моделей сегментации деталей
+type ModelTrainingRequest struct {
+	ID              pgtype.UUID
+	InitiatorUserID pgtype.UUID
+	InitiatorRole   string
+	Make            string
+	Model           string
+	Generation      *string
+	YearFrom        int32
+	YearTo          *int32
+	Description     string
+	Status          string
+	AdminComment    *string
+	ReviewedBy      pgtype.UUID
+	ReviewedAt      pgtype.Timestamptz
+	CreatedModelID  pgtype.UUID
+	IdempotencyKey  *string
+	CreatedAt       pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
+}
+
 // Таблица для хранения информации о пользователях, включая аутентификацию и роли
 type User struct {
 	ID            pgtype.UUID

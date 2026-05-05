@@ -15,6 +15,7 @@ func NewGinRouter(
 	authHandler *handlers.AuthHandler,
 	analysisHandler *handlers.AnalysisHandler,
 	modelHandler *handlers.ModelHandler,
+	modelTrainingRequestHandler *handlers.ModelTrainingRequestHandler,
 	tokenManager *service.TokenManager,
 	cache service.SessionCache,
 ) *gin.Engine {
@@ -43,12 +44,19 @@ func NewGinRouter(
 	analysisGroup.GET("", analysisHandler.ListMine)
 	analysisGroup.GET("/:id/images/:idx", analysisHandler.GetPresignedImageURL)
 
+	modelTrainingRequestsGroup := router.Group("/v1/model-training-requests")
+	modelTrainingRequestsGroup.Use(middleware.Auth(tokenManager, cache))
+	modelTrainingRequestsGroup.POST("", modelTrainingRequestHandler.Create)
+	modelTrainingRequestsGroup.GET("", modelTrainingRequestHandler.ListMine)
+
 	adminGroup := router.Group("/v1/admin")
 	adminGroup.Use(middleware.Auth(tokenManager, cache))
 	adminGroup.Use(middleware.RequireRole(domain.RoleAdmin))
 	adminGroup.POST("/models", modelHandler.Upload)
 	adminGroup.GET("/models", modelHandler.List)
 	adminGroup.PATCH("/models/:id/deactivate", modelHandler.Deactivate)
+	adminGroup.GET("/model-training-requests", modelTrainingRequestHandler.AdminList)
+	adminGroup.PATCH("/model-training-requests/:id/status", modelTrainingRequestHandler.AdminUpdateStatus)
 
 	router.GET("/v1/analyses/ws", middleware.WSAuth(tokenManager, cache), analysisHandler.WSHandler)
 

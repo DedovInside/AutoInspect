@@ -60,6 +60,7 @@ func run() error {
 	oauthRepo := postgres.NewOAuthIdentityRepo(db)
 	jobRepo := postgres.NewAnalysisJobRepo(db)
 	modelRepo := postgres.NewCarModelRepo(db)
+	modelTrainingRequestRepo := postgres.NewModelTrainingRequestRepo(db)
 
 	tokenManager, err := service.NewTokenManager(
 		cfg.Auth.JWTSecret,
@@ -126,9 +127,11 @@ func run() error {
 		&cfg.Kafka,
 	)
 	modelService := service.NewModelService(modelRepo, s3Client, &cfg.S3)
+	modelTrainingRequestService := service.NewModelTrainingRequestService(modelTrainingRequestRepo, modelRepo)
 
 	authHandler := handlers.NewAuthHandler(authService)
 	modelHandler := handlers.NewModelHandler(modelService)
+	modelTrainingRequestHandler := handlers.NewModelTrainingRequestHandler(modelTrainingRequestService)
 
 	analysisHandler := handlers.NewAnalysisHandler(
 		analysisService,
@@ -142,7 +145,14 @@ func run() error {
 	stopSubscriber := startRedisSubscriber(redisNotifier, broadcastMgr)
 	defer stopSubscriber()
 
-	router := api.NewGinRouter(authHandler, analysisHandler, modelHandler, tokenManager, redisCacheClient)
+	router := api.NewGinRouter(
+		authHandler,
+		analysisHandler,
+		modelHandler,
+		modelTrainingRequestHandler,
+		tokenManager,
+		redisCacheClient,
+	)
 	server := newHTTPServer(cfg, router)
 	defer func() {
 		if closeErr := server.Close(); closeErr != nil && !errors.Is(closeErr, http.ErrServerClosed) {
