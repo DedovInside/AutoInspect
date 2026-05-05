@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	"github.com/DedovInside/AutoInspect/backend/internal/domain"
 	"github.com/gin-gonic/gin"
 
 	"github.com/DedovInside/AutoInspect/backend/internal/api/handlers"
@@ -13,6 +14,7 @@ import (
 func NewGinRouter(
 	authHandler *handlers.AuthHandler,
 	analysisHandler *handlers.AnalysisHandler,
+	modelHandler *handlers.ModelHandler,
 	tokenManager *service.TokenManager,
 	cache service.SessionCache,
 ) *gin.Engine {
@@ -40,6 +42,13 @@ func NewGinRouter(
 	analysisGroup.GET("/:id", analysisHandler.GetByID)
 	analysisGroup.GET("", analysisHandler.ListMine)
 	analysisGroup.GET("/:id/images/:idx", analysisHandler.GetPresignedImageURL)
+
+	adminGroup := router.Group("/v1/admin")
+	adminGroup.Use(middleware.Auth(tokenManager, cache))
+	adminGroup.Use(middleware.RequireRole(domain.RoleAdmin))
+	adminGroup.POST("/models", modelHandler.Upload)
+	adminGroup.GET("/models", modelHandler.List)
+	adminGroup.PATCH("/models/:id/deactivate", modelHandler.Deactivate)
 
 	router.GET("/v1/analyses/ws", middleware.WSAuth(tokenManager, cache), analysisHandler.WSHandler)
 

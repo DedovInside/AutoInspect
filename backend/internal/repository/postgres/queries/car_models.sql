@@ -29,3 +29,23 @@ INSERT INTO car_models (
     parts_model_s3_key, parts_config_s3_key, parts_catalog_s3_key,
     model_version, is_universal, is_active, created_at
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);
+
+-- name: ListCarModels :many
+SELECT id, make, model, generation, year_from, year_to,
+       parts_model_s3_key, parts_config_s3_key, parts_catalog_s3_key,
+       model_version, is_universal, is_active, created_at
+FROM car_models
+ORDER BY created_at DESC
+    LIMIT $1 OFFSET $2;
+
+-- name: GetCarModelByID :one
+SELECT id, make, model, generation, year_from, year_to,
+       parts_model_s3_key, parts_config_s3_key, parts_catalog_s3_key,
+       model_version, is_universal, is_active, created_at
+FROM car_models
+WHERE id = $1;
+
+-- name: DeactivateCarModel :exec
+UPDATE car_models
+SET is_active = false
+WHERE id = $1;

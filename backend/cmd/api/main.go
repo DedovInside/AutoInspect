@@ -125,8 +125,10 @@ func run() error {
 		&cfg.S3,
 		&cfg.Kafka,
 	)
+	modelService := service.NewModelService(modelRepo, s3Client, &cfg.S3)
 
 	authHandler := handlers.NewAuthHandler(authService)
+	modelHandler := handlers.NewModelHandler(modelService)
 
 	analysisHandler := handlers.NewAnalysisHandler(
 		analysisService,
@@ -140,7 +142,7 @@ func run() error {
 	stopSubscriber := startRedisSubscriber(redisNotifier, broadcastMgr)
 	defer stopSubscriber()
 
-	router := api.NewGinRouter(authHandler, analysisHandler, tokenManager, redisCacheClient)
+	router := api.NewGinRouter(authHandler, analysisHandler, modelHandler, tokenManager, redisCacheClient)
 	server := newHTTPServer(cfg, router)
 	defer func() {
 		if closeErr := server.Close(); closeErr != nil && !errors.Is(closeErr, http.ErrServerClosed) {

@@ -6,7 +6,9 @@ import (
 
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository/postgres/db"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -81,6 +83,53 @@ func (r *CarModelRepo) CreateModel(ctx context.Context, cm *domain.CarModel) err
 
 	err = r.queries.CreateCarModel(ctx, params)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return domain.ErrAlreadyExists
+		}
+		return domain.ErrInternal
+	}
+	return nil
+}
+
+func (r *CarModelRepo) ListModels(ctx context.Context, limit, offset int) ([]*domain.CarModel, error) {
+	limit32, err := intToInt32Checked(limit)
+	if err != nil {
+		return nil, domain.ErrInvalidInput
+	}
+	offset32, err := intToInt32Checked(offset)
+	if err != nil {
+		return nil, domain.ErrInvalidInput
+	}
+
+	dbModels, err := r.queries.ListCarModels(ctx, db.ListCarModelsParams{
+		Limit:  limit32,
+		Offset: offset32,
+	})
+	if err != nil {
+		return nil, domain.ErrInternal
+	}
+
+	models := make([]*domain.CarModel, 0, len(dbModels))
+	for i := range dbModels {
+		models = append(models, toDomainCarModel(&dbModels[i]))
+	}
+	return models, nil
+}
+
+func (r *CarModelRepo) GetModelByID(ctx context.Context, id uuid.UUID) (*domain.CarModel, error) {
+	dbModel, err := r.queries.GetCarModelByID(ctx, pgtype.UUID{Bytes: id, Valid: true})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, domain.ErrInternal
+	}
+	return toDomainCarModel(&dbModel), nil
+}
+
+func (r *CarModelRepo) DeactivateModel(ctx context.Context, id uuid.UUID) error {
+	if err := r.queries.DeactivateCarModel(ctx, pgtype.UUID{Bytes: id, Valid: true}); err != nil {
 		return domain.ErrInternal
 	}
 	return nil

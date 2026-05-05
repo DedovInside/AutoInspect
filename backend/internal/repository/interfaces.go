@@ -36,6 +36,9 @@ type CarModelRepository interface {
 	FindActiveModel(ctx context.Context, carMake, model, generation string, year int) (*domain.CarModel, error)
 	GetUniversalModel(ctx context.Context) (*domain.CarModel, error)
 	CreateModel(ctx context.Context, cm *domain.CarModel) error
+	ListModels(ctx context.Context, limit, offset int) ([]*domain.CarModel, error)
+	GetModelByID(ctx context.Context, id uuid.UUID) (*domain.CarModel, error)
+	DeactivateModel(ctx context.Context, id uuid.UUID) error
 }
 
 type AnalysisJobRepository interface {

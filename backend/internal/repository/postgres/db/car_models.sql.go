@@ -54,6 +54,17 @@ func (q *Queries) CreateCarModel(ctx context.Context, arg CreateCarModelParams) 
 	return err
 }
 
+const deactivateCarModel = `-- name: DeactivateCarModel :exec
+UPDATE car_models
+SET is_active = false
+WHERE id = $1
+`
+
+func (q *Queries) DeactivateCarModel(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deactivateCarModel, id)
+	return err
+}
+
 const findActiveCarModel = `-- name: FindActiveCarModel :one
 SELECT id, make, model, generation, year_from, year_to,
        parts_model_s3_key, parts_config_s3_key, parts_catalog_s3_key,
@@ -104,6 +115,35 @@ func (q *Queries) FindActiveCarModel(ctx context.Context, arg FindActiveCarModel
 	return i, err
 }
 
+const getCarModelByID = `-- name: GetCarModelByID :one
+SELECT id, make, model, generation, year_from, year_to,
+       parts_model_s3_key, parts_config_s3_key, parts_catalog_s3_key,
+       model_version, is_universal, is_active, created_at
+FROM car_models
+WHERE id = $1
+`
+
+func (q *Queries) GetCarModelByID(ctx context.Context, id pgtype.UUID) (CarModel, error) {
+	row := q.db.QueryRow(ctx, getCarModelByID, id)
+	var i CarModel
+	err := row.Scan(
+		&i.ID,
+		&i.Make,
+		&i.Model,
+		&i.Generation,
+		&i.YearFrom,
+		&i.YearTo,
+		&i.PartsModelS3Key,
+		&i.PartsConfigS3Key,
+		&i.PartsCatalogS3Key,
+		&i.ModelVersion,
+		&i.IsUniversal,
+		&i.IsActive,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getUniversalCarModel = `-- name: GetUniversalCarModel :one
 SELECT id, make, model, generation, year_from, year_to,
        parts_model_s3_key, parts_config_s3_key, parts_catalog_s3_key,
@@ -133,4 +173,52 @@ func (q *Queries) GetUniversalCarModel(ctx context.Context) (CarModel, error) {
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const listCarModels = `-- name: ListCarModels :many
+SELECT id, make, model, generation, year_from, year_to,
+       parts_model_s3_key, parts_config_s3_key, parts_catalog_s3_key,
+       model_version, is_universal, is_active, created_at
+FROM car_models
+ORDER BY created_at DESC
+    LIMIT $1 OFFSET $2
+`
+
+type ListCarModelsParams struct {
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListCarModels(ctx context.Context, arg ListCarModelsParams) ([]CarModel, error) {
+	rows, err := q.db.Query(ctx, listCarModels, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CarModel
+	for rows.Next() {
+		var i CarModel
+		if err := rows.Scan(
+			&i.ID,
+			&i.Make,
+			&i.Model,
+			&i.Generation,
+			&i.YearFrom,
+			&i.YearTo,
+			&i.PartsModelS3Key,
+			&i.PartsConfigS3Key,
+			&i.PartsCatalogS3Key,
+			&i.ModelVersion,
+			&i.IsUniversal,
+			&i.IsActive,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
