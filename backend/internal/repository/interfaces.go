@@ -51,6 +51,13 @@ type ModelTrainingRequestRepository interface {
 	UpdateStatus(ctx context.Context, input domain.UpdateModelTrainingRequestStatusInput) error
 }
 
+type CarServiceApplicationRepository interface {
+	Create(ctx context.Context, application *domain.CarServiceApplication) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.CarServiceApplication, error)
+	GetPendingByUserID(ctx context.Context, userID uuid.UUID) (*domain.CarServiceApplication, error)
+	ListByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*domain.CarServiceApplication, error)
+}
+
 type AnalysisJobRepository interface {
 	Create(ctx context.Context, job *domain.AnalysisJob) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.AnalysisJob, error)

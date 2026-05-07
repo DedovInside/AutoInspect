@@ -15,6 +15,7 @@ type Querier interface {
 	CreateAnalysisJob(ctx context.Context, arg CreateAnalysisJobParams) error
 	CreateAuthSession(ctx context.Context, arg CreateAuthSessionParams) error
 	CreateCarModel(ctx context.Context, arg CreateCarModelParams) error
+	CreateCarServiceApplication(ctx context.Context, arg CreateCarServiceApplicationParams) error
 	CreateModelTrainingRequest(ctx context.Context, arg CreateModelTrainingRequestParams) error
 	CreateOAuthIdentity(ctx context.Context, arg CreateOAuthIdentityParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) error
@@ -26,14 +27,17 @@ type Querier interface {
 	GetAnalysisJobByUserAndIdempotencyKey(ctx context.Context, arg GetAnalysisJobByUserAndIdempotencyKeyParams) (AnalysisJob, error)
 	GetAuthSessionByTokenHash(ctx context.Context, tokenHash string) (AuthSession, error)
 	GetCarModelByID(ctx context.Context, id pgtype.UUID) (CarModel, error)
+	GetCarServiceApplicationByID(ctx context.Context, id pgtype.UUID) (CarServiceApplication, error)
 	GetModelTrainingRequestByID(ctx context.Context, id pgtype.UUID) (ModelTrainingRequest, error)
 	GetModelTrainingRequestByUserAndIdempotencyKey(ctx context.Context, arg GetModelTrainingRequestByUserAndIdempotencyKeyParams) (ModelTrainingRequest, error)
 	GetOAuthIdentityByProviderSubject(ctx context.Context, arg GetOAuthIdentityByProviderSubjectParams) (AuthOauthIdentity, error)
+	GetPendingCarServiceApplicationByUserID(ctx context.Context, userID pgtype.UUID) (CarServiceApplication, error)
 	GetUniversalCarModel(ctx context.Context) (CarModel, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	ListAnalysisJobsByUserID(ctx context.Context, arg ListAnalysisJobsByUserIDParams) ([]AnalysisJob, error)
 	ListCarModels(ctx context.Context, arg ListCarModelsParams) ([]CarModel, error)
+	ListCarServiceApplicationsByUserID(ctx context.Context, arg ListCarServiceApplicationsByUserIDParams) ([]CarServiceApplication, error)
 	ListModelTrainingRequestsByUserID(ctx context.Context, arg ListModelTrainingRequestsByUserIDParams) ([]ModelTrainingRequest, error)
 	ListModelTrainingRequestsForAdmin(ctx context.Context, arg ListModelTrainingRequestsForAdminParams) ([]ModelTrainingRequest, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)

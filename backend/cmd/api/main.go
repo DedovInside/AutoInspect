@@ -61,6 +61,7 @@ func run() error {
 	jobRepo := postgres.NewAnalysisJobRepo(db)
 	modelRepo := postgres.NewCarModelRepo(db)
 	modelTrainingRequestRepo := postgres.NewModelTrainingRequestRepo(db)
+	carServiceApplicationRepo := postgres.NewCarServiceApplicationRepo(db)
 
 	tokenManager, err := service.NewTokenManager(
 		cfg.Auth.JWTSecret,
@@ -128,10 +129,12 @@ func run() error {
 	)
 	modelService := service.NewModelService(modelRepo, s3Client, &cfg.S3)
 	modelTrainingRequestService := service.NewModelTrainingRequestService(modelTrainingRequestRepo, modelRepo)
+	carServiceApplicationService := service.NewCarServiceApplicationService(carServiceApplicationRepo)
 
 	authHandler := handlers.NewAuthHandler(authService)
 	modelHandler := handlers.NewModelHandler(modelService)
 	modelTrainingRequestHandler := handlers.NewModelTrainingRequestHandler(modelTrainingRequestService)
+	carServiceApplicationHandler := handlers.NewCarServiceApplicationHandler(carServiceApplicationService)
 
 	analysisHandler := handlers.NewAnalysisHandler(
 		analysisService,
@@ -150,6 +153,7 @@ func run() error {
 		analysisHandler,
 		modelHandler,
 		modelTrainingRequestHandler,
+		carServiceApplicationHandler,
 		tokenManager,
 		redisCacheClient,
 	)

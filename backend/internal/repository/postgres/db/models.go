@@ -74,6 +74,26 @@ type CarModel struct {
 	CreatedAt         pgtype.Timestamptz
 }
 
+// Заявки пользователей на получение роли автосервиса
+type CarServiceApplication struct {
+	ID               pgtype.UUID
+	UserID           pgtype.UUID
+	OrganizationName string
+	City             string
+	Address          string
+	Phone            *string
+	Email            *string
+	ContactInfo      *string
+	Description      string
+	Status           string
+	RejectionReason  *string
+	ReviewedBy       pgtype.UUID
+	ReviewedAt       pgtype.Timestamptz
+	CreatedProfileID pgtype.UUID
+	CreatedAt        pgtype.Timestamptz
+	UpdatedAt        pgtype.Timestamptz
+}
+
 // Заявки пользователей на добавление или обучение моделей сегментации деталей
 type ModelTrainingRequest struct {
 	ID              pgtype.UUID

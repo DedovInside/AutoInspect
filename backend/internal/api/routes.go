@@ -16,6 +16,7 @@ func NewGinRouter(
 	analysisHandler *handlers.AnalysisHandler,
 	modelHandler *handlers.ModelHandler,
 	modelTrainingRequestHandler *handlers.ModelTrainingRequestHandler,
+	carServiceApplicationHandler *handlers.CarServiceApplicationHandler,
 	tokenManager *service.TokenManager,
 	cache service.SessionCache,
 ) *gin.Engine {
@@ -48,6 +49,12 @@ func NewGinRouter(
 	modelTrainingRequestsGroup.Use(middleware.Auth(tokenManager, cache))
 	modelTrainingRequestsGroup.POST("", modelTrainingRequestHandler.Create)
 	modelTrainingRequestsGroup.GET("", modelTrainingRequestHandler.ListMine)
+
+	carServiceApplicationsGroup := router.Group("/v1/car-service-applications")
+	carServiceApplicationsGroup.Use(middleware.Auth(tokenManager, cache))
+	carServiceApplicationsGroup.POST("", carServiceApplicationHandler.Create)
+	carServiceApplicationsGroup.GET("/current", carServiceApplicationHandler.GetCurrent)
+	carServiceApplicationsGroup.GET("", carServiceApplicationHandler.ListMine)
 
 	adminGroup := router.Group("/v1/admin")
 	adminGroup.Use(middleware.Auth(tokenManager, cache))
