@@ -124,6 +124,24 @@ type CarServiceProfile struct {
 	UpdatedAt        pgtype.Timestamptz
 }
 
+// Специализации автосервисов по типам повреждений и категориям деталей
+type CarServiceSpecialization struct {
+	ID               pgtype.UUID
+	ProfileID        pgtype.UUID
+	DamageTypeCode   string
+	PartCategoryCode string
+	CreatedAt        pgtype.Timestamptz
+}
+
+// Справочник типов повреждений, соответствующих результатам ML-сервиса
+type DamageType struct {
+	Code      string
+	NameRu    string
+	IsActive  bool
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
 // Заявки пользователей на добавление или обучение моделей сегментации деталей
 type ModelTrainingRequest struct {
 	ID              pgtype.UUID
@@ -143,6 +161,16 @@ type ModelTrainingRequest struct {
 	IdempotencyKey  *string
 	CreatedAt       pgtype.Timestamptz
 	UpdatedAt       pgtype.Timestamptz
+}
+
+// Справочник обобщённых категорий деталей автомобиля для специализации автосервисов
+type PartCategory struct {
+	Code      string
+	NameRu    string
+	IsPair    bool
+	IsActive  bool
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
 }
 
 // Таблица для хранения информации о пользователях, включая аутентификацию и роли

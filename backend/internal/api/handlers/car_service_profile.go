@@ -186,6 +186,55 @@ func (h *CarServiceProfileHandler) DeleteImage(c *gin.Context) {
 	writeJSON(c, http.StatusOK, gin.H{"status": "ok"})
 }
 
+func (h *CarServiceProfileHandler) ListSpecializationOptions(c *gin.Context) {
+	options, err := h.service.ListSpecializationOptions(c.Request.Context())
+	if err != nil {
+		handleCarServiceProfileError(c, err)
+		return
+	}
+
+	writeJSON(c, http.StatusOK, dto.ToSpecializationOptionsResponse(options))
+}
+
+func (h *CarServiceProfileHandler) ListSpecializations(c *gin.Context) {
+	userID, ok := userIDOrAbort(c)
+	if !ok {
+		return
+	}
+
+	specializations, err := h.service.ListMySpecializations(c.Request.Context(), userID)
+	if err != nil {
+		handleCarServiceProfileError(c, err)
+		return
+	}
+
+	items := dto.ToCarServiceSpecializationResponseList(specializations)
+	writeJSON(c, http.StatusOK, dto.NewCarServiceSpecializationsResponse(items))
+}
+
+func (h *CarServiceProfileHandler) ReplaceSpecializations(c *gin.Context) {
+	userID, ok := userIDOrAbort(c)
+	if !ok {
+		return
+	}
+
+	var req dto.ReplaceCarServiceSpecializationsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+
+	inputs := dto.ToCarServiceSpecializationInputList(req.Items)
+	specializations, err := h.service.ReplaceMySpecializations(c.Request.Context(), userID, inputs)
+	if err != nil {
+		handleCarServiceProfileError(c, err)
+		return
+	}
+
+	items := dto.ToCarServiceSpecializationResponseList(specializations)
+	writeJSON(c, http.StatusOK, dto.NewReplaceCarServiceSpecializationsResponse(items))
+}
+
 func carServiceImageIDFromRequest(c *gin.Context) (userID, imageID uuid.UUID, ok bool) {
 	userID, ok = userIDOrAbort(c)
 	if !ok {

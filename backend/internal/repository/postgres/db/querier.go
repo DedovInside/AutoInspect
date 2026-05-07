@@ -20,12 +20,16 @@ type Querier interface {
 	CreateCarServiceApplication(ctx context.Context, arg CreateCarServiceApplicationParams) error
 	CreateCarServiceImage(ctx context.Context, arg CreateCarServiceImageParams) error
 	CreateCarServiceProfile(ctx context.Context, arg CreateCarServiceProfileParams) error
+	CreateCarServiceSpecialization(ctx context.Context, arg CreateCarServiceSpecializationParams) error
 	CreateModelTrainingRequest(ctx context.Context, arg CreateModelTrainingRequestParams) error
 	CreateOAuthIdentity(ctx context.Context, arg CreateOAuthIdentityParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) error
 	DeactivateCarModel(ctx context.Context, id pgtype.UUID) error
 	DeleteCarServiceImage(ctx context.Context, id pgtype.UUID) (int64, error)
+	DeleteCarServiceSpecializationsByProfileID(ctx context.Context, profileID pgtype.UUID) error
 	DeleteUser(ctx context.Context, id pgtype.UUID) (int64, error)
+	ExistsActiveDamageType(ctx context.Context, code string) (bool, error)
+	ExistsActivePartCategory(ctx context.Context, code string) (bool, error)
 	FindActiveCarModel(ctx context.Context, arg FindActiveCarModelParams) (CarModel, error)
 	GetAnalysisJobByCorrelationID(ctx context.Context, correlationID pgtype.UUID) (AnalysisJob, error)
 	GetAnalysisJobByID(ctx context.Context, id pgtype.UUID) (AnalysisJob, error)
@@ -43,11 +47,14 @@ type Querier interface {
 	GetUniversalCarModel(ctx context.Context) (CarModel, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
+	ListActiveDamageTypes(ctx context.Context) ([]DamageType, error)
+	ListActivePartCategories(ctx context.Context) ([]PartCategory, error)
 	ListAnalysisJobsByUserID(ctx context.Context, arg ListAnalysisJobsByUserIDParams) ([]AnalysisJob, error)
 	ListCarModels(ctx context.Context, arg ListCarModelsParams) ([]CarModel, error)
 	ListCarServiceApplicationsByUserID(ctx context.Context, arg ListCarServiceApplicationsByUserIDParams) ([]CarServiceApplication, error)
 	ListCarServiceApplicationsForAdmin(ctx context.Context, arg ListCarServiceApplicationsForAdminParams) ([]CarServiceApplication, error)
 	ListCarServiceImagesByProfileID(ctx context.Context, profileID pgtype.UUID) ([]CarServiceImage, error)
+	ListCarServiceSpecializationsByProfileID(ctx context.Context, profileID pgtype.UUID) ([]CarServiceSpecialization, error)
 	ListModelTrainingRequestsByUserID(ctx context.Context, arg ListModelTrainingRequestsByUserIDParams) ([]ModelTrainingRequest, error)
 	ListModelTrainingRequestsForAdmin(ctx context.Context, arg ListModelTrainingRequestsForAdminParams) ([]ModelTrainingRequest, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)

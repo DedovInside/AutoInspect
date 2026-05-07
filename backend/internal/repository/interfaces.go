@@ -80,6 +80,22 @@ type CarServiceImageRepository interface {
 	NextSortOrder(ctx context.Context, profileID uuid.UUID) (int, error)
 }
 
+type DamageTypeRepository interface {
+	ListActive(ctx context.Context) ([]*domain.DamageType, error)
+	ExistsActive(ctx context.Context, code string) (bool, error)
+}
+
+type PartCategoryRepository interface {
+	ListActive(ctx context.Context) ([]*domain.PartCategory, error)
+	ExistsActive(ctx context.Context, code string) (bool, error)
+}
+
+type CarServiceSpecializationRepository interface {
+	Create(ctx context.Context, specialization *domain.CarServiceSpecialization) error
+	ListByProfileID(ctx context.Context, profileID uuid.UUID) ([]*domain.CarServiceSpecialization, error)
+	DeleteByProfileID(ctx context.Context, profileID uuid.UUID) error
+}
+
 type AnalysisJobRepository interface {
 	Create(ctx context.Context, job *domain.AnalysisJob) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.AnalysisJob, error)

@@ -64,6 +64,9 @@ func run() error {
 	carServiceApplicationRepo := postgres.NewCarServiceApplicationRepo(db)
 	carServiceProfileRepo := postgres.NewCarServiceProfileRepo(db)
 	carServiceImageRepo := postgres.NewCarServiceImageRepo(db)
+	damageTypeRepo := postgres.NewDamageTypeRepo(db)
+	partCategoryRepo := postgres.NewPartCategoryRepo(db)
+	carServiceSpecializationRepo := postgres.NewCarServiceSpecializationRepo(db)
 
 	tokenManager, err := service.NewTokenManager(
 		cfg.Auth.JWTSecret,
@@ -142,6 +145,9 @@ func run() error {
 		db,
 		carServiceProfileRepo,
 		carServiceImageRepo,
+		damageTypeRepo,
+		partCategoryRepo,
+		carServiceSpecializationRepo,
 		s3Client,
 		&cfg.S3,
 	)

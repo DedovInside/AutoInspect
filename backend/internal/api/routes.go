@@ -67,6 +67,9 @@ func NewGinRouter(
 	carServiceProfileGroup.GET("/images", carServiceProfileHandler.ListImages)
 	carServiceProfileGroup.PATCH("/images/:id/primary", carServiceProfileHandler.SetPrimaryImage)
 	carServiceProfileGroup.DELETE("/images/:id", carServiceProfileHandler.DeleteImage)
+	carServiceProfileGroup.GET("/specialization-options", carServiceProfileHandler.ListSpecializationOptions)
+	carServiceProfileGroup.GET("/specializations", carServiceProfileHandler.ListSpecializations)
+	carServiceProfileGroup.PUT("/specializations", carServiceProfileHandler.ReplaceSpecializations)
 
 	adminGroup := router.Group("/v1/admin")
 	adminGroup.Use(middleware.Auth(tokenManager, cache))
