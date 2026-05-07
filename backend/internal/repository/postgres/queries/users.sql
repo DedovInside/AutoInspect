@@ -57,3 +57,9 @@ ORDER BY created_at DESC
 
 -- name: UpdateLastLogin :execrows
 UPDATE users SET last_login = NOW() WHERE id = $1;
+
+-- name: UpdateUserRole :execrows
+UPDATE users
+SET role = $2,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1;

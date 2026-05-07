@@ -11,11 +11,13 @@ import (
 )
 
 type Querier interface {
+	ApproveCarServiceApplication(ctx context.Context, arg ApproveCarServiceApplicationParams) (int64, error)
 	CountActiveModelTrainingRequestsByUserID(ctx context.Context, initiatorUserID pgtype.UUID) (int32, error)
 	CreateAnalysisJob(ctx context.Context, arg CreateAnalysisJobParams) error
 	CreateAuthSession(ctx context.Context, arg CreateAuthSessionParams) error
 	CreateCarModel(ctx context.Context, arg CreateCarModelParams) error
 	CreateCarServiceApplication(ctx context.Context, arg CreateCarServiceApplicationParams) error
+	CreateCarServiceProfile(ctx context.Context, arg CreateCarServiceProfileParams) error
 	CreateModelTrainingRequest(ctx context.Context, arg CreateModelTrainingRequestParams) error
 	CreateOAuthIdentity(ctx context.Context, arg CreateOAuthIdentityParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) error
@@ -28,6 +30,8 @@ type Querier interface {
 	GetAuthSessionByTokenHash(ctx context.Context, tokenHash string) (AuthSession, error)
 	GetCarModelByID(ctx context.Context, id pgtype.UUID) (CarModel, error)
 	GetCarServiceApplicationByID(ctx context.Context, id pgtype.UUID) (CarServiceApplication, error)
+	GetCarServiceProfileByID(ctx context.Context, id pgtype.UUID) (CarServiceProfile, error)
+	GetCarServiceProfileByUserID(ctx context.Context, userID pgtype.UUID) (CarServiceProfile, error)
 	GetModelTrainingRequestByID(ctx context.Context, id pgtype.UUID) (ModelTrainingRequest, error)
 	GetModelTrainingRequestByUserAndIdempotencyKey(ctx context.Context, arg GetModelTrainingRequestByUserAndIdempotencyKeyParams) (ModelTrainingRequest, error)
 	GetOAuthIdentityByProviderSubject(ctx context.Context, arg GetOAuthIdentityByProviderSubjectParams) (AuthOauthIdentity, error)
@@ -38,19 +42,24 @@ type Querier interface {
 	ListAnalysisJobsByUserID(ctx context.Context, arg ListAnalysisJobsByUserIDParams) ([]AnalysisJob, error)
 	ListCarModels(ctx context.Context, arg ListCarModelsParams) ([]CarModel, error)
 	ListCarServiceApplicationsByUserID(ctx context.Context, arg ListCarServiceApplicationsByUserIDParams) ([]CarServiceApplication, error)
+	ListCarServiceApplicationsForAdmin(ctx context.Context, arg ListCarServiceApplicationsForAdminParams) ([]CarServiceApplication, error)
 	ListModelTrainingRequestsByUserID(ctx context.Context, arg ListModelTrainingRequestsByUserIDParams) ([]ModelTrainingRequest, error)
 	ListModelTrainingRequestsForAdmin(ctx context.Context, arg ListModelTrainingRequestsForAdminParams) ([]ModelTrainingRequest, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
+	RejectCarServiceApplication(ctx context.Context, arg RejectCarServiceApplicationParams) (int64, error)
 	RevokeAuthSession(ctx context.Context, arg RevokeAuthSessionParams) (int64, error)
 	RevokeFamily(ctx context.Context, arg RevokeFamilyParams) error
+	SetCarServiceProfileActive(ctx context.Context, arg SetCarServiceProfileActiveParams) (int64, error)
 	TouchLastUsed(ctx context.Context, arg TouchLastUsedParams) (int64, error)
 	UpdateAnalysisJobResult(ctx context.Context, arg UpdateAnalysisJobResultParams) (int64, error)
 	UpdateAnalysisJobResultByCorrelationID(ctx context.Context, arg UpdateAnalysisJobResultByCorrelationIDParams) (int64, error)
 	UpdateAnalysisJobStatus(ctx context.Context, arg UpdateAnalysisJobStatusParams) (int64, error)
 	UpdateAnalysisJobStatusByCorrelationID(ctx context.Context, arg UpdateAnalysisJobStatusByCorrelationIDParams) (int64, error)
+	UpdateCarServiceProfile(ctx context.Context, arg UpdateCarServiceProfileParams) (int64, error)
 	UpdateLastLogin(ctx context.Context, id pgtype.UUID) (int64, error)
 	UpdateModelTrainingRequestStatus(ctx context.Context, arg UpdateModelTrainingRequestStatusParams) (int64, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (int64, error)
+	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (int64, error)
 }
 
 var _ Querier = (*Queries)(nil)

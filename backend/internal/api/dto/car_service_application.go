@@ -22,6 +22,16 @@ type ListCarServiceApplicationsQuery struct {
 	Offset int `form:"offset,default=0" binding:"omitempty,min=0"`
 }
 
+type AdminListCarServiceApplicationsQuery struct {
+	Status string `form:"status" binding:"omitempty,oneof=pending approved rejected"`
+	Limit  int    `form:"limit,default=20" binding:"omitempty,min=1,max=100"`
+	Offset int    `form:"offset,default=0" binding:"omitempty,min=0"`
+}
+
+type RejectCarServiceApplicationRequest struct {
+	RejectionReason string `json:"rejection_reason" binding:"required,min=1,max=2000"`
+}
+
 type CarServiceApplicationResponse struct {
 	ID               uuid.UUID                          `json:"id"`
 	UserID           uuid.UUID                          `json:"user_id"`
@@ -41,11 +51,36 @@ type CarServiceApplicationResponse struct {
 	UpdatedAt        time.Time                          `json:"updated_at"`
 }
 
+type CarServiceProfileResponse struct {
+	ID               uuid.UUID `json:"id"`
+	UserID           uuid.UUID `json:"user_id"`
+	OrganizationName string    `json:"organization_name"`
+	City             string    `json:"city"`
+	Address          string    `json:"address"`
+	Phone            *string   `json:"phone,omitempty"`
+	Email            *string   `json:"email,omitempty"`
+	WebsiteURL       *string   `json:"website_url,omitempty"`
+	ContactInfo      *string   `json:"contact_info,omitempty"`
+	Description      *string   `json:"description,omitempty"`
+	IsActive         bool      `json:"is_active"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
 type CreateCarServiceApplicationResponse struct {
 	Application CarServiceApplicationResponse `json:"application"`
 }
 
 type GetCarServiceApplicationResponse struct {
+	Application CarServiceApplicationResponse `json:"application"`
+}
+
+type ApproveCarServiceApplicationResponse struct {
+	Application CarServiceApplicationResponse `json:"application"`
+	Profile     CarServiceProfileResponse     `json:"profile"`
+}
+
+type RejectCarServiceApplicationResponse struct {
 	Application CarServiceApplicationResponse `json:"application"`
 }
 
@@ -78,6 +113,28 @@ func ToCarServiceApplicationResponse(application *domain.CarServiceApplication) 
 		CreatedProfileID: application.CreatedProfileID,
 		CreatedAt:        application.CreatedAt,
 		UpdatedAt:        application.UpdatedAt,
+	}
+}
+
+func ToCarServiceProfileResponse(profile *domain.CarServiceProfile) CarServiceProfileResponse {
+	if profile == nil {
+		return CarServiceProfileResponse{}
+	}
+
+	return CarServiceProfileResponse{
+		ID:               profile.ID,
+		UserID:           profile.UserID,
+		OrganizationName: profile.OrganizationName,
+		City:             profile.City,
+		Address:          profile.Address,
+		Phone:            profile.Phone,
+		Email:            profile.Email,
+		WebsiteURL:       profile.WebsiteURL,
+		ContactInfo:      profile.ContactInfo,
+		Description:      profile.Description,
+		IsActive:         profile.IsActive,
+		CreatedAt:        profile.CreatedAt,
+		UpdatedAt:        profile.UpdatedAt,
 	}
 }
 

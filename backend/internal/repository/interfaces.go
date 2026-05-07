@@ -14,6 +14,7 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
 	GetByEmail(ctx context.Context, email string) (*domain.User, error)
 	Update(ctx context.Context, user *domain.User) error
+	UpdateRole(ctx context.Context, id uuid.UUID, role domain.Role) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context, limit, offset int) ([]*domain.User, error)
 	UpdateLastLogin(ctx context.Context, id uuid.UUID) error
@@ -56,6 +57,17 @@ type CarServiceApplicationRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.CarServiceApplication, error)
 	GetPendingByUserID(ctx context.Context, userID uuid.UUID) (*domain.CarServiceApplication, error)
 	ListByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*domain.CarServiceApplication, error)
+	ListForAdmin(ctx context.Context, status *domain.CarServiceApplicationStatus, limit, offset int) ([]*domain.CarServiceApplication, error)
+	Approve(ctx context.Context, input domain.ApproveCarServiceApplicationInput) error
+	Reject(ctx context.Context, input domain.RejectCarServiceApplicationInput) error
+}
+
+type CarServiceProfileRepository interface {
+	Create(ctx context.Context, profile *domain.CarServiceProfile) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.CarServiceProfile, error)
+	GetByUserID(ctx context.Context, userID uuid.UUID) (*domain.CarServiceProfile, error)
+	Update(ctx context.Context, input *domain.UpdateCarServiceProfileInput) error
+	SetActive(ctx context.Context, userID uuid.UUID, isActive bool) error
 }
 
 type AnalysisJobRepository interface {

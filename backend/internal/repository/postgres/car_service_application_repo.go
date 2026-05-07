@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository/postgres/db"
@@ -95,6 +96,80 @@ func (r *CarServiceApplicationRepo) ListByUserID(
 	}
 
 	return toDomainCarServiceApplications(dbApplications), nil
+}
+
+func (r *CarServiceApplicationRepo) ListForAdmin(
+	ctx context.Context,
+	status *domain.CarServiceApplicationStatus,
+	limit, offset int,
+) ([]*domain.CarServiceApplication, error) {
+	limit32, offset32, err := checkedLimitOffset(limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	var statusPtr *string
+	if status != nil {
+		s := string(*status)
+		statusPtr = &s
+	}
+
+	dbApplications, err := r.queries.ListCarServiceApplicationsForAdmin(ctx, db.ListCarServiceApplicationsForAdminParams{
+		Limit:  limit32,
+		Offset: offset32,
+		Status: statusPtr,
+	})
+	if err != nil {
+		return nil, domain.ErrInternal
+	}
+
+	return toDomainCarServiceApplications(dbApplications), nil
+}
+
+func (r *CarServiceApplicationRepo) Approve(
+	ctx context.Context,
+	input domain.ApproveCarServiceApplicationInput,
+) error {
+	now := time.Now().UTC()
+	params := db.ApproveCarServiceApplicationParams{
+		ID:               pgtype.UUID{Bytes: input.ID, Valid: true},
+		ReviewedBy:       pgtype.UUID{Bytes: input.ReviewedBy, Valid: input.ReviewedBy != uuid.Nil},
+		ReviewedAt:       pgtype.Timestamptz{Time: now, Valid: true},
+		CreatedProfileID: toPgUUIDPtr(input.CreatedProfileID),
+		UpdatedAt:        pgtype.Timestamptz{Time: now, Valid: true},
+	}
+
+	rowsAffected, err := r.queries.ApproveCarServiceApplication(ctx, params)
+	if err != nil {
+		return domain.ErrInternal
+	}
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
+}
+
+func (r *CarServiceApplicationRepo) Reject(
+	ctx context.Context,
+	input domain.RejectCarServiceApplicationInput,
+) error {
+	now := time.Now().UTC()
+	params := db.RejectCarServiceApplicationParams{
+		ID:              pgtype.UUID{Bytes: input.ID, Valid: true},
+		RejectionReason: &input.RejectionReason,
+		ReviewedBy:      pgtype.UUID{Bytes: input.ReviewedBy, Valid: input.ReviewedBy != uuid.Nil},
+		ReviewedAt:      pgtype.Timestamptz{Time: now, Valid: true},
+		UpdatedAt:       pgtype.Timestamptz{Time: now, Valid: true},
+	}
+
+	rowsAffected, err := r.queries.RejectCarServiceApplication(ctx, params)
+	if err != nil {
+		return domain.ErrInternal
+	}
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
 }
 
 func toDomainCarServiceApplications(dbApplications []db.CarServiceApplication) []*domain.CarServiceApplication {

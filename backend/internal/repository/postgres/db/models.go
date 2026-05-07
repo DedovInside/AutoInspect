@@ -94,6 +94,23 @@ type CarServiceApplication struct {
 	UpdatedAt        pgtype.Timestamptz
 }
 
+// Профили автосервисов, созданные после одобрения заявки пользователя
+type CarServiceProfile struct {
+	ID               pgtype.UUID
+	UserID           pgtype.UUID
+	OrganizationName string
+	City             string
+	Address          string
+	Phone            *string
+	Email            *string
+	WebsiteUrl       *string
+	ContactInfo      *string
+	Description      *string
+	IsActive         bool
+	CreatedAt        pgtype.Timestamptz
+	UpdatedAt        pgtype.Timestamptz
+}
+
 // Заявки пользователей на добавление или обучение моделей сегментации деталей
 type ModelTrainingRequest struct {
 	ID              pgtype.UUID

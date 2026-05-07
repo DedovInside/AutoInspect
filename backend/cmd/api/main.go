@@ -62,6 +62,7 @@ func run() error {
 	modelRepo := postgres.NewCarModelRepo(db)
 	modelTrainingRequestRepo := postgres.NewModelTrainingRequestRepo(db)
 	carServiceApplicationRepo := postgres.NewCarServiceApplicationRepo(db)
+	carServiceProfileRepo := postgres.NewCarServiceProfileRepo(db)
 
 	tokenManager, err := service.NewTokenManager(
 		cfg.Auth.JWTSecret,
@@ -129,7 +130,12 @@ func run() error {
 	)
 	modelService := service.NewModelService(modelRepo, s3Client, &cfg.S3)
 	modelTrainingRequestService := service.NewModelTrainingRequestService(modelTrainingRequestRepo, modelRepo)
-	carServiceApplicationService := service.NewCarServiceApplicationService(carServiceApplicationRepo)
+	carServiceApplicationService := service.NewCarServiceApplicationService(
+		db,
+		carServiceApplicationRepo,
+		carServiceProfileRepo,
+		userRepo,
+	)
 
 	authHandler := handlers.NewAuthHandler(authService)
 	modelHandler := handlers.NewModelHandler(modelService)

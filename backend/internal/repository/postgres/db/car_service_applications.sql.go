@@ -11,6 +11,40 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const approveCarServiceApplication = `-- name: ApproveCarServiceApplication :execrows
+UPDATE car_service_applications
+SET status = 'approved',
+    rejection_reason = NULL,
+    reviewed_by = $2,
+    reviewed_at = $3,
+    created_profile_id = $4,
+    updated_at = $5
+WHERE id = $1
+  AND status = 'pending'
+`
+
+type ApproveCarServiceApplicationParams struct {
+	ID               pgtype.UUID
+	ReviewedBy       pgtype.UUID
+	ReviewedAt       pgtype.Timestamptz
+	CreatedProfileID pgtype.UUID
+	UpdatedAt        pgtype.Timestamptz
+}
+
+func (q *Queries) ApproveCarServiceApplication(ctx context.Context, arg ApproveCarServiceApplicationParams) (int64, error) {
+	result, err := q.db.Exec(ctx, approveCarServiceApplication,
+		arg.ID,
+		arg.ReviewedBy,
+		arg.ReviewedAt,
+		arg.CreatedProfileID,
+		arg.UpdatedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const createCarServiceApplication = `-- name: CreateCarServiceApplication :exec
 INSERT INTO car_service_applications (
     id, user_id,
@@ -187,4 +221,93 @@ func (q *Queries) ListCarServiceApplicationsByUserID(ctx context.Context, arg Li
 		return nil, err
 	}
 	return items, nil
+}
+
+const listCarServiceApplicationsForAdmin = `-- name: ListCarServiceApplicationsForAdmin :many
+SELECT id, user_id,
+       organization_name, city, address, phone, email, contact_info, description,
+       status, rejection_reason, reviewed_by, reviewed_at, created_profile_id,
+       created_at, updated_at
+FROM car_service_applications
+WHERE $3::text IS NULL
+   OR status = $3::text
+ORDER BY created_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListCarServiceApplicationsForAdminParams struct {
+	Limit  int32
+	Offset int32
+	Status *string
+}
+
+func (q *Queries) ListCarServiceApplicationsForAdmin(ctx context.Context, arg ListCarServiceApplicationsForAdminParams) ([]CarServiceApplication, error) {
+	rows, err := q.db.Query(ctx, listCarServiceApplicationsForAdmin, arg.Limit, arg.Offset, arg.Status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CarServiceApplication
+	for rows.Next() {
+		var i CarServiceApplication
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.OrganizationName,
+			&i.City,
+			&i.Address,
+			&i.Phone,
+			&i.Email,
+			&i.ContactInfo,
+			&i.Description,
+			&i.Status,
+			&i.RejectionReason,
+			&i.ReviewedBy,
+			&i.ReviewedAt,
+			&i.CreatedProfileID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const rejectCarServiceApplication = `-- name: RejectCarServiceApplication :execrows
+UPDATE car_service_applications
+SET status = 'rejected',
+    rejection_reason = $2,
+    reviewed_by = $3,
+    reviewed_at = $4,
+    created_profile_id = NULL,
+    updated_at = $5
+WHERE id = $1
+  AND status = 'pending'
+`
+
+type RejectCarServiceApplicationParams struct {
+	ID              pgtype.UUID
+	RejectionReason *string
+	ReviewedBy      pgtype.UUID
+	ReviewedAt      pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
+}
+
+func (q *Queries) RejectCarServiceApplication(ctx context.Context, arg RejectCarServiceApplicationParams) (int64, error) {
+	result, err := q.db.Exec(ctx, rejectCarServiceApplication,
+		arg.ID,
+		arg.RejectionReason,
+		arg.ReviewedBy,
+		arg.ReviewedAt,
+		arg.UpdatedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

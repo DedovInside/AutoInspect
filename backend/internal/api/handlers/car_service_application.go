@@ -9,6 +9,7 @@ import (
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
 	"github.com/DedovInside/AutoInspect/backend/internal/service"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type CarServiceApplicationHandler struct {
@@ -96,6 +97,89 @@ func (h *CarServiceApplicationHandler) ListMine(c *gin.Context) {
 
 	items := dto.ToCarServiceApplicationResponseList(applications)
 	writeJSON(c, http.StatusOK, dto.NewCarServiceApplicationListResponse(items, query.Limit, query.Offset))
+}
+
+func (h *CarServiceApplicationHandler) AdminList(c *gin.Context) {
+	var query dto.AdminListCarServiceApplicationsQuery
+	if err := c.ShouldBindQuery(&query); err != nil {
+		writeError(c, http.StatusBadRequest, "invalid_query", err.Error())
+		return
+	}
+
+	var status *domain.CarServiceApplicationStatus
+	if query.Status != "" {
+		s := domain.CarServiceApplicationStatus(query.Status)
+		status = &s
+	}
+
+	applications, err := h.service.ListForAdmin(c.Request.Context(), status, query.Limit, query.Offset)
+	if err != nil {
+		handleCarServiceApplicationError(c, err)
+		return
+	}
+
+	items := dto.ToCarServiceApplicationResponseList(applications)
+	writeJSON(c, http.StatusOK, dto.NewCarServiceApplicationListResponse(items, query.Limit, query.Offset))
+}
+
+func (h *CarServiceApplicationHandler) AdminApprove(c *gin.Context) {
+	adminID, ok := userIDOrAbort(c)
+	if !ok {
+		return
+	}
+
+	applicationID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "invalid_id", "Application ID must be a valid UUID")
+		return
+	}
+
+	result, err := h.service.Approve(c.Request.Context(), &domain.ApproveCarServiceApplicationInput{
+		ID:         applicationID,
+		ReviewedBy: adminID,
+	})
+	if err != nil {
+		handleCarServiceApplicationError(c, err)
+		return
+	}
+
+	writeJSON(c, http.StatusOK, dto.ApproveCarServiceApplicationResponse{
+		Application: dto.ToCarServiceApplicationResponse(result.Application),
+		Profile:     dto.ToCarServiceProfileResponse(result.Profile),
+	})
+}
+
+func (h *CarServiceApplicationHandler) AdminReject(c *gin.Context) {
+	adminID, ok := userIDOrAbort(c)
+	if !ok {
+		return
+	}
+
+	applicationID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "invalid_id", "Application ID must be a valid UUID")
+		return
+	}
+
+	var req dto.RejectCarServiceApplicationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+
+	application, err := h.service.Reject(c.Request.Context(), &domain.RejectCarServiceApplicationInput{
+		ID:              applicationID,
+		ReviewedBy:      adminID,
+		RejectionReason: req.RejectionReason,
+	})
+	if err != nil {
+		handleCarServiceApplicationError(c, err)
+		return
+	}
+
+	writeJSON(c, http.StatusOK, dto.RejectCarServiceApplicationResponse{
+		Application: dto.ToCarServiceApplicationResponse(application),
+	})
 }
 
 func handleCarServiceApplicationError(c *gin.Context, err error) {

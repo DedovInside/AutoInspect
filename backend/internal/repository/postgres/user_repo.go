@@ -91,6 +91,22 @@ func (r *UserRepo) Update(ctx context.Context, user *domain.User) error {
 	return nil
 }
 
+func (r *UserRepo) UpdateRole(ctx context.Context, id uuid.UUID, role domain.Role) error {
+	rowsAffected, err := r.queries.UpdateUserRole(ctx, db.UpdateUserRoleParams{
+		ID:   pgtype.UUID{Bytes: id, Valid: true},
+		Role: string(role),
+	})
+	if err != nil {
+		return domain.ErrInternal
+	}
+
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+
+	return nil
+}
+
 func (r *UserRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	pgID := pgtype.UUID{Bytes: id, Valid: true}
 	rowsAffected, err := r.queries.DeleteUser(ctx, pgID)

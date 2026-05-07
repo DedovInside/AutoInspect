@@ -64,6 +64,9 @@ func NewGinRouter(
 	adminGroup.PATCH("/models/:id/deactivate", modelHandler.Deactivate)
 	adminGroup.GET("/model-training-requests", modelTrainingRequestHandler.AdminList)
 	adminGroup.PATCH("/model-training-requests/:id/status", modelTrainingRequestHandler.AdminUpdateStatus)
+	adminGroup.GET("/car-service-applications", carServiceApplicationHandler.AdminList)
+	adminGroup.PATCH("/car-service-applications/:id/approve", carServiceApplicationHandler.AdminApprove)
+	adminGroup.PATCH("/car-service-applications/:id/reject", carServiceApplicationHandler.AdminReject)
 
 	router.GET("/v1/analyses/ws", middleware.WSAuth(tokenManager, cache), analysisHandler.WSHandler)
 

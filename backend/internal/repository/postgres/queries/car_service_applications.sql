@@ -39,3 +39,36 @@ FROM car_service_applications
 WHERE user_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3;
+
+-- name: ListCarServiceApplicationsForAdmin :many
+SELECT id, user_id,
+       organization_name, city, address, phone, email, contact_info, description,
+       status, rejection_reason, reviewed_by, reviewed_at, created_profile_id,
+       created_at, updated_at
+FROM car_service_applications
+WHERE sqlc.narg('status')::text IS NULL
+   OR status = sqlc.narg('status')::text
+ORDER BY created_at DESC
+LIMIT $1 OFFSET $2;
+
+-- name: ApproveCarServiceApplication :execrows
+UPDATE car_service_applications
+SET status = 'approved',
+    rejection_reason = NULL,
+    reviewed_by = $2,
+    reviewed_at = $3,
+    created_profile_id = $4,
+    updated_at = $5
+WHERE id = $1
+  AND status = 'pending';
+
+-- name: RejectCarServiceApplication :execrows
+UPDATE car_service_applications
+SET status = 'rejected',
+    rejection_reason = $2,
+    reviewed_by = $3,
+    reviewed_at = $4,
+    created_profile_id = NULL,
+    updated_at = $5
+WHERE id = $1
+  AND status = 'pending';

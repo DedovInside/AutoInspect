@@ -66,8 +66,9 @@ type CreateCarServiceApplicationInput struct {
 }
 
 type ApproveCarServiceApplicationInput struct {
-	ID         uuid.UUID
-	ReviewedBy uuid.UUID
+	ID               uuid.UUID
+	ReviewedBy       uuid.UUID
+	CreatedProfileID *uuid.UUID
 }
 
 type RejectCarServiceApplicationInput struct {
