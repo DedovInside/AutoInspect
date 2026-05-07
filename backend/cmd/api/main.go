@@ -63,6 +63,7 @@ func run() error {
 	modelTrainingRequestRepo := postgres.NewModelTrainingRequestRepo(db)
 	carServiceApplicationRepo := postgres.NewCarServiceApplicationRepo(db)
 	carServiceProfileRepo := postgres.NewCarServiceProfileRepo(db)
+	carServiceImageRepo := postgres.NewCarServiceImageRepo(db)
 
 	tokenManager, err := service.NewTokenManager(
 		cfg.Auth.JWTSecret,
@@ -87,10 +88,7 @@ func run() error {
 		return fmt.Errorf("init yandex oauth client: %w", err)
 	}
 
-	authService := service.NewAuthService(
-		db, userRepo, sessionRepo, oauthRepo,
-		tokenManager, redisCacheClient, yandexClient,
-	)
+	authService := service.NewAuthService(db, userRepo, sessionRepo, oauthRepo, tokenManager, redisCacheClient, yandexClient)
 
 	s3Client, err := s3.New(context.Background(), &cfg.S3)
 
@@ -128,8 +126,11 @@ func run() error {
 		&cfg.S3,
 		&cfg.Kafka,
 	)
+
 	modelService := service.NewModelService(modelRepo, s3Client, &cfg.S3)
+
 	modelTrainingRequestService := service.NewModelTrainingRequestService(modelTrainingRequestRepo, modelRepo)
+
 	carServiceApplicationService := service.NewCarServiceApplicationService(
 		db,
 		carServiceApplicationRepo,
@@ -137,10 +138,19 @@ func run() error {
 		userRepo,
 	)
 
+	carServiceProfileService := service.NewCarServiceProfileService(
+		db,
+		carServiceProfileRepo,
+		carServiceImageRepo,
+		s3Client,
+		&cfg.S3,
+	)
+
 	authHandler := handlers.NewAuthHandler(authService)
 	modelHandler := handlers.NewModelHandler(modelService)
 	modelTrainingRequestHandler := handlers.NewModelTrainingRequestHandler(modelTrainingRequestService)
 	carServiceApplicationHandler := handlers.NewCarServiceApplicationHandler(carServiceApplicationService)
+	carServiceProfileHandler := handlers.NewCarServiceProfileHandler(carServiceProfileService)
 
 	analysisHandler := handlers.NewAnalysisHandler(
 		analysisService,
@@ -160,6 +170,7 @@ func run() error {
 		modelHandler,
 		modelTrainingRequestHandler,
 		carServiceApplicationHandler,
+		carServiceProfileHandler,
 		tokenManager,
 		redisCacheClient,
 	)

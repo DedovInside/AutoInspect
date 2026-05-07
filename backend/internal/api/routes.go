@@ -17,6 +17,7 @@ func NewGinRouter(
 	modelHandler *handlers.ModelHandler,
 	modelTrainingRequestHandler *handlers.ModelTrainingRequestHandler,
 	carServiceApplicationHandler *handlers.CarServiceApplicationHandler,
+	carServiceProfileHandler *handlers.CarServiceProfileHandler,
 	tokenManager *service.TokenManager,
 	cache service.SessionCache,
 ) *gin.Engine {
@@ -55,6 +56,17 @@ func NewGinRouter(
 	carServiceApplicationsGroup.POST("", carServiceApplicationHandler.Create)
 	carServiceApplicationsGroup.GET("/current", carServiceApplicationHandler.GetCurrent)
 	carServiceApplicationsGroup.GET("", carServiceApplicationHandler.ListMine)
+
+	carServiceProfileGroup := router.Group("/v1/car-service/profile")
+	carServiceProfileGroup.Use(middleware.Auth(tokenManager, cache))
+	carServiceProfileGroup.Use(middleware.RequireRole(domain.RoleCarService))
+	carServiceProfileGroup.GET("", carServiceProfileHandler.GetMine)
+	carServiceProfileGroup.PATCH("", carServiceProfileHandler.UpdateMine)
+	carServiceProfileGroup.PATCH("/active", carServiceProfileHandler.SetActive)
+	carServiceProfileGroup.POST("/images", carServiceProfileHandler.UploadImage)
+	carServiceProfileGroup.GET("/images", carServiceProfileHandler.ListImages)
+	carServiceProfileGroup.PATCH("/images/:id/primary", carServiceProfileHandler.SetPrimaryImage)
+	carServiceProfileGroup.DELETE("/images/:id", carServiceProfileHandler.DeleteImage)
 
 	adminGroup := router.Group("/v1/admin")
 	adminGroup.Use(middleware.Auth(tokenManager, cache))

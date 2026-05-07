@@ -70,6 +70,16 @@ type CarServiceProfileRepository interface {
 	SetActive(ctx context.Context, userID uuid.UUID, isActive bool) error
 }
 
+type CarServiceImageRepository interface {
+	Create(ctx context.Context, image *domain.CarServiceImage) error
+	ListByProfileID(ctx context.Context, profileID uuid.UUID) ([]*domain.CarServiceImage, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.CarServiceImage, error)
+	Delete(ctx context.Context, id uuid.UUID) error
+	ClearPrimary(ctx context.Context, profileID uuid.UUID) error
+	SetPrimary(ctx context.Context, id uuid.UUID) error
+	NextSortOrder(ctx context.Context, profileID uuid.UUID) (int, error)
+}
+
 type AnalysisJobRepository interface {
 	Create(ctx context.Context, job *domain.AnalysisJob) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.AnalysisJob, error)

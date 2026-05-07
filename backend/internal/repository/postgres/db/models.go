@@ -94,6 +94,19 @@ type CarServiceApplication struct {
 	UpdatedAt        pgtype.Timestamptz
 }
 
+// Изображения профилей автосервисов, хранящиеся в MinIO
+type CarServiceImage struct {
+	ID               pgtype.UUID
+	ProfileID        pgtype.UUID
+	S3Key            string
+	IsPrimary        bool
+	SortOrder        int32
+	OriginalFilename string
+	ContentType      string
+	SizeBytes        int64
+	CreatedAt        pgtype.Timestamptz
+}
+
 // Профили автосервисов, созданные после одобрения заявки пользователя
 type CarServiceProfile struct {
 	ID               pgtype.UUID
