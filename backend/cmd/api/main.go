@@ -64,6 +64,7 @@ func run() error {
 	carServiceApplicationRepo := postgres.NewCarServiceApplicationRepo(db)
 	carServiceProfileRepo := postgres.NewCarServiceProfileRepo(db)
 	carServiceImageRepo := postgres.NewCarServiceImageRepo(db)
+	carServiceMatchRepo := postgres.NewCarServiceMatchRepo(db)
 	damageTypeRepo := postgres.NewDamageTypeRepo(db)
 	partCategoryRepo := postgres.NewPartCategoryRepo(db)
 	carServiceSpecializationRepo := postgres.NewCarServiceSpecializationRepo(db)
@@ -130,6 +131,13 @@ func run() error {
 		&cfg.S3,
 		&cfg.Kafka,
 	)
+	carServiceMatchingService := service.NewCarServiceMatchingService(
+		jobRepo,
+		carServiceMatchRepo,
+		carServiceImageRepo,
+		s3Client,
+		&cfg.S3,
+	)
 
 	modelService := service.NewModelService(modelRepo, s3Client, &cfg.S3)
 
@@ -161,6 +169,7 @@ func run() error {
 
 	analysisHandler := handlers.NewAnalysisHandler(
 		analysisService,
+		carServiceMatchingService,
 		broadcastMgr,
 		10,
 		100,

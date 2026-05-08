@@ -56,6 +56,7 @@ type Querier interface {
 	ListCarServiceApplicationsForAdmin(ctx context.Context, arg ListCarServiceApplicationsForAdminParams) ([]CarServiceApplication, error)
 	ListCarServiceImagesByProfileID(ctx context.Context, profileID pgtype.UUID) ([]CarServiceImage, error)
 	ListCarServiceSpecializationsByProfileID(ctx context.Context, profileID pgtype.UUID) ([]CarServiceSpecialization, error)
+	ListMatchingCarServices(ctx context.Context, arg ListMatchingCarServicesParams) ([]ListMatchingCarServicesRow, error)
 	ListModelTrainingRequestsByUserID(ctx context.Context, arg ListModelTrainingRequestsByUserIDParams) ([]ModelTrainingRequest, error)
 	ListModelTrainingRequestsForAdmin(ctx context.Context, arg ListModelTrainingRequestsForAdminParams) ([]ModelTrainingRequest, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)

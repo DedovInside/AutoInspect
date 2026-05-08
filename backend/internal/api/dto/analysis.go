@@ -60,6 +60,29 @@ type PresignedImageURLResponse struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
+type ListMatchedCarServicesResponse struct {
+	Items  []MatchedCarServiceResponse `json:"items"`
+	Limit  int                         `json:"limit"`
+	Offset int                         `json:"offset"`
+	Meta   ListMeta                    `json:"meta"`
+}
+
+type MatchedCarServiceResponse struct {
+	ID               uuid.UUID                `json:"id"`
+	OrganizationName string                   `json:"organization_name"`
+	City             string                   `json:"city"`
+	Address          string                   `json:"address"`
+	Phone            *string                  `json:"phone,omitempty"`
+	Email            *string                  `json:"email,omitempty"`
+	WebsiteURL       *string                  `json:"website_url,omitempty"`
+	ContactInfo      *string                  `json:"contact_info,omitempty"`
+	Description      *string                  `json:"description,omitempty"`
+	MatchCount       int                      `json:"match_count"`
+	RequiredCount    int                      `json:"required_count"`
+	Score            float64                  `json:"score"`
+	PrimaryImage     *CarServiceImageResponse `json:"primary_image,omitempty"`
+}
+
 type AnalysisResultResponse struct {
 	ModelID      string                        `json:"model_id"`
 	ModelVersion string                        `json:"model_version"`
@@ -173,6 +196,73 @@ func NewListResponse(items []AnalysisJobResponse, limit, offset int) ListRespons
 		Offset: offset,
 		Meta:   meta,
 	}
+}
+
+func NewMatchedCarServicesResponse(
+	items []MatchedCarServiceResponse,
+	limit, offset int,
+) ListMatchedCarServicesResponse {
+	count := len(items)
+	hasNext := limit > 0 && count == limit
+	meta := ListMeta{
+		Count:   count,
+		HasNext: hasNext,
+	}
+
+	if hasNext {
+		next := offset + count
+		meta.NextOffset = &next
+	}
+
+	return ListMatchedCarServicesResponse{
+		Items:  items,
+		Limit:  limit,
+		Offset: offset,
+		Meta:   meta,
+	}
+}
+
+func ToMatchedCarServiceResponseList(
+	matches []*domain.CarServiceMatchWithImageURL,
+) []MatchedCarServiceResponse {
+	out := make([]MatchedCarServiceResponse, 0, len(matches))
+	for _, match := range matches {
+		item := ToMatchedCarServiceResponse(match)
+		if item.ID == uuid.Nil {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+func ToMatchedCarServiceResponse(match *domain.CarServiceMatchWithImageURL) MatchedCarServiceResponse {
+	if match == nil || match.Match == nil || match.Match.Profile == nil {
+		return MatchedCarServiceResponse{}
+	}
+
+	profile := match.Match.Profile
+	resp := MatchedCarServiceResponse{
+		ID:               profile.ID,
+		OrganizationName: profile.OrganizationName,
+		City:             profile.City,
+		Address:          profile.Address,
+		Phone:            profile.Phone,
+		Email:            profile.Email,
+		WebsiteURL:       profile.WebsiteURL,
+		ContactInfo:      profile.ContactInfo,
+		Description:      profile.Description,
+		MatchCount:       match.Match.MatchCount,
+		RequiredCount:    match.Match.RequiredCount,
+		Score:            match.Match.Score,
+	}
+
+	if match.Match.PrimaryImage != nil && match.PrimaryImageExpiresAt != nil {
+		image := ToCarServiceImageResponse(match.Match.PrimaryImage, match.PrimaryImageURL, *match.PrimaryImageExpiresAt)
+		resp.PrimaryImage = &image
+	}
+
+	return resp
 }
 
 func toAnalysisResultResponse(result *domain.AnalysisResult) *AnalysisResultResponse {

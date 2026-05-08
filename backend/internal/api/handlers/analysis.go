@@ -18,6 +18,7 @@ import (
 
 type AnalysisHandler struct {
 	service        *service.AnalysisService
+	matchingSvc    *service.CarServiceMatchingService
 	broadcastMgr   *broadcast.Manager
 	maxImages      int
 	maxImageSize   int64
@@ -27,6 +28,7 @@ type AnalysisHandler struct {
 
 func NewAnalysisHandler(
 	svc *service.AnalysisService,
+	matchingSvc *service.CarServiceMatchingService,
 	broadcastMgr *broadcast.Manager,
 	maxImages int,
 	maxImageSizeMB int,
@@ -45,6 +47,7 @@ func NewAnalysisHandler(
 	}
 	return &AnalysisHandler{
 		service:        svc,
+		matchingSvc:    matchingSvc,
 		broadcastMgr:   broadcastMgr,
 		maxImages:      maxImages,
 		maxImageSize:   int64(maxImageSizeMB) * 1024 * 1024,
@@ -197,6 +200,41 @@ func (h *AnalysisHandler) GetPresignedImageURL(c *gin.Context) {
 	writeJSON(c, http.StatusOK, resp)
 }
 
+func (h *AnalysisHandler) FindMatchingCarServices(c *gin.Context) {
+	userID, ok := userIDOrAbort(c)
+	if !ok {
+		return
+	}
+
+	jobID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "invalid_id", "Job ID must be a valid UUID")
+		return
+	}
+
+	var query dto.ListAnalysisQuery
+	if err := c.ShouldBindQuery(&query); err != nil {
+		writeError(c, http.StatusBadRequest, "invalid_query", err.Error())
+		return
+	}
+
+	if h.matchingSvc == nil {
+		writeError(c, http.StatusInternalServerError, "internal_error", "Matching service is not configured")
+		return
+	}
+
+	matches, err := h.matchingSvc.FindMatchingCarServices(c.Request.Context(), jobID, userID, query.Limit, query.Offset)
+	if err != nil {
+		h.handleJobError(c, err)
+		return
+	}
+
+	items := dto.ToMatchedCarServiceResponseList(matches)
+	resp := dto.NewMatchedCarServicesResponse(items, query.Limit, query.Offset)
+
+	writeJSON(c, http.StatusOK, resp)
+}
+
 func (h *AnalysisHandler) parseAndValidateImages(c *gin.Context) ([]multipart.File, error) {
 	form, err := c.MultipartForm()
 
@@ -264,6 +302,12 @@ func (h *AnalysisHandler) handleJobError(c *gin.Context, err error) {
 		writeError(c, http.StatusNotFound, "not_found", "Analysis job not found")
 	case errors.Is(err, domain.ErrForbidden):
 		writeError(c, http.StatusForbidden, "forbidden", "Access denied to this job")
+	case errors.Is(err, domain.ErrJobNotReady):
+		writeError(c, http.StatusConflict, "job_not_ready", "Analysis job is not completed yet")
+	case errors.Is(err, domain.ErrJobFailed):
+		writeError(c, http.StatusConflict, "job_failed", "Analysis job failed")
+	case errors.Is(err, domain.ErrInvalidInput):
+		writeError(c, http.StatusBadRequest, "invalid_request", "Invalid request")
 	default:
 		writeError(c, http.StatusInternalServerError, "internal_error", "Failed to fetch job")
 	}

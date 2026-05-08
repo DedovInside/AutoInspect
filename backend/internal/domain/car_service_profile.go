@@ -46,3 +46,22 @@ type UpdateCarServiceProfileInput struct {
 	Description      *string
 	IsActive         bool
 }
+
+type CarServiceMatchCriterion struct {
+	DamageTypeCode   string
+	PartCategoryCode string
+}
+
+type CarServiceMatch struct {
+	Profile       *CarServiceProfile
+	PrimaryImage  *CarServiceImage
+	MatchCount    int
+	RequiredCount int
+	Score         float64
+}
+
+type CarServiceMatchWithImageURL struct {
+	Match                 *CarServiceMatch
+	PrimaryImageURL       string
+	PrimaryImageExpiresAt *time.Time
+}

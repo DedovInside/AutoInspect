@@ -70,6 +70,10 @@ type CarServiceProfileRepository interface {
 	SetActive(ctx context.Context, userID uuid.UUID, isActive bool) error
 }
 
+type CarServiceMatchRepository interface {
+	FindMatching(ctx context.Context, criteria []domain.CarServiceMatchCriterion, limit, offset int) ([]*domain.CarServiceMatch, error)
+}
+
 type CarServiceImageRepository interface {
 	Create(ctx context.Context, image *domain.CarServiceImage) error
 	ListByProfileID(ctx context.Context, profileID uuid.UUID) ([]*domain.CarServiceImage, error)

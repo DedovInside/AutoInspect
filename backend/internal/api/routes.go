@@ -45,6 +45,7 @@ func NewGinRouter(
 	analysisGroup.GET("/:id", analysisHandler.GetByID)
 	analysisGroup.GET("", analysisHandler.ListMine)
 	analysisGroup.GET("/:id/images/:idx", analysisHandler.GetPresignedImageURL)
+	analysisGroup.GET("/:id/car-services", analysisHandler.FindMatchingCarServices)
 
 	modelTrainingRequestsGroup := router.Group("/v1/model-training-requests")
 	modelTrainingRequestsGroup.Use(middleware.Auth(tokenManager, cache))
