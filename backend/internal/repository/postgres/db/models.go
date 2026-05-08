@@ -173,6 +173,29 @@ type PartCategory struct {
 	UpdatedAt pgtype.Timestamptz
 }
 
+// Заявки пользователей на ремонт автомобиля по результатам анализа
+type RepairRequest struct {
+	ID                  pgtype.UUID
+	UserID              pgtype.UUID
+	AnalysisJobID       pgtype.UUID
+	CarServiceProfileID pgtype.UUID
+	Status              string
+	// Снимок ремонтной сводки, сформированной из результата анализа на момент создания заявки
+	RepairSummary []byte
+	// Предварительная смета автосервиса по парам деталь и тип повреждения
+	ServiceEstimate   []byte
+	CustomerName      *string
+	CustomerPhone     *string
+	CustomerEmail     *string
+	CustomerComment   *string
+	ServiceComment    *string
+	EstimatedPriceMin pgtype.Numeric
+	EstimatedPriceMax pgtype.Numeric
+	CreatedAt         pgtype.Timestamptz
+	UpdatedAt         pgtype.Timestamptz
+	RespondedAt       pgtype.Timestamptz
+}
+
 // Таблица для хранения информации о пользователях, включая аутентификацию и роли
 type User struct {
 	ID            pgtype.UUID

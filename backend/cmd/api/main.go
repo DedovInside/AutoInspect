@@ -65,6 +65,7 @@ func run() error {
 	carServiceProfileRepo := postgres.NewCarServiceProfileRepo(db)
 	carServiceImageRepo := postgres.NewCarServiceImageRepo(db)
 	carServiceMatchRepo := postgres.NewCarServiceMatchRepo(db)
+	repairRequestRepo := postgres.NewRepairRequestRepo(db)
 	damageTypeRepo := postgres.NewDamageTypeRepo(db)
 	partCategoryRepo := postgres.NewPartCategoryRepo(db)
 	carServiceSpecializationRepo := postgres.NewCarServiceSpecializationRepo(db)
@@ -161,11 +162,18 @@ func run() error {
 		&cfg.S3,
 	)
 
+	repairRequestService := service.NewRepairRequestService(
+		repairRequestRepo,
+		jobRepo,
+		carServiceProfileRepo,
+	)
+
 	authHandler := handlers.NewAuthHandler(authService)
 	modelHandler := handlers.NewModelHandler(modelService)
 	modelTrainingRequestHandler := handlers.NewModelTrainingRequestHandler(modelTrainingRequestService)
 	carServiceApplicationHandler := handlers.NewCarServiceApplicationHandler(carServiceApplicationService)
 	carServiceProfileHandler := handlers.NewCarServiceProfileHandler(carServiceProfileService)
+	repairRequestHandler := handlers.NewRepairRequestHandler(repairRequestService)
 
 	analysisHandler := handlers.NewAnalysisHandler(
 		analysisService,
@@ -187,6 +195,7 @@ func run() error {
 		modelTrainingRequestHandler,
 		carServiceApplicationHandler,
 		carServiceProfileHandler,
+		repairRequestHandler,
 		tokenManager,
 		redisCacheClient,
 	)

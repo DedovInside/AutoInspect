@@ -101,6 +101,17 @@ type CarServiceSpecializationRepository interface {
 	DeleteByProfileID(ctx context.Context, profileID uuid.UUID) error
 }
 
+type RepairRequestRepository interface {
+	Create(ctx context.Context, request *domain.RepairRequest) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.RepairRequest, error)
+	GetPendingByUserAnalysisAndService(
+		ctx context.Context,
+		userID, analysisJobID, carServiceProfileID uuid.UUID,
+	) (*domain.RepairRequest, error)
+	ListByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*domain.RepairRequest, error)
+	CancelPendingByUserID(ctx context.Context, id, userID uuid.UUID) error
+}
+
 type AnalysisJobRepository interface {
 	Create(ctx context.Context, job *domain.AnalysisJob) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.AnalysisJob, error)

@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	ApproveCarServiceApplication(ctx context.Context, arg ApproveCarServiceApplicationParams) (int64, error)
+	CancelPendingRepairRequestByUserID(ctx context.Context, arg CancelPendingRepairRequestByUserIDParams) (int64, error)
 	ClearPrimaryCarServiceImage(ctx context.Context, profileID pgtype.UUID) error
 	CountActiveModelTrainingRequestsByUserID(ctx context.Context, initiatorUserID pgtype.UUID) (int32, error)
 	CreateAnalysisJob(ctx context.Context, arg CreateAnalysisJobParams) error
@@ -23,6 +24,7 @@ type Querier interface {
 	CreateCarServiceSpecialization(ctx context.Context, arg CreateCarServiceSpecializationParams) error
 	CreateModelTrainingRequest(ctx context.Context, arg CreateModelTrainingRequestParams) error
 	CreateOAuthIdentity(ctx context.Context, arg CreateOAuthIdentityParams) error
+	CreateRepairRequest(ctx context.Context, arg CreateRepairRequestParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) error
 	DeactivateCarModel(ctx context.Context, id pgtype.UUID) error
 	DeleteCarServiceImage(ctx context.Context, id pgtype.UUID) (int64, error)
@@ -44,6 +46,8 @@ type Querier interface {
 	GetModelTrainingRequestByUserAndIdempotencyKey(ctx context.Context, arg GetModelTrainingRequestByUserAndIdempotencyKeyParams) (ModelTrainingRequest, error)
 	GetOAuthIdentityByProviderSubject(ctx context.Context, arg GetOAuthIdentityByProviderSubjectParams) (AuthOauthIdentity, error)
 	GetPendingCarServiceApplicationByUserID(ctx context.Context, userID pgtype.UUID) (CarServiceApplication, error)
+	GetPendingRepairRequestByUserAnalysisAndService(ctx context.Context, arg GetPendingRepairRequestByUserAnalysisAndServiceParams) (RepairRequest, error)
+	GetRepairRequestByID(ctx context.Context, id pgtype.UUID) (RepairRequest, error)
 	GetUniversalCarModel(ctx context.Context) (CarModel, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
@@ -59,6 +63,7 @@ type Querier interface {
 	ListMatchingCarServices(ctx context.Context, arg ListMatchingCarServicesParams) ([]ListMatchingCarServicesRow, error)
 	ListModelTrainingRequestsByUserID(ctx context.Context, arg ListModelTrainingRequestsByUserIDParams) ([]ModelTrainingRequest, error)
 	ListModelTrainingRequestsForAdmin(ctx context.Context, arg ListModelTrainingRequestsForAdminParams) ([]ModelTrainingRequest, error)
+	ListRepairRequestsByUserID(ctx context.Context, arg ListRepairRequestsByUserIDParams) ([]RepairRequest, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
 	NextCarServiceImageSortOrder(ctx context.Context, profileID pgtype.UUID) (int32, error)
 	RejectCarServiceApplication(ctx context.Context, arg RejectCarServiceApplicationParams) (int64, error)
