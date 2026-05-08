@@ -24,6 +24,16 @@ func (r *DamageTypeRepo) ListActive(ctx context.Context) ([]*domain.DamageType, 
 	if err != nil {
 		return nil, domain.ErrInternal
 	}
+
+	return toDomainDamageTypes(dbTypes), nil
+}
+
+func (r *DamageTypeRepo) ListAll(ctx context.Context) ([]*domain.DamageType, error) {
+	dbTypes, err := r.queries.ListAllDamageTypes(ctx)
+	if err != nil {
+		return nil, domain.ErrInternal
+	}
+
 	return toDomainDamageTypes(dbTypes), nil
 }
 

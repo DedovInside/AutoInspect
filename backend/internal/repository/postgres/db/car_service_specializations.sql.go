@@ -147,6 +147,38 @@ func (q *Queries) ListActivePartCategories(ctx context.Context) ([]PartCategory,
 	return items, nil
 }
 
+const listAllDamageTypes = `-- name: ListAllDamageTypes :many
+SELECT code, name_ru, is_active, created_at, updated_at
+FROM damage_types
+ORDER BY name_ru ASC
+`
+
+func (q *Queries) ListAllDamageTypes(ctx context.Context) ([]DamageType, error) {
+	rows, err := q.db.Query(ctx, listAllDamageTypes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DamageType
+	for rows.Next() {
+		var i DamageType
+		if err := rows.Scan(
+			&i.Code,
+			&i.NameRu,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCarServiceSpecializationsByProfileID = `-- name: ListCarServiceSpecializationsByProfileID :many
 SELECT id, profile_id, damage_type_code, part_category_code, created_at
 FROM car_service_specializations

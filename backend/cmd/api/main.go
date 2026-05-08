@@ -124,6 +124,7 @@ func run() error {
 		s3Client,
 		jobRepo,
 		modelRepo,
+		damageTypeRepo,
 		kafkaProducer,
 		redisNotifier,
 		&cfg.S3,

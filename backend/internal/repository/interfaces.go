@@ -82,6 +82,7 @@ type CarServiceImageRepository interface {
 
 type DamageTypeRepository interface {
 	ListActive(ctx context.Context) ([]*domain.DamageType, error)
+	ListAll(ctx context.Context) ([]*domain.DamageType, error)
 	ExistsActive(ctx context.Context, code string) (bool, error)
 }
 

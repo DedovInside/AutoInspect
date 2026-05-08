@@ -41,8 +41,12 @@ func run() error {
 
 	jobRepo := postgres.NewAnalysisJobRepo(db)
 	modelRepo := postgres.NewCarModelRepo(db)
+	damageTypeRepo := postgres.NewDamageTypeRepo(db)
 
-	var s3Client *s3.Client
+	s3Client, err := s3.New(context.Background(), &cfg.S3)
+	if err != nil {
+		return fmt.Errorf("init s3 client: %w", err)
+	}
 
 	redisCacheClient := rediscache.New(&cfg.Redis)
 	defer func() {
@@ -75,6 +79,7 @@ func run() error {
 		s3Client,
 		jobRepo,
 		modelRepo,
+		damageTypeRepo,
 		nil,
 		redisNotifier,
 		&cfg.S3,

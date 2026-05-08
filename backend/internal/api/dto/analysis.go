@@ -81,25 +81,42 @@ type ImageMetaResponse struct {
 }
 
 type DamageInstanceResponse struct {
-	ID         string                    `json:"id"`
-	DamageType string                    `json:"damage_type"`
-	Polygon    [][]int                   `json:"polygon"`
-	BBox       []int                     `json:"bbox"`
-	Confidence float64                   `json:"confidence"`
-	Parts      []PartAssociationResponse `json:"parts"`
+	ID           string                    `json:"id"`
+	DamageType   string                    `json:"damage_type"`
+	DamageNameRU string                    `json:"damage_name_ru,omitempty"`
+	Polygon      [][]int                   `json:"polygon"`
+	BBox         []int                     `json:"bbox"`
+	Confidence   float64                   `json:"confidence"`
+	Parts        []PartAssociationResponse `json:"parts"`
 }
 
 type PartAssociationResponse struct {
-	Name       string  `json:"name"`
-	Side       string  `json:"side,omitempty"`
-	Confidence float64 `json:"confidence"`
+	Name         string  `json:"name"`
+	NameRU       string  `json:"name_ru,omitempty"`
+	ParentName   string  `json:"parent_name,omitempty"`
+	ParentNameRU string  `json:"parent_name_ru,omitempty"`
+	IsPair       bool    `json:"is_pair"`
+	Side         string  `json:"side,omitempty"`
+	SideRU       string  `json:"side_ru,omitempty"`
+	Confidence   float64 `json:"confidence"`
 }
 
 type PartSummaryResponse struct {
-	Name        string         `json:"name"`
-	Side        string         `json:"side,omitempty"`
-	DamageCount int            `json:"damage_count"`
-	DamageTypes map[string]int `json:"damage_types"`
+	Name         string                      `json:"name"`
+	NameRU       string                      `json:"name_ru,omitempty"`
+	ParentName   string                      `json:"parent_name,omitempty"`
+	ParentNameRU string                      `json:"parent_name_ru,omitempty"`
+	IsPair       bool                        `json:"is_pair"`
+	Side         string                      `json:"side,omitempty"`
+	SideRU       string                      `json:"side_ru,omitempty"`
+	DamageCount  int                         `json:"damage_count"`
+	DamageTypes  []DamageTypeSummaryResponse `json:"damage_types"`
+}
+
+type DamageTypeSummaryResponse struct {
+	Code   string `json:"code"`
+	NameRU string `json:"name_ru,omitempty"`
+	Count  int    `json:"count"`
 }
 
 func ToAnalysisJobResponse(job *domain.AnalysisJob) AnalysisJobResponse {
@@ -121,6 +138,7 @@ func ToAnalysisJobResponse(job *domain.AnalysisJob) AnalysisJobResponse {
 		CompletedAt:      job.CompletedAt,
 		Result:           toAnalysisResultResponse(job.Result),
 	}
+
 	return resp
 }
 
@@ -132,6 +150,7 @@ func ToAnalysisJobResponseList(jobs []*domain.AnalysisJob) []AnalysisJobResponse
 		}
 		out = append(out, ToAnalysisJobResponse(j))
 	}
+
 	return out
 }
 
@@ -190,36 +209,63 @@ func toImageAnalysisResultResponse(result *domain.ImageAnalysisResult) ImageAnal
 	for i := range result.DamageInstances {
 		out.DamageInstances = append(out.DamageInstances, toDamageInstanceResponse(&result.DamageInstances[i]))
 	}
-	for _, summary := range result.PartsSummary {
-		out.PartsSummary = append(out.PartsSummary, toPartSummaryResponse(summary))
+
+	for i := range result.PartsSummary {
+		out.PartsSummary = append(out.PartsSummary, toPartSummaryResponse(&result.PartsSummary[i]))
 	}
+
 	return out
 }
 
 func toDamageInstanceResponse(damage *domain.DamageInstance) DamageInstanceResponse {
 	out := DamageInstanceResponse{
-		ID:         damage.ID,
-		DamageType: damage.DamageType,
-		Polygon:    damage.Polygon,
-		BBox:       damage.BBox,
-		Confidence: damage.Confidence,
-		Parts:      make([]PartAssociationResponse, 0, len(damage.Parts)),
+		ID:           damage.ID,
+		DamageType:   damage.DamageType,
+		DamageNameRU: damage.DamageNameRU,
+		Polygon:      damage.Polygon,
+		BBox:         damage.BBox,
+		Confidence:   damage.Confidence,
+		Parts:        make([]PartAssociationResponse, 0, len(damage.Parts)),
 	}
 	for _, part := range damage.Parts {
 		out.Parts = append(out.Parts, PartAssociationResponse{
-			Name:       part.Name,
-			Side:       part.Side,
-			Confidence: part.Confidence,
+			Name:         part.Name,
+			NameRU:       part.NameRU,
+			ParentName:   part.ParentName,
+			ParentNameRU: part.ParentNameRU,
+			IsPair:       part.IsPair,
+			Side:         part.Side,
+			SideRU:       part.SideRU,
+			Confidence:   part.Confidence,
 		})
 	}
+
 	return out
 }
 
-func toPartSummaryResponse(summary domain.PartSummary) PartSummaryResponse {
+func toPartSummaryResponse(summary *domain.PartSummary) PartSummaryResponse {
 	return PartSummaryResponse{
-		Name:        summary.Name,
-		Side:        summary.Side,
-		DamageCount: summary.DamageCount,
-		DamageTypes: summary.DamageTypes,
+		Name:         summary.Name,
+		NameRU:       summary.NameRU,
+		ParentName:   summary.ParentName,
+		ParentNameRU: summary.ParentNameRU,
+		IsPair:       summary.IsPair,
+		Side:         summary.Side,
+		SideRU:       summary.SideRU,
+		DamageCount:  summary.DamageCount,
+		DamageTypes:  toDamageTypeSummaryResponseList(summary.DamageTypes),
 	}
+}
+
+func toDamageTypeSummaryResponseList(items []domain.DamageTypeSummary) []DamageTypeSummaryResponse {
+	out := make([]DamageTypeSummaryResponse, 0, len(items))
+	for _, item := range items {
+		out = append(out, DamageTypeSummaryResponse{
+			Code:   item.Code,
+			NameRU: item.NameRU,
+			Count:  item.Count,
+		})
+	}
+
+	return out
 }

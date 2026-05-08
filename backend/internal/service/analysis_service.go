@@ -21,13 +21,14 @@ import (
 )
 
 type AnalysisService struct {
-	fileRepo  repository.FileRepository
-	jobRepo   repository.AnalysisJobRepository
-	modelRepo repository.CarModelRepository
-	publisher broker.Publisher
-	notifier  notify.Notifier
-	s3Cfg     *config.S3Config
-	kafkaCfg  *config.KafkaConfig
+	fileRepo       repository.FileRepository
+	jobRepo        repository.AnalysisJobRepository
+	modelRepo      repository.CarModelRepository
+	damageTypeRepo repository.DamageTypeRepository
+	publisher      broker.Publisher
+	notifier       notify.Notifier
+	s3Cfg          *config.S3Config
+	kafkaCfg       *config.KafkaConfig
 }
 
 type Broadcaster interface {
@@ -38,19 +39,21 @@ func NewAnalysisService(
 	fileRepo repository.FileRepository,
 	jobRepo repository.AnalysisJobRepository,
 	modelRepo repository.CarModelRepository,
+	damageTypeRepo repository.DamageTypeRepository,
 	publisher broker.Publisher,
 	notifier notify.Notifier,
 	s3Cfg *config.S3Config,
 	kafkaCfg *config.KafkaConfig,
 ) *AnalysisService {
 	return &AnalysisService{
-		fileRepo:  fileRepo,
-		jobRepo:   jobRepo,
-		modelRepo: modelRepo,
-		publisher: publisher,
-		notifier:  notifier,
-		s3Cfg:     s3Cfg,
-		kafkaCfg:  kafkaCfg,
+		fileRepo:       fileRepo,
+		jobRepo:        jobRepo,
+		modelRepo:      modelRepo,
+		damageTypeRepo: damageTypeRepo,
+		publisher:      publisher,
+		notifier:       notifier,
+		s3Cfg:          s3Cfg,
+		kafkaCfg:       kafkaCfg,
 	}
 }
 
@@ -112,9 +115,11 @@ func (s *AnalysisService) findIdempotentJob(ctx context.Context, userID uuid.UUI
 	if err == nil {
 		return existing, nil
 	}
+
 	if !errors.Is(err, domain.ErrJobNotFound) {
 		return nil, fmt.Errorf("check idempotency: %w", err)
 	}
+
 	return nil, nil
 }
 
@@ -186,6 +191,7 @@ func (s *AnalysisService) handleCreateConflict(
 	if republishErr := s.ensurePublished(ctx, existing); republishErr != nil {
 		return nil, false, fmt.Errorf("republish existing job after create conflict: %w", republishErr)
 	}
+
 	return existing, true, nil
 }
 
@@ -228,6 +234,7 @@ func parseAnalysisResultMessage(msg broker.Message) (*analysisv1.AnalysisResult,
 	if err != nil {
 		return nil, uuid.Nil, fmt.Errorf("invalid correlation_id: %w", err)
 	}
+
 	return protoResult, jobCorrID, nil
 }
 
@@ -261,6 +268,7 @@ func (s *AnalysisService) handleFailedAnalysisResult(
 		Timestamp: time.Now().UTC(),
 		Payload:   notify.AnalysisFailedPayload{Error: errMsg},
 	})
+
 	return nil
 }
 
@@ -271,6 +279,20 @@ func (s *AnalysisService) handleCompletedAnalysisResult(
 	protoResult *analysisv1.AnalysisResult,
 ) error {
 	domainResult := ProtoToDomainResult(protoResult)
+	model, err := s.findModelForCar(ctx, domain.CarInfo{
+		Make:       job.CarMake,
+		Model:      job.CarModel,
+		Generation: job.CarGeneration,
+		Year:       job.CarYear,
+	})
+	if err != nil {
+		return fmt.Errorf("find model for analysis result enrichment: %w", err)
+	}
+
+	if err := s.enrichAnalysisResult(ctx, domainResult, model); err != nil {
+		return fmt.Errorf("enrich analysis result: %w", err)
+	}
+
 	if err := s.jobRepo.UpdateResultByCorrelationID(ctx, correlationID, domainResult, protoResult.ModelVersion); err != nil {
 		if errors.Is(err, domain.ErrJobNotFound) {
 			return nil
@@ -289,6 +311,7 @@ func (s *AnalysisService) handleCompletedAnalysisResult(
 			DamageCount:  countDamageInstances(domainResult),
 		},
 	})
+
 	return nil
 }
 

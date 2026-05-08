@@ -21,23 +21,40 @@ type ImageMeta struct {
 }
 
 type DamageInstance struct {
-	ID         string            `json:"id"`
-	DamageType string            `json:"damage_type"`
-	Polygon    [][]int           `json:"polygon"`
-	BBox       []int             `json:"bbox"`
-	Confidence float64           `json:"confidence"`
-	Parts      []PartAssociation `json:"parts"`
+	ID           string            `json:"id"`
+	DamageType   string            `json:"damage_type"`
+	DamageNameRU string            `json:"damage_name_ru,omitempty"`
+	Polygon      [][]int           `json:"polygon"`
+	BBox         []int             `json:"bbox"`
+	Confidence   float64           `json:"confidence"`
+	Parts        []PartAssociation `json:"parts"`
 }
 
 type PartAssociation struct {
-	Name       string  `json:"name"`
-	Side       string  `json:"side,omitempty"`
-	Confidence float64 `json:"confidence"`
+	Name         string  `json:"name"`
+	NameRU       string  `json:"name_ru,omitempty"`
+	ParentName   string  `json:"parent_name,omitempty"`
+	ParentNameRU string  `json:"parent_name_ru,omitempty"`
+	IsPair       bool    `json:"is_pair"`
+	Side         string  `json:"side,omitempty"`
+	SideRU       string  `json:"side_ru,omitempty"`
+	Confidence   float64 `json:"confidence"`
 }
 
 type PartSummary struct {
-	Name        string         `json:"name"`
-	Side        string         `json:"side,omitempty"`
-	DamageCount int            `json:"damage_count"`
-	DamageTypes map[string]int `json:"damage_types"`
+	Name         string              `json:"name"`
+	NameRU       string              `json:"name_ru,omitempty"`
+	ParentName   string              `json:"parent_name,omitempty"`
+	ParentNameRU string              `json:"parent_name_ru,omitempty"`
+	IsPair       bool                `json:"is_pair"`
+	Side         string              `json:"side,omitempty"`
+	SideRU       string              `json:"side_ru,omitempty"`
+	DamageCount  int                 `json:"damage_count"`
+	DamageTypes  []DamageTypeSummary `json:"damage_types"`
+}
+
+type DamageTypeSummary struct {
+	Code   string `json:"code"`
+	NameRU string `json:"name_ru,omitempty"`
+	Count  int    `json:"count"`
 }

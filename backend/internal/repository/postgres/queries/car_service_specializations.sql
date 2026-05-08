@@ -4,6 +4,11 @@ FROM damage_types
 WHERE is_active = TRUE
 ORDER BY name_ru ASC;
 
+-- name: ListAllDamageTypes :many
+SELECT code, name_ru, is_active, created_at, updated_at
+FROM damage_types
+ORDER BY name_ru ASC;
+
 -- name: ExistsActiveDamageType :one
 SELECT EXISTS(
     SELECT 1

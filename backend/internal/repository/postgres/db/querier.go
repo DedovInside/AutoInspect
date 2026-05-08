@@ -49,6 +49,7 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	ListActiveDamageTypes(ctx context.Context) ([]DamageType, error)
 	ListActivePartCategories(ctx context.Context) ([]PartCategory, error)
+	ListAllDamageTypes(ctx context.Context) ([]DamageType, error)
 	ListAnalysisJobsByUserID(ctx context.Context, arg ListAnalysisJobsByUserIDParams) ([]AnalysisJob, error)
 	ListCarModels(ctx context.Context, arg ListCarModelsParams) ([]CarModel, error)
 	ListCarServiceApplicationsByUserID(ctx context.Context, arg ListCarServiceApplicationsByUserIDParams) ([]CarServiceApplication, error)

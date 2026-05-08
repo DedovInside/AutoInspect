@@ -2,6 +2,7 @@ package service
 
 import (
 	"math"
+	"sort"
 
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
 	analysisv1 "github.com/DedovInside/AutoInspect/backend/internal/proto/gen/go/analysis/v1"
@@ -11,6 +12,7 @@ func DomainToProtoRequest(job *domain.AnalysisJob, model *domain.CarModel) *anal
 	if job == nil {
 		return nil
 	}
+
 	if model == nil {
 		return nil
 	}
@@ -65,6 +67,7 @@ func protoImageResults(results []*analysisv1.ImageAnalysisResult) []domain.Image
 			PartsSummary:    protoPartsSummary(result.PartsSummary),
 		})
 	}
+
 	return out
 }
 
@@ -86,6 +89,7 @@ func protoDamages(damages []*analysisv1.DamageInstance) []domain.DamageInstance 
 		}
 		out = append(out, protoDamage(d))
 	}
+
 	return out
 }
 
@@ -104,6 +108,7 @@ func protoBBox(bbox *analysisv1.BBox) []int {
 	if bbox == nil {
 		return nil
 	}
+
 	return []int{
 		int(bbox.XMin), int(bbox.YMin),
 		int(bbox.XMax), int(bbox.YMax),
@@ -117,6 +122,7 @@ func protoPolygon(points []*analysisv1.Point) [][]int {
 			out = append(out, []int{int(p.X), int(p.Y)})
 		}
 	}
+
 	return out
 }
 
@@ -131,6 +137,7 @@ func protoPartAssociations(parts []*analysisv1.PartAssociation) []domain.PartAss
 			})
 		}
 	}
+
 	return out
 }
 
@@ -150,15 +157,22 @@ func protoPartSummary(summary *analysisv1.PartSummary) domain.PartSummary {
 		Name:        summary.Name,
 		Side:        summary.Side,
 		DamageCount: int(summary.DamageCount),
-		DamageTypes: protoDamageTypeCounts(summary.DamageTypes),
+		DamageTypes: protoDamageTypeSummaries(summary.DamageTypes),
 	}
 }
 
-func protoDamageTypeCounts(counts map[string]int32) map[string]int {
-	out := make(map[string]int, len(counts))
-	for k, v := range counts {
-		out[k] = int(v)
+func protoDamageTypeSummaries(counts map[string]int32) []domain.DamageTypeSummary {
+	out := make([]domain.DamageTypeSummary, 0, len(counts))
+	for code, count := range counts {
+		out = append(out, domain.DamageTypeSummary{
+			Code:  code,
+			Count: int(count),
+		})
 	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Code < out[j].Code
+	})
+
 	return out
 }
 
@@ -166,5 +180,6 @@ func safeStringSlice(s []string) []string {
 	if s == nil {
 		return []string{}
 	}
+
 	return s
 }
