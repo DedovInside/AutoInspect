@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -62,48 +63,11 @@ func (h *ModelTrainingRequestHandler) Create(c *gin.Context) {
 }
 
 func (h *ModelTrainingRequestHandler) ListMine(c *gin.Context) {
-	userID, ok := userIDOrAbort(c)
-	if !ok {
-		return
-	}
-
-	var query dto.ListModelTrainingRequestsQuery
-	if err := c.ShouldBindQuery(&query); err != nil {
-		writeError(c, http.StatusBadRequest, "invalid_query", err.Error())
-		return
-	}
-
-	requests, err := h.service.ListMine(c.Request.Context(), userID, query.Limit, query.Offset)
-	if err != nil {
-		handleModelTrainingRequestError(c, err)
-		return
-	}
-
-	items := dto.ToModelTrainingRequestResponseList(requests)
-	writeJSON(c, http.StatusOK, dto.NewModelTrainingRequestListResponse(items, query.Limit, query.Offset))
+	handleUserQueryList(c, h.listMine, writeModelTrainingRequestList, handleModelTrainingRequestError)
 }
 
 func (h *ModelTrainingRequestHandler) AdminList(c *gin.Context) {
-	var query dto.AdminListModelTrainingRequestsQuery
-	if err := c.ShouldBindQuery(&query); err != nil {
-		writeError(c, http.StatusBadRequest, "invalid_query", err.Error())
-		return
-	}
-
-	var status *domain.ModelTrainingRequestStatus
-	if query.Status != "" {
-		s := domain.ModelTrainingRequestStatus(query.Status)
-		status = &s
-	}
-
-	requests, err := h.service.ListForAdmin(c.Request.Context(), status, query.Limit, query.Offset)
-	if err != nil {
-		handleModelTrainingRequestError(c, err)
-		return
-	}
-
-	items := dto.ToModelTrainingRequestResponseList(requests)
-	writeJSON(c, http.StatusOK, dto.NewModelTrainingRequestListResponse(items, query.Limit, query.Offset))
+	handleQueryList(c, h.adminList, writeAdminModelTrainingRequestList, handleModelTrainingRequestError)
 }
 
 func (h *ModelTrainingRequestHandler) AdminUpdateStatus(c *gin.Context) {
@@ -153,4 +117,43 @@ func handleModelTrainingRequestError(c *gin.Context, err error) {
 	default:
 		writeError(c, http.StatusInternalServerError, "internal_error", "Failed to process model training request")
 	}
+}
+
+func (h *ModelTrainingRequestHandler) listMine(
+	ctx context.Context,
+	userID uuid.UUID,
+	query dto.ListModelTrainingRequestsQuery,
+) ([]*domain.ModelTrainingRequest, error) {
+	return h.service.ListMine(ctx, userID, query.Limit, query.Offset)
+}
+
+func (h *ModelTrainingRequestHandler) adminList(
+	ctx context.Context,
+	query dto.AdminListModelTrainingRequestsQuery,
+) ([]*domain.ModelTrainingRequest, error) {
+	var status *domain.ModelTrainingRequestStatus
+	if query.Status != "" {
+		s := domain.ModelTrainingRequestStatus(query.Status)
+		status = &s
+	}
+
+	return h.service.ListForAdmin(ctx, status, query.Limit, query.Offset)
+}
+
+func writeModelTrainingRequestList(
+	c *gin.Context,
+	requests []*domain.ModelTrainingRequest,
+	query dto.ListModelTrainingRequestsQuery,
+) {
+	items := dto.ToModelTrainingRequestResponseList(requests)
+	writeJSON(c, http.StatusOK, dto.NewModelTrainingRequestListResponse(items, query.Limit, query.Offset))
+}
+
+func writeAdminModelTrainingRequestList(
+	c *gin.Context,
+	requests []*domain.ModelTrainingRequest,
+	query dto.AdminListModelTrainingRequestsQuery,
+) {
+	items := dto.ToModelTrainingRequestResponseList(requests)
+	writeJSON(c, http.StatusOK, dto.NewModelTrainingRequestListResponse(items, query.Limit, query.Offset))
 }

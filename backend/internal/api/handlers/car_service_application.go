@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -77,49 +78,11 @@ func (h *CarServiceApplicationHandler) GetCurrent(c *gin.Context) {
 }
 
 func (h *CarServiceApplicationHandler) ListMine(c *gin.Context) {
-	userID, ok := userIDOrAbort(c)
-
-	if !ok {
-		return
-	}
-
-	var query dto.ListCarServiceApplicationsQuery
-	if err := c.ShouldBindQuery(&query); err != nil {
-		writeError(c, http.StatusBadRequest, "invalid_query", err.Error())
-		return
-	}
-
-	applications, err := h.service.ListMine(c.Request.Context(), userID, query.Limit, query.Offset)
-	if err != nil {
-		handleCarServiceApplicationError(c, err)
-		return
-	}
-
-	items := dto.ToCarServiceApplicationResponseList(applications)
-	writeJSON(c, http.StatusOK, dto.NewCarServiceApplicationListResponse(items, query.Limit, query.Offset))
+	handleUserQueryList(c, h.listMine, writeCarServiceApplicationList, handleCarServiceApplicationError)
 }
 
 func (h *CarServiceApplicationHandler) AdminList(c *gin.Context) {
-	var query dto.AdminListCarServiceApplicationsQuery
-	if err := c.ShouldBindQuery(&query); err != nil {
-		writeError(c, http.StatusBadRequest, "invalid_query", err.Error())
-		return
-	}
-
-	var status *domain.CarServiceApplicationStatus
-	if query.Status != "" {
-		s := domain.CarServiceApplicationStatus(query.Status)
-		status = &s
-	}
-
-	applications, err := h.service.ListForAdmin(c.Request.Context(), status, query.Limit, query.Offset)
-	if err != nil {
-		handleCarServiceApplicationError(c, err)
-		return
-	}
-
-	items := dto.ToCarServiceApplicationResponseList(applications)
-	writeJSON(c, http.StatusOK, dto.NewCarServiceApplicationListResponse(items, query.Limit, query.Offset))
+	handleQueryList(c, h.adminList, writeAdminCarServiceApplicationList, handleCarServiceApplicationError)
 }
 
 func (h *CarServiceApplicationHandler) AdminApprove(c *gin.Context) {
@@ -161,9 +124,8 @@ func (h *CarServiceApplicationHandler) AdminReject(c *gin.Context) {
 		return
 	}
 
-	var req dto.RejectCarServiceApplicationRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, "invalid_request", err.Error())
+	req, ok := bindJSONOrAbort[dto.RejectCarServiceApplicationRequest](c)
+	if !ok {
 		return
 	}
 
@@ -193,4 +155,43 @@ func handleCarServiceApplicationError(c *gin.Context, err error) {
 	default:
 		writeError(c, http.StatusInternalServerError, "internal_error", "Failed to process car service application")
 	}
+}
+
+func (h *CarServiceApplicationHandler) listMine(
+	ctx context.Context,
+	userID uuid.UUID,
+	query dto.ListCarServiceApplicationsQuery,
+) ([]*domain.CarServiceApplication, error) {
+	return h.service.ListMine(ctx, userID, query.Limit, query.Offset)
+}
+
+func (h *CarServiceApplicationHandler) adminList(
+	ctx context.Context,
+	query dto.AdminListCarServiceApplicationsQuery,
+) ([]*domain.CarServiceApplication, error) {
+	var status *domain.CarServiceApplicationStatus
+	if query.Status != "" {
+		s := domain.CarServiceApplicationStatus(query.Status)
+		status = &s
+	}
+
+	return h.service.ListForAdmin(ctx, status, query.Limit, query.Offset)
+}
+
+func writeCarServiceApplicationList(
+	c *gin.Context,
+	applications []*domain.CarServiceApplication,
+	query dto.ListCarServiceApplicationsQuery,
+) {
+	items := dto.ToCarServiceApplicationResponseList(applications)
+	writeJSON(c, http.StatusOK, dto.NewCarServiceApplicationListResponse(items, query.Limit, query.Offset))
+}
+
+func writeAdminCarServiceApplicationList(
+	c *gin.Context,
+	applications []*domain.CarServiceApplication,
+	query dto.AdminListCarServiceApplicationsQuery,
+) {
+	items := dto.ToCarServiceApplicationResponseList(applications)
+	writeJSON(c, http.StatusOK, dto.NewCarServiceApplicationListResponse(items, query.Limit, query.Offset))
 }

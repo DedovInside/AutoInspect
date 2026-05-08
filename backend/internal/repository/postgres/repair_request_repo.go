@@ -77,6 +77,26 @@ func (r *RepairRequestRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 	return toDomainRepairRequest(&dbRequest)
 }
 
+func (r *RepairRequestRepo) GetByIDAndCarServiceProfileID(
+	ctx context.Context,
+	id, carServiceProfileID uuid.UUID,
+) (*domain.RepairRequest, error) {
+	params := db.GetRepairRequestByIDAndCarServiceProfileIDParams{
+		ID:                  pgtype.UUID{Bytes: id, Valid: true},
+		CarServiceProfileID: pgtype.UUID{Bytes: carServiceProfileID, Valid: true},
+	}
+
+	dbRequest, err := r.queries.GetRepairRequestByIDAndCarServiceProfileID(ctx, params)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, domain.ErrInternal
+	}
+
+	return toDomainRepairRequest(&dbRequest)
+}
+
 func (r *RepairRequestRepo) GetPendingByUserAnalysisAndService(
 	ctx context.Context,
 	userID, analysisJobID, carServiceProfileID uuid.UUID,
@@ -120,6 +140,31 @@ func (r *RepairRequestRepo) ListByUserID(
 	return toDomainRepairRequests(dbRequests)
 }
 
+func (r *RepairRequestRepo) ListByCarServiceProfileID(
+	ctx context.Context,
+	carServiceProfileID uuid.UUID,
+	limit, offset int,
+) ([]*domain.RepairRequest, error) {
+	limit32, offset32, err := checkedLimitOffset(limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	dbRequests, err := r.queries.ListRepairRequestsByCarServiceProfileID(
+		ctx,
+		db.ListRepairRequestsByCarServiceProfileIDParams{
+			CarServiceProfileID: pgtype.UUID{Bytes: carServiceProfileID, Valid: true},
+			Limit:               limit32,
+			Offset:              offset32,
+		},
+	)
+	if err != nil {
+		return nil, domain.ErrInternal
+	}
+
+	return toDomainRepairRequests(dbRequests)
+}
+
 func (r *RepairRequestRepo) CancelPendingByUserID(ctx context.Context, id, userID uuid.UUID) error {
 	params := db.CancelPendingRepairRequestByUserIDParams{
 		ID:        pgtype.UUID{Bytes: id, Valid: true},
@@ -131,6 +176,39 @@ func (r *RepairRequestRepo) CancelPendingByUserID(ctx context.Context, id, userI
 	if err != nil {
 		return domain.ErrInternal
 	}
+
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+
+	return nil
+}
+
+func (r *RepairRequestRepo) RespondByCarServiceProfileID(ctx context.Context, carServiceProfileID uuid.UUID,
+	input *domain.RespondRepairRequestInput,
+) error {
+	serviceEstimateJSON, err := marshalNullableJSON(input.ServiceEstimate)
+	if err != nil {
+		return domain.ErrInternal
+	}
+
+	now := time.Now().UTC()
+	params := db.RespondPendingRepairRequestByCarServiceProfileIDParams{
+		ID:                  pgtype.UUID{Bytes: input.ID, Valid: true},
+		CarServiceProfileID: pgtype.UUID{Bytes: carServiceProfileID, Valid: true},
+		Status:              string(input.Status),
+		ServiceComment:      input.ServiceComment,
+		ServiceEstimate:     serviceEstimateJSON,
+		EstimatedPriceMin:   floatPtrToPgNumeric(input.EstimatedPriceMin),
+		EstimatedPriceMax:   floatPtrToPgNumeric(input.EstimatedPriceMax),
+		RespondedAt:         pgtype.Timestamptz{Time: now, Valid: true},
+	}
+
+	rowsAffected, err := r.queries.RespondPendingRepairRequestByCarServiceProfileID(ctx, params)
+	if err != nil {
+		return domain.ErrInternal
+	}
+
 	if rowsAffected == 0 {
 		return domain.ErrNotFound
 	}
@@ -196,6 +274,7 @@ func unmarshalRepairSummary(data []byte) ([]domain.RepairSummaryItem, error) {
 	if len(data) == 0 {
 		return summary, nil
 	}
+
 	if err := json.Unmarshal(data, &summary); err != nil {
 		return nil, domain.ErrInternal
 	}
@@ -208,6 +287,7 @@ func unmarshalServiceEstimate(data []byte) ([]domain.RepairEstimateItem, error) 
 	if len(data) == 0 {
 		return estimate, nil
 	}
+
 	if err := json.Unmarshal(data, &estimate); err != nil {
 		return nil, domain.ErrInternal
 	}
@@ -239,5 +319,6 @@ func pgNumericToFloatPtr(value pgtype.Numeric) *float64 {
 	}
 
 	result := floatValue.Float64
+
 	return &result
 }

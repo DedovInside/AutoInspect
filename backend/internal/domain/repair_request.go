@@ -62,6 +62,18 @@ type RepairRequest struct {
 	RespondedAt *time.Time `json:"responded_at,omitempty" db:"responded_at"`
 }
 
+type RepairRequestDetails struct {
+	Request  *RepairRequest           `json:"request"`
+	Analysis *AnalysisJob             `json:"analysis"`
+	Images   []RepairRequestImageLink `json:"images"`
+}
+
+type RepairRequestImageLink struct {
+	Index     int       `json:"index"`
+	URL       string    `json:"url"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
 type RepairSummaryItem struct {
 	PartName     string                    `json:"part_name"`
 	PartNameRU   string                    `json:"part_name_ru,omitempty"`
@@ -114,4 +126,19 @@ type RespondRepairRequestInput struct {
 	ServiceEstimate   []RepairEstimateItem
 	EstimatedPriceMin *float64
 	EstimatedPriceMax *float64
+}
+
+type AcceptRepairRequestInput struct {
+	ID                uuid.UUID
+	CarServiceUserID  uuid.UUID
+	ServiceComment    *string
+	ServiceEstimate   []RepairEstimateItem
+	EstimatedPriceMin *float64
+	EstimatedPriceMax *float64
+}
+
+type RejectRepairRequestInput struct {
+	ID               uuid.UUID
+	CarServiceUserID uuid.UUID
+	ServiceComment   string
 }

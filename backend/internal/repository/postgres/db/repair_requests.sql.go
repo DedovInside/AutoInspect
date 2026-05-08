@@ -172,6 +172,103 @@ func (q *Queries) GetRepairRequestByID(ctx context.Context, id pgtype.UUID) (Rep
 	return i, err
 }
 
+const getRepairRequestByIDAndCarServiceProfileID = `-- name: GetRepairRequestByIDAndCarServiceProfileID :one
+SELECT id, user_id, analysis_job_id, car_service_profile_id,
+       status, repair_summary, service_estimate,
+       customer_name, customer_phone, customer_email, customer_comment,
+       service_comment, estimated_price_min, estimated_price_max,
+       created_at, updated_at, responded_at
+FROM repair_requests
+WHERE id = $1
+  AND car_service_profile_id = $2
+`
+
+type GetRepairRequestByIDAndCarServiceProfileIDParams struct {
+	ID                  pgtype.UUID
+	CarServiceProfileID pgtype.UUID
+}
+
+func (q *Queries) GetRepairRequestByIDAndCarServiceProfileID(ctx context.Context, arg GetRepairRequestByIDAndCarServiceProfileIDParams) (RepairRequest, error) {
+	row := q.db.QueryRow(ctx, getRepairRequestByIDAndCarServiceProfileID, arg.ID, arg.CarServiceProfileID)
+	var i RepairRequest
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.AnalysisJobID,
+		&i.CarServiceProfileID,
+		&i.Status,
+		&i.RepairSummary,
+		&i.ServiceEstimate,
+		&i.CustomerName,
+		&i.CustomerPhone,
+		&i.CustomerEmail,
+		&i.CustomerComment,
+		&i.ServiceComment,
+		&i.EstimatedPriceMin,
+		&i.EstimatedPriceMax,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.RespondedAt,
+	)
+	return i, err
+}
+
+const listRepairRequestsByCarServiceProfileID = `-- name: ListRepairRequestsByCarServiceProfileID :many
+SELECT id, user_id, analysis_job_id, car_service_profile_id,
+       status, repair_summary, service_estimate,
+       customer_name, customer_phone, customer_email, customer_comment,
+       service_comment, estimated_price_min, estimated_price_max,
+       created_at, updated_at, responded_at
+FROM repair_requests
+WHERE car_service_profile_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListRepairRequestsByCarServiceProfileIDParams struct {
+	CarServiceProfileID pgtype.UUID
+	Limit               int32
+	Offset              int32
+}
+
+func (q *Queries) ListRepairRequestsByCarServiceProfileID(ctx context.Context, arg ListRepairRequestsByCarServiceProfileIDParams) ([]RepairRequest, error) {
+	rows, err := q.db.Query(ctx, listRepairRequestsByCarServiceProfileID, arg.CarServiceProfileID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RepairRequest
+	for rows.Next() {
+		var i RepairRequest
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.AnalysisJobID,
+			&i.CarServiceProfileID,
+			&i.Status,
+			&i.RepairSummary,
+			&i.ServiceEstimate,
+			&i.CustomerName,
+			&i.CustomerPhone,
+			&i.CustomerEmail,
+			&i.CustomerComment,
+			&i.ServiceComment,
+			&i.EstimatedPriceMin,
+			&i.EstimatedPriceMax,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.RespondedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRepairRequestsByUserID = `-- name: ListRepairRequestsByUserID :many
 SELECT id, user_id, analysis_job_id, car_service_profile_id,
        status, repair_summary, service_estimate,
@@ -226,4 +323,46 @@ func (q *Queries) ListRepairRequestsByUserID(ctx context.Context, arg ListRepair
 		return nil, err
 	}
 	return items, nil
+}
+
+const respondPendingRepairRequestByCarServiceProfileID = `-- name: RespondPendingRepairRequestByCarServiceProfileID :execrows
+UPDATE repair_requests
+SET status = $3,
+    service_comment = $4,
+    service_estimate = $5,
+    estimated_price_min = $6,
+    estimated_price_max = $7,
+    responded_at = $8,
+    updated_at = $8
+WHERE id = $1
+  AND car_service_profile_id = $2
+  AND status = 'pending'
+`
+
+type RespondPendingRepairRequestByCarServiceProfileIDParams struct {
+	ID                  pgtype.UUID
+	CarServiceProfileID pgtype.UUID
+	Status              string
+	ServiceComment      *string
+	ServiceEstimate     []byte
+	EstimatedPriceMin   pgtype.Numeric
+	EstimatedPriceMax   pgtype.Numeric
+	RespondedAt         pgtype.Timestamptz
+}
+
+func (q *Queries) RespondPendingRepairRequestByCarServiceProfileID(ctx context.Context, arg RespondPendingRepairRequestByCarServiceProfileIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, respondPendingRepairRequestByCarServiceProfileID,
+		arg.ID,
+		arg.CarServiceProfileID,
+		arg.Status,
+		arg.ServiceComment,
+		arg.ServiceEstimate,
+		arg.EstimatedPriceMin,
+		arg.EstimatedPriceMax,
+		arg.RespondedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

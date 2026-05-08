@@ -319,10 +319,12 @@ func countDamageInstances(result *domain.AnalysisResult) int {
 	if result == nil {
 		return 0
 	}
+
 	count := 0
 	for _, imageResult := range result.Results {
 		count += len(imageResult.DamageInstances)
 	}
+
 	return count
 }
 
@@ -367,6 +369,7 @@ func (s *AnalysisService) GetPresignedImageURL(ctx context.Context, jobID, userI
 	if err != nil {
 		return "", time.Time{}, err
 	}
+
 	return url, expiresAt, nil
 }
 
@@ -450,6 +453,7 @@ func (s *AnalysisService) ensureModelArtifactsExist(ctx context.Context, model *
 	if err := s.ensureModelObjectExists(ctx, model.PartsConfigS3Key); err != nil {
 		return err
 	}
+
 	return s.ensureModelObjectExists(ctx, model.PartsCatalogS3Key)
 }
 
@@ -458,9 +462,11 @@ func (s *AnalysisService) ensureModelObjectExists(ctx context.Context, objectKey
 	if err != nil {
 		return fmt.Errorf("check model artifact %q: %w", objectKey, err)
 	}
+
 	if !exists {
 		return fmt.Errorf("%w: model artifact %q not found", domain.ErrInvalidModel, objectKey)
 	}
+
 	return nil
 }
 

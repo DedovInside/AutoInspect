@@ -104,12 +104,12 @@ type CarServiceSpecializationRepository interface {
 type RepairRequestRepository interface {
 	Create(ctx context.Context, request *domain.RepairRequest) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.RepairRequest, error)
-	GetPendingByUserAnalysisAndService(
-		ctx context.Context,
-		userID, analysisJobID, carServiceProfileID uuid.UUID,
-	) (*domain.RepairRequest, error)
+	GetByIDAndCarServiceProfileID(ctx context.Context, id, carServiceProfileID uuid.UUID) (*domain.RepairRequest, error)
+	GetPendingByUserAnalysisAndService(ctx context.Context, userID, analysisJobID, carServiceProfileID uuid.UUID) (*domain.RepairRequest, error)
 	ListByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*domain.RepairRequest, error)
+	ListByCarServiceProfileID(ctx context.Context, carServiceProfileID uuid.UUID, limit, offset int) ([]*domain.RepairRequest, error)
 	CancelPendingByUserID(ctx context.Context, id, userID uuid.UUID) error
+	RespondByCarServiceProfileID(ctx context.Context, carServiceProfileID uuid.UUID, input *domain.RespondRepairRequestInput) error
 }
 
 type AnalysisJobRepository interface {

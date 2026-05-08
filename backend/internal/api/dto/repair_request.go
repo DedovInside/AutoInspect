@@ -21,6 +21,33 @@ type ListRepairRequestsQuery struct {
 	Offset int `form:"offset,default=0" binding:"omitempty,min=0"`
 }
 
+type AcceptRepairRequestRequest struct {
+	ServiceComment    *string                     `json:"service_comment" binding:"omitempty,max=2000"`
+	EstimatedPriceMin *float64                    `json:"estimated_price_min" binding:"required,min=0"`
+	EstimatedPriceMax *float64                    `json:"estimated_price_max" binding:"required,min=0"`
+	ServiceEstimate   []RepairEstimateItemRequest `json:"service_estimate" binding:"omitempty,dive"`
+}
+
+type RejectRepairRequestRequest struct {
+	ServiceComment string `json:"service_comment" binding:"required,min=1,max=2000"`
+}
+
+type RepairEstimateItemRequest struct {
+	PartName     string   `json:"part_name" binding:"required,min=1,max=100"`
+	PartNameRU   string   `json:"part_name_ru" binding:"omitempty,max=100"`
+	ParentName   string   `json:"parent_name" binding:"omitempty,max=100"`
+	ParentNameRU string   `json:"parent_name_ru" binding:"omitempty,max=100"`
+	IsPair       bool     `json:"is_pair"`
+	Side         string   `json:"side" binding:"omitempty,max=20"`
+	SideRU       string   `json:"side_ru" binding:"omitempty,max=20"`
+	DamageCode   string   `json:"damage_code" binding:"required,min=1,max=100"`
+	DamageNameRU string   `json:"damage_name_ru" binding:"omitempty,max=100"`
+	Quantity     int      `json:"quantity" binding:"required,min=1"`
+	PriceMin     *float64 `json:"price_min" binding:"omitempty,min=0"`
+	PriceMax     *float64 `json:"price_max" binding:"omitempty,min=0"`
+	Comment      *string  `json:"comment" binding:"omitempty,max=1000"`
+}
+
 type RepairRequestResponse struct {
 	ID                  uuid.UUID                  `json:"id"`
 	UserID              uuid.UUID                  `json:"user_id"`
@@ -92,6 +119,22 @@ type ListRepairRequestsResponse struct {
 
 type CancelRepairRequestResponse struct {
 	Status string `json:"status"`
+}
+
+type RepairRequestImageLinkResponse struct {
+	Index     int       `json:"index"`
+	URL       string    `json:"url"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+type RepairRequestDetailsResponse struct {
+	Request  RepairRequestResponse            `json:"request"`
+	Analysis AnalysisJobResponse              `json:"analysis"`
+	Images   []RepairRequestImageLinkResponse `json:"images"`
+}
+
+type RespondRepairRequestResponse struct {
+	Request RepairRequestResponse `json:"request"`
 }
 
 func ToRepairRequestResponse(request *domain.RepairRequest) RepairRequestResponse {
@@ -181,6 +224,29 @@ func ToRepairEstimateItemList(items []domain.RepairEstimateItem) []RepairEstimat
 	return out
 }
 
+func ToRepairEstimateInputList(items []RepairEstimateItemRequest) []domain.RepairEstimateItem {
+	out := make([]domain.RepairEstimateItem, 0, len(items))
+	for i := range items {
+		out = append(out, domain.RepairEstimateItem{
+			PartName:     items[i].PartName,
+			PartNameRU:   items[i].PartNameRU,
+			ParentName:   items[i].ParentName,
+			ParentNameRU: items[i].ParentNameRU,
+			IsPair:       items[i].IsPair,
+			Side:         items[i].Side,
+			SideRU:       items[i].SideRU,
+			DamageCode:   items[i].DamageCode,
+			DamageNameRU: items[i].DamageNameRU,
+			Quantity:     items[i].Quantity,
+			PriceMin:     items[i].PriceMin,
+			PriceMax:     items[i].PriceMax,
+			Comment:      items[i].Comment,
+		})
+	}
+
+	return out
+}
+
 func ToRepairEstimateItem(item *domain.RepairEstimateItem) RepairEstimateItem {
 	if item == nil {
 		return RepairEstimateItem{}
@@ -201,6 +267,33 @@ func ToRepairEstimateItem(item *domain.RepairEstimateItem) RepairEstimateItem {
 		PriceMax:     item.PriceMax,
 		Comment:      item.Comment,
 	}
+}
+
+func ToRepairRequestDetailsResponse(details *domain.RepairRequestDetails) RepairRequestDetailsResponse {
+	if details == nil {
+		return RepairRequestDetailsResponse{}
+	}
+
+	return RepairRequestDetailsResponse{
+		Request:  ToRepairRequestResponse(details.Request),
+		Analysis: ToAnalysisJobResponse(details.Analysis),
+		Images:   ToRepairRequestImageLinkResponseList(details.Images),
+	}
+}
+
+func ToRepairRequestImageLinkResponseList(
+	images []domain.RepairRequestImageLink,
+) []RepairRequestImageLinkResponse {
+	out := make([]RepairRequestImageLinkResponse, 0, len(images))
+	for i := range images {
+		out = append(out, RepairRequestImageLinkResponse{
+			Index:     images[i].Index,
+			URL:       images[i].URL,
+			ExpiresAt: images[i].ExpiresAt,
+		})
+	}
+
+	return out
 }
 
 func NewRepairRequestListResponse(

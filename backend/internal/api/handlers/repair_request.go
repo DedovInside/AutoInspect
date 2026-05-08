@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -68,25 +69,7 @@ func (h *RepairRequestHandler) GetMine(c *gin.Context) {
 }
 
 func (h *RepairRequestHandler) ListMine(c *gin.Context) {
-	userID, ok := userIDOrAbort(c)
-	if !ok {
-		return
-	}
-
-	var query dto.ListRepairRequestsQuery
-	if err := c.ShouldBindQuery(&query); err != nil {
-		writeError(c, http.StatusBadRequest, "invalid_query", err.Error())
-		return
-	}
-
-	requests, err := h.service.ListMine(c.Request.Context(), userID, query.Limit, query.Offset)
-	if err != nil {
-		handleRepairRequestError(c, err)
-		return
-	}
-
-	items := dto.ToRepairRequestResponseList(requests)
-	writeJSON(c, http.StatusOK, dto.NewRepairRequestListResponse(items, query.Limit, query.Offset))
+	handleUserQueryList(c, h.listMine, writeRepairRequestList, handleRepairRequestError)
 }
 
 func (h *RepairRequestHandler) CancelMine(c *gin.Context) {
@@ -101,6 +84,80 @@ func (h *RepairRequestHandler) CancelMine(c *gin.Context) {
 	}
 
 	writeJSON(c, http.StatusOK, dto.CancelRepairRequestResponse{Status: string(domain.RepairRequestStatusCanceled)})
+}
+
+func (h *RepairRequestHandler) ListIncoming(c *gin.Context) {
+	handleUserQueryList(c, h.listIncoming, writeRepairRequestList, handleRepairRequestError)
+}
+
+func (h *RepairRequestHandler) GetIncomingDetails(c *gin.Context) {
+	userID, requestID, ok := repairRequestIDFromRequest(c)
+	if !ok {
+		return
+	}
+
+	details, err := h.service.GetIncomingDetails(c.Request.Context(), userID, requestID)
+	if err != nil {
+		handleRepairRequestError(c, err)
+		return
+	}
+
+	writeJSON(c, http.StatusOK, dto.ToRepairRequestDetailsResponse(details))
+}
+
+func (h *RepairRequestHandler) AcceptIncoming(c *gin.Context) {
+	userID, requestID, ok := repairRequestIDFromRequest(c)
+	if !ok {
+		return
+	}
+
+	req, ok := bindJSONOrAbort[dto.AcceptRepairRequestRequest](c)
+	if !ok {
+		return
+	}
+
+	request, err := h.service.AcceptIncoming(c.Request.Context(), &domain.AcceptRepairRequestInput{
+		ID:                requestID,
+		CarServiceUserID:  userID,
+		ServiceComment:    req.ServiceComment,
+		ServiceEstimate:   dto.ToRepairEstimateInputList(req.ServiceEstimate),
+		EstimatedPriceMin: req.EstimatedPriceMin,
+		EstimatedPriceMax: req.EstimatedPriceMax,
+	})
+	if err != nil {
+		handleRepairRequestError(c, err)
+		return
+	}
+
+	writeJSON(c, http.StatusOK, dto.RespondRepairRequestResponse{
+		Request: dto.ToRepairRequestResponse(request),
+	})
+}
+
+func (h *RepairRequestHandler) RejectIncoming(c *gin.Context) {
+	userID, requestID, ok := repairRequestIDFromRequest(c)
+	if !ok {
+		return
+	}
+
+	req, ok := bindJSONOrAbort[dto.RejectRepairRequestRequest](c)
+	if !ok {
+		return
+	}
+
+	request, err := h.service.RejectIncoming(c.Request.Context(), &domain.RejectRepairRequestInput{
+		ID:               requestID,
+		CarServiceUserID: userID,
+		ServiceComment:   req.ServiceComment,
+	})
+	if err != nil {
+		handleRepairRequestError(c, err)
+		return
+	}
+
+	writeJSON(c, http.StatusOK, dto.RespondRepairRequestResponse{
+		Request: dto.ToRepairRequestResponse(request),
+	})
 }
 
 func repairRequestIDFromRequest(c *gin.Context) (userID, requestID uuid.UUID, ok bool) {
@@ -135,4 +192,29 @@ func handleRepairRequestError(c *gin.Context, err error) {
 	default:
 		writeError(c, http.StatusInternalServerError, "internal_error", "Failed to process repair request")
 	}
+}
+
+func (h *RepairRequestHandler) listMine(
+	ctx context.Context,
+	userID uuid.UUID,
+	query dto.ListRepairRequestsQuery,
+) ([]*domain.RepairRequest, error) {
+	return h.service.ListMine(ctx, userID, query.Limit, query.Offset)
+}
+
+func (h *RepairRequestHandler) listIncoming(
+	ctx context.Context,
+	userID uuid.UUID,
+	query dto.ListRepairRequestsQuery,
+) ([]*domain.RepairRequest, error) {
+	return h.service.ListIncoming(ctx, userID, query.Limit, query.Offset)
+}
+
+func writeRepairRequestList(
+	c *gin.Context,
+	requests []*domain.RepairRequest,
+	query dto.ListRepairRequestsQuery,
+) {
+	items := dto.ToRepairRequestResponseList(requests)
+	writeJSON(c, http.StatusOK, dto.NewRepairRequestListResponse(items, query.Limit, query.Offset))
 }

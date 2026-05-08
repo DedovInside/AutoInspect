@@ -80,6 +80,14 @@ func NewGinRouter(
 	carServiceProfileGroup.GET("/specializations", carServiceProfileHandler.ListSpecializations)
 	carServiceProfileGroup.PUT("/specializations", carServiceProfileHandler.ReplaceSpecializations)
 
+	carServiceRepairRequestsGroup := router.Group("/v1/car-service/repair-requests")
+	carServiceRepairRequestsGroup.Use(middleware.Auth(tokenManager, cache))
+	carServiceRepairRequestsGroup.Use(middleware.RequireRole(domain.RoleCarService))
+	carServiceRepairRequestsGroup.GET("", repairRequestHandler.ListIncoming)
+	carServiceRepairRequestsGroup.GET("/:id", repairRequestHandler.GetIncomingDetails)
+	carServiceRepairRequestsGroup.PATCH("/:id/accept", repairRequestHandler.AcceptIncoming)
+	carServiceRepairRequestsGroup.PATCH("/:id/reject", repairRequestHandler.RejectIncoming)
+
 	adminGroup := router.Group("/v1/admin")
 	adminGroup.Use(middleware.Auth(tokenManager, cache))
 	adminGroup.Use(middleware.RequireRole(domain.RoleAdmin))

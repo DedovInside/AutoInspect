@@ -166,6 +166,8 @@ func run() error {
 		repairRequestRepo,
 		jobRepo,
 		carServiceProfileRepo,
+		s3Client,
+		&cfg.S3,
 	)
 
 	authHandler := handlers.NewAuthHandler(authService)

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DedovInside/AutoInspect/backend/internal/config"
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository"
 	"github.com/google/uuid"
@@ -20,17 +21,23 @@ type RepairRequestService struct {
 	requestRepo repository.RepairRequestRepository
 	jobRepo     repository.AnalysisJobRepository
 	profileRepo repository.CarServiceProfileRepository
+	fileRepo    repository.FileRepository
+	s3Cfg       *config.S3Config
 }
 
 func NewRepairRequestService(
 	requestRepo repository.RepairRequestRepository,
 	jobRepo repository.AnalysisJobRepository,
 	profileRepo repository.CarServiceProfileRepository,
+	fileRepo repository.FileRepository,
+	s3Cfg *config.S3Config,
 ) *RepairRequestService {
 	return &RepairRequestService{
 		requestRepo: requestRepo,
 		jobRepo:     jobRepo,
 		profileRepo: profileRepo,
+		fileRepo:    fileRepo,
+		s3Cfg:       s3Cfg,
 	}
 }
 
@@ -170,6 +177,186 @@ func (s *RepairRequestService) CancelMine(
 	return s.requestRepo.CancelPendingByUserID(ctx, requestID, userID)
 }
 
+func (s *RepairRequestService) ListIncoming(
+	ctx context.Context,
+	carServiceUserID uuid.UUID,
+	limit, offset int,
+) ([]*domain.RepairRequest, error) {
+	profile, err := s.getCarServiceProfile(ctx, carServiceUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	limit, offset, err = normalizeRepairRequestPagination(limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.requestRepo.ListByCarServiceProfileID(ctx, profile.ID, limit, offset)
+}
+
+func (s *RepairRequestService) GetIncomingDetails(
+	ctx context.Context,
+	carServiceUserID, requestID uuid.UUID,
+) (*domain.RepairRequestDetails, error) {
+	if requestID == uuid.Nil {
+		return nil, domain.ErrInvalidInput
+	}
+
+	profile, err := s.getCarServiceProfile(ctx, carServiceUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	request, err := s.requestRepo.GetByIDAndCarServiceProfileID(ctx, requestID, profile.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	analysis, err := s.jobRepo.GetByID(ctx, request.AnalysisJobID)
+	if err != nil {
+		return nil, err
+	}
+
+	images, err := s.repairRequestImageLinks(ctx, analysis.ImageKeys)
+	if err != nil {
+		return nil, err
+	}
+
+	return &domain.RepairRequestDetails{
+		Request:  request,
+		Analysis: analysis,
+		Images:   images,
+	}, nil
+}
+
+func (s *RepairRequestService) AcceptIncoming(
+	ctx context.Context,
+	input *domain.AcceptRepairRequestInput,
+) (*domain.RepairRequest, error) {
+	if err := validateAcceptRepairRequestInput(input); err != nil {
+		return nil, err
+	}
+
+	profile, request, err := s.getIncomingPendingRequest(ctx, input.CarServiceUserID, input.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	estimate, err := normalizeRepairEstimate(input.ServiceEstimate)
+	if err != nil {
+		return nil, err
+	}
+
+	serviceComment := normalizedOptionalString(input.ServiceComment)
+	if err := s.requestRepo.RespondByCarServiceProfileID(ctx, profile.ID, &domain.RespondRepairRequestInput{
+		ID:                request.ID,
+		Status:            domain.RepairRequestStatusAccepted,
+		ServiceComment:    serviceComment,
+		ServiceEstimate:   estimate,
+		EstimatedPriceMin: input.EstimatedPriceMin,
+		EstimatedPriceMax: input.EstimatedPriceMax,
+	}); err != nil {
+		return nil, err
+	}
+
+	return s.requestRepo.GetByIDAndCarServiceProfileID(ctx, request.ID, profile.ID)
+}
+
+func (s *RepairRequestService) RejectIncoming(
+	ctx context.Context,
+	input *domain.RejectRepairRequestInput,
+) (*domain.RepairRequest, error) {
+	if err := validateRejectRepairRequestInput(input); err != nil {
+		return nil, err
+	}
+
+	profile, request, err := s.getIncomingPendingRequest(ctx, input.CarServiceUserID, input.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	serviceComment := strings.TrimSpace(input.ServiceComment)
+	if err := s.requestRepo.RespondByCarServiceProfileID(ctx, profile.ID, &domain.RespondRepairRequestInput{
+		ID:             request.ID,
+		Status:         domain.RepairRequestStatusRejected,
+		ServiceComment: &serviceComment,
+	}); err != nil {
+		return nil, err
+	}
+
+	return s.requestRepo.GetByIDAndCarServiceProfileID(ctx, request.ID, profile.ID)
+}
+
+func (s *RepairRequestService) getIncomingPendingRequest(
+	ctx context.Context,
+	carServiceUserID, requestID uuid.UUID,
+) (*domain.CarServiceProfile, *domain.RepairRequest, error) {
+	if requestID == uuid.Nil {
+		return nil, nil, domain.ErrInvalidInput
+	}
+
+	profile, err := s.getCarServiceProfile(ctx, carServiceUserID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	request, err := s.requestRepo.GetByIDAndCarServiceProfileID(ctx, requestID, profile.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if request.Status != domain.RepairRequestStatusPending {
+		return nil, nil, domain.ErrInvalidInput
+	}
+
+	return profile, request, nil
+}
+
+func (s *RepairRequestService) getCarServiceProfile(
+	ctx context.Context,
+	carServiceUserID uuid.UUID,
+) (*domain.CarServiceProfile, error) {
+	if carServiceUserID == uuid.Nil {
+		return nil, domain.ErrInvalidInput
+	}
+
+	return s.profileRepo.GetByUserID(ctx, carServiceUserID)
+}
+
+func (s *RepairRequestService) repairRequestImageLinks(
+	ctx context.Context,
+	imageKeys []string,
+) ([]domain.RepairRequestImageLink, error) {
+	if len(imageKeys) == 0 {
+		return []domain.RepairRequestImageLink{}, nil
+	}
+	if s.fileRepo == nil || s.s3Cfg == nil {
+		return nil, domain.ErrInternal
+	}
+
+	images := make([]domain.RepairRequestImageLink, 0, len(imageKeys))
+	for idx, objectKey := range imageKeys {
+		objectKey = strings.TrimSpace(objectKey)
+		if objectKey == "" {
+			continue
+		}
+
+		expiresAt := time.Now().Add(s.s3Cfg.PresignedURLTTL)
+		url, err := s.fileRepo.GetPresignedURL(ctx, s.s3Cfg.BucketUploads, objectKey, s.s3Cfg.PresignedURLTTL)
+		if err != nil {
+			return nil, err
+		}
+
+		images = append(images, domain.RepairRequestImageLink{
+			Index:     idx,
+			URL:       url,
+			ExpiresAt: expiresAt,
+		})
+	}
+
+	return images, nil
+}
+
 func validateCreateRepairRequestInput(input *domain.CreateRepairRequestInput) error {
 	if input == nil ||
 		input.UserID == uuid.Nil ||
@@ -179,6 +366,89 @@ func validateCreateRepairRequestInput(input *domain.CreateRepairRequestInput) er
 	}
 
 	return nil
+}
+
+func validateAcceptRepairRequestInput(input *domain.AcceptRepairRequestInput) error {
+	if input == nil || input.ID == uuid.Nil || input.CarServiceUserID == uuid.Nil {
+		return domain.ErrInvalidInput
+	}
+	if input.EstimatedPriceMin == nil || input.EstimatedPriceMax == nil {
+		return domain.ErrInvalidInput
+	}
+	if err := validatePriceRange(input.EstimatedPriceMin, input.EstimatedPriceMax); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateRejectRepairRequestInput(input *domain.RejectRepairRequestInput) error {
+	if input == nil ||
+		input.ID == uuid.Nil ||
+		input.CarServiceUserID == uuid.Nil ||
+		strings.TrimSpace(input.ServiceComment) == "" {
+		return domain.ErrInvalidInput
+	}
+
+	return nil
+}
+
+func validatePriceRange(minPrice, maxPrice *float64) error {
+	if minPrice == nil && maxPrice == nil {
+		return nil
+	}
+	if minPrice != nil && *minPrice < 0 {
+		return domain.ErrInvalidInput
+	}
+	if maxPrice != nil && *maxPrice < 0 {
+		return domain.ErrInvalidInput
+	}
+	if minPrice != nil && maxPrice != nil && *minPrice > *maxPrice {
+		return domain.ErrInvalidInput
+	}
+
+	return nil
+}
+
+func normalizeRepairEstimate(items []domain.RepairEstimateItem) ([]domain.RepairEstimateItem, error) {
+	out := make([]domain.RepairEstimateItem, 0, len(items))
+	for idx := range items {
+		item, err := normalizeRepairEstimateItem(&items[idx])
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+
+	return out, nil
+}
+
+func normalizeRepairEstimateItem(item *domain.RepairEstimateItem) (domain.RepairEstimateItem, error) {
+	if item == nil ||
+		strings.TrimSpace(item.PartName) == "" ||
+		strings.TrimSpace(item.DamageCode) == "" ||
+		item.Quantity <= 0 {
+		return domain.RepairEstimateItem{}, domain.ErrInvalidInput
+	}
+	if err := validatePriceRange(item.PriceMin, item.PriceMax); err != nil {
+		return domain.RepairEstimateItem{}, err
+	}
+
+	return domain.RepairEstimateItem{
+		PartName:     strings.TrimSpace(item.PartName),
+		PartNameRU:   strings.TrimSpace(item.PartNameRU),
+		ParentName:   strings.TrimSpace(item.ParentName),
+		ParentNameRU: strings.TrimSpace(item.ParentNameRU),
+		IsPair:       item.IsPair,
+		Side:         strings.TrimSpace(item.Side),
+		SideRU:       strings.TrimSpace(item.SideRU),
+		DamageCode:   normalizeDamageTypeCode(item.DamageCode),
+		DamageNameRU: strings.TrimSpace(item.DamageNameRU),
+		Quantity:     item.Quantity,
+		PriceMin:     item.PriceMin,
+		PriceMax:     item.PriceMax,
+		Comment:      normalizedOptionalString(item.Comment),
+	}, nil
 }
 
 func validateJobReadyForRepairRequest(job *domain.AnalysisJob) error {
