@@ -10,7 +10,8 @@ import (
 	"github.com/DedovInside/AutoInspect/backend/internal/repository/postgres"
 )
 
-func (s *AuthService) Refresh(ctx context.Context, refreshToken string, userAgent, ipAddress *string) (*AuthResult, error) {
+func (s *AuthService) Refresh(ctx context.Context,
+	refreshToken string, userAgent, ipAddress *string) (*AuthResult, error) {
 	if strings.TrimSpace(refreshToken) == "" {
 		return nil, domain.ErrInvalidInput
 	}

@@ -44,10 +44,8 @@ func NewCarServiceApplicationService(
 	}
 }
 
-func (s *CarServiceApplicationService) Create(
-	ctx context.Context,
-	input *domain.CreateCarServiceApplicationInput,
-) (*domain.CarServiceApplication, error) {
+func (s *CarServiceApplicationService) Create(ctx context.Context,
+	input *domain.CreateCarServiceApplicationInput) (*domain.CarServiceApplication, error) {
 	if err := validateCreateCarServiceApplicationInput(input); err != nil {
 		return nil, err
 	}
@@ -90,10 +88,8 @@ func (s *CarServiceApplicationService) Create(
 	return application, nil
 }
 
-func (s *CarServiceApplicationService) GetMyPending(
-	ctx context.Context,
-	userID uuid.UUID,
-) (*domain.CarServiceApplication, error) {
+func (s *CarServiceApplicationService) GetMyPending(ctx context.Context,
+	userID uuid.UUID) (*domain.CarServiceApplication, error) {
 	if userID == uuid.Nil {
 		return nil, domain.ErrInvalidInput
 	}
@@ -101,11 +97,8 @@ func (s *CarServiceApplicationService) GetMyPending(
 	return s.applicationRepo.GetPendingByUserID(ctx, userID)
 }
 
-func (s *CarServiceApplicationService) ListMine(
-	ctx context.Context,
-	userID uuid.UUID,
-	limit, offset int,
-) ([]*domain.CarServiceApplication, error) {
+func (s *CarServiceApplicationService) ListMine(ctx context.Context,
+	userID uuid.UUID, limit, offset int) ([]*domain.CarServiceApplication, error) {
 	if userID == uuid.Nil {
 		return nil, domain.ErrInvalidInput
 	}
@@ -118,11 +111,8 @@ func (s *CarServiceApplicationService) ListMine(
 	return s.applicationRepo.ListByUserID(ctx, userID, limit, offset)
 }
 
-func (s *CarServiceApplicationService) ListForAdmin(
-	ctx context.Context,
-	status *domain.CarServiceApplicationStatus,
-	limit, offset int,
-) ([]*domain.CarServiceApplication, error) {
+func (s *CarServiceApplicationService) ListForAdmin(ctx context.Context,
+	status *domain.CarServiceApplicationStatus, limit, offset int) ([]*domain.CarServiceApplication, error) {
 	if status != nil && !status.IsValid() {
 		return nil, domain.ErrInvalidInput
 	}
@@ -135,10 +125,8 @@ func (s *CarServiceApplicationService) ListForAdmin(
 	return s.applicationRepo.ListForAdmin(ctx, status, limit, offset)
 }
 
-func (s *CarServiceApplicationService) Approve(
-	ctx context.Context,
-	input *domain.ApproveCarServiceApplicationInput,
-) (*ApproveCarServiceApplicationResult, error) {
+func (s *CarServiceApplicationService) Approve(ctx context.Context,
+	input *domain.ApproveCarServiceApplicationInput) (*ApproveCarServiceApplicationResult, error) {
 	if err := validateApproveCarServiceApplicationInput(input); err != nil {
 		return nil, err
 	}
@@ -179,8 +167,7 @@ func (s *CarServiceApplicationService) beginTx(ctx context.Context) (pgx.Tx, err
 	return tx, nil
 }
 
-func approveCarServiceApplicationInTx(
-	ctx context.Context,
+func approveCarServiceApplicationInTx(ctx context.Context,
 	input *domain.ApproveCarServiceApplicationInput,
 	applicationRepo repository.CarServiceApplicationRepository,
 	profileRepo repository.CarServiceProfileRepository,
@@ -223,11 +210,8 @@ func ensurePendingCarServiceApplication(application *domain.CarServiceApplicatio
 	return nil
 }
 
-func ensureApplicationUserCanBecomeCarService(
-	ctx context.Context,
-	userRepo repository.UserRepository,
-	userID uuid.UUID,
-) error {
+func ensureApplicationUserCanBecomeCarService(ctx context.Context,
+	userRepo repository.UserRepository, userID uuid.UUID) error {
 	user, err := userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return err
@@ -240,8 +224,7 @@ func ensureApplicationUserCanBecomeCarService(
 	return nil
 }
 
-func createApprovedCarServiceProfile(
-	ctx context.Context,
+func createApprovedCarServiceProfile(ctx context.Context,
 	profileRepo repository.CarServiceProfileRepository,
 	userRepo repository.UserRepository,
 	applicationRepo repository.CarServiceApplicationRepository,
@@ -264,10 +247,8 @@ func createApprovedCarServiceProfile(
 	})
 }
 
-func (s *CarServiceApplicationService) Reject(
-	ctx context.Context,
-	input *domain.RejectCarServiceApplicationInput,
-) (*domain.CarServiceApplication, error) {
+func (s *CarServiceApplicationService) Reject(ctx context.Context,
+	input *domain.RejectCarServiceApplicationInput) (*domain.CarServiceApplication, error) {
 	if input == nil ||
 		input.ID == uuid.Nil ||
 		input.ReviewedBy == uuid.Nil ||

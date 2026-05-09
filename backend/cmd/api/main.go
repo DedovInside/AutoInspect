@@ -132,6 +132,7 @@ func run() error {
 		&cfg.S3,
 		&cfg.Kafka,
 	)
+
 	carServiceMatchingService := service.NewCarServiceMatchingService(
 		jobRepo,
 		carServiceMatchRepo,
@@ -201,6 +202,7 @@ func run() error {
 		tokenManager,
 		redisCacheClient,
 	)
+
 	server := newHTTPServer(cfg, router)
 	defer func() {
 		if closeErr := server.Close(); closeErr != nil && !errors.Is(closeErr, http.ErrServerClosed) {

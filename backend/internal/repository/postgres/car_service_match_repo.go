@@ -15,11 +15,8 @@ func NewCarServiceMatchRepo(tx DBTX) *CarServiceMatchRepo {
 	return &CarServiceMatchRepo{queries: db.New(tx)}
 }
 
-func (r *CarServiceMatchRepo) FindMatching(
-	ctx context.Context,
-	criteria []domain.CarServiceMatchCriterion,
-	limit, offset int,
-) ([]*domain.CarServiceMatch, error) {
+func (r *CarServiceMatchRepo) FindMatching(ctx context.Context,
+	criteria []domain.CarServiceMatchCriterion, limit, offset int) ([]*domain.CarServiceMatch, error) {
 	limit32, err := intToInt32Checked(limit)
 	if err != nil {
 		return nil, domain.ErrInvalidInput
@@ -80,12 +77,10 @@ func toDomainCarServiceMatch(row *db.ListMatchingCarServicesRow) *domain.CarServ
 	return match
 }
 
-func matchCriteriaArrays(criteria []domain.CarServiceMatchCriterion) (
-	damageTypes []string,
-	partCategories []string,
-) {
+func matchCriteriaArrays(criteria []domain.CarServiceMatchCriterion) (damageTypes, partCategories []string) {
 	damageTypes = make([]string, 0, len(criteria))
 	partCategories = make([]string, 0, len(criteria))
+
 	for _, item := range criteria {
 		damageTypes = append(damageTypes, item.DamageTypeCode)
 		partCategories = append(partCategories, item.PartCategoryCode)

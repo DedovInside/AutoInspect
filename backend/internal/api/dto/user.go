@@ -18,6 +18,7 @@ type UserResponse struct {
 	ID            uuid.UUID   `json:"id"`
 	Username      string      `json:"username"`
 	Email         string      `json:"email"`
+	AvatarURL     *string     `json:"avatar_url,omitempty"`
 	Role          domain.Role `json:"role"`
 	EmailVerified bool        `json:"email_verified"`
 	IsActive      bool        `json:"is_active"`
@@ -30,6 +31,7 @@ func ToUserResponse(u *domain.User) UserResponse {
 		ID:            u.ID,
 		Username:      u.Username,
 		Email:         u.Email,
+		AvatarURL:     u.AvatarURL,
 		Role:          u.Role,
 		EmailVerified: u.EmailVerified,
 		IsActive:      u.IsActive,

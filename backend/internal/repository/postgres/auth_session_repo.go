@@ -41,6 +41,7 @@ func (r *AuthSessionRepo) Create(ctx context.Context, s *domain.AuthSession) err
 	if err != nil {
 		return domain.ErrInternal
 	}
+
 	return nil
 }
 
@@ -52,10 +53,12 @@ func (r *AuthSessionRepo) GetByTokenHash(ctx context.Context, tokenHash string) 
 		}
 		return nil, domain.ErrInternal
 	}
+
 	return toDomainAuthSession(&dbSession), nil
 }
 
-func (r *AuthSessionRepo) Revoke(ctx context.Context, id uuid.UUID, revokedReason string, replacedByID *uuid.UUID) error {
+func (r *AuthSessionRepo) Revoke(ctx context.Context,
+	id uuid.UUID, revokedReason string, replacedByID *uuid.UUID) error {
 	params := db.RevokeAuthSessionParams{
 		RevokedReason: &revokedReason,
 		ReplacedByID:  toPgUUIDPtr(replacedByID),
@@ -65,9 +68,11 @@ func (r *AuthSessionRepo) Revoke(ctx context.Context, id uuid.UUID, revokedReaso
 	if err != nil {
 		return domain.ErrInternal
 	}
+
 	if rowsAffected == 0 {
 		return domain.ErrNotFound
 	}
+
 	return nil
 }
 
@@ -95,11 +100,12 @@ func (r *AuthSessionRepo) RevokeFamily(ctx context.Context, familyID uuid.UUID, 
 		RevokedReason: &revokedReason,
 		TokenFamilyID: pgtype.UUID{Bytes: familyID, Valid: true},
 	}
-	err := r.queries.RevokeFamily(ctx, params)
 
+	err := r.queries.RevokeFamily(ctx, params)
 	if err != nil {
 		return domain.ErrInternal
 	}
+
 	return nil
 }
 

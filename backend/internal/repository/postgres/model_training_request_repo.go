@@ -54,6 +54,7 @@ func (r *ModelTrainingRequestRepo) Create(ctx context.Context, request *domain.M
 		}
 		return domain.ErrInternal
 	}
+
 	return nil
 }
 
@@ -65,14 +66,11 @@ func (r *ModelTrainingRequestRepo) GetByID(ctx context.Context, id uuid.UUID) (*
 		}
 		return nil, domain.ErrInternal
 	}
+
 	return toDomainModelTrainingRequest(&dbRequest), nil
 }
 
-func (r *ModelTrainingRequestRepo) GetByUserAndIdempotencyKey(
-	ctx context.Context,
-	userID uuid.UUID,
-	idempotencyKey string,
-) (*domain.ModelTrainingRequest, error) {
+func (r *ModelTrainingRequestRepo) GetByUserAndIdempotencyKey(ctx context.Context, userID uuid.UUID, idempotencyKey string) (*domain.ModelTrainingRequest, error) {
 	params := db.GetModelTrainingRequestByUserAndIdempotencyKeyParams{
 		InitiatorUserID: pgtype.UUID{Bytes: userID, Valid: true},
 		IdempotencyKey:  &idempotencyKey,
@@ -85,14 +83,12 @@ func (r *ModelTrainingRequestRepo) GetByUserAndIdempotencyKey(
 		}
 		return nil, domain.ErrInternal
 	}
+
 	return toDomainModelTrainingRequest(&dbRequest), nil
 }
 
-func (r *ModelTrainingRequestRepo) ListByUserID(
-	ctx context.Context,
-	userID uuid.UUID,
-	limit, offset int,
-) ([]*domain.ModelTrainingRequest, error) {
+func (r *ModelTrainingRequestRepo) ListByUserID(ctx context.Context,
+	userID uuid.UUID, limit, offset int) ([]*domain.ModelTrainingRequest, error) {
 	limit32, offset32, err := checkedLimitOffset(limit, offset)
 	if err != nil {
 		return nil, err
@@ -110,11 +106,8 @@ func (r *ModelTrainingRequestRepo) ListByUserID(
 	return toDomainModelTrainingRequests(dbRequests), nil
 }
 
-func (r *ModelTrainingRequestRepo) ListForAdmin(
-	ctx context.Context,
-	status *domain.ModelTrainingRequestStatus,
-	limit, offset int,
-) ([]*domain.ModelTrainingRequest, error) {
+func (r *ModelTrainingRequestRepo) ListForAdmin(ctx context.Context,
+	status *domain.ModelTrainingRequestStatus, limit, offset int) ([]*domain.ModelTrainingRequest, error) {
 	limit32, offset32, err := checkedLimitOffset(limit, offset)
 	if err != nil {
 		return nil, err
@@ -143,13 +136,12 @@ func (r *ModelTrainingRequestRepo) CountActiveByUserID(ctx context.Context, user
 	if err != nil {
 		return 0, domain.ErrInternal
 	}
+
 	return int(count), nil
 }
 
-func (r *ModelTrainingRequestRepo) UpdateStatus(
-	ctx context.Context,
-	input domain.UpdateModelTrainingRequestStatusInput,
-) error {
+func (r *ModelTrainingRequestRepo) UpdateStatus(ctx context.Context,
+	input domain.UpdateModelTrainingRequestStatusInput) error {
 	reviewedAt := pgtype.Timestamptz{Time: time.Now().UTC(), Valid: input.ReviewedBy != uuid.Nil}
 
 	params := db.UpdateModelTrainingRequestStatusParams{
@@ -166,9 +158,11 @@ func (r *ModelTrainingRequestRepo) UpdateStatus(
 	if err != nil {
 		return domain.ErrInternal
 	}
+
 	if rowsAffected == 0 {
 		return domain.ErrNotFound
 	}
+
 	return nil
 }
 
@@ -177,10 +171,12 @@ func checkedLimitOffset(limit, offset int) (limit32, offset32 int32, err error) 
 	if err != nil {
 		return 0, 0, domain.ErrInvalidInput
 	}
+
 	offset32, err = intToInt32Checked(offset)
 	if err != nil {
 		return 0, 0, domain.ErrInvalidInput
 	}
+
 	return limit32, offset32, nil
 }
 
@@ -189,6 +185,7 @@ func toDomainModelTrainingRequests(dbRequests []db.ModelTrainingRequest) []*doma
 	for i := range dbRequests {
 		requests = append(requests, toDomainModelTrainingRequest(&dbRequests[i]))
 	}
+
 	return requests
 }
 

@@ -34,11 +34,8 @@ func NewCarServiceMatchingService(
 	}
 }
 
-func (s *CarServiceMatchingService) FindMatchingCarServices(
-	ctx context.Context,
-	jobID, userID uuid.UUID,
-	limit, offset int,
-) ([]*domain.CarServiceMatchWithImageURL, error) {
+func (s *CarServiceMatchingService) FindMatchingCarServices(ctx context.Context,
+	jobID, userID uuid.UUID, limit, offset int) ([]*domain.CarServiceMatchWithImageURL, error) {
 	if jobID == uuid.Nil || userID == uuid.Nil || limit <= 0 || offset < 0 {
 		return nil, domain.ErrInvalidInput
 	}
@@ -132,11 +129,8 @@ func validateJobReadyForMatching(job *domain.AnalysisJob) error {
 	return nil
 }
 
-func appendCriteriaFromImageResult(
-	criteria []domain.CarServiceMatchCriterion,
-	seen map[string]struct{},
-	imageResult *domain.ImageAnalysisResult,
-) []domain.CarServiceMatchCriterion {
+func appendCriteriaFromImageResult(criteria []domain.CarServiceMatchCriterion,
+	seen map[string]struct{}, imageResult *domain.ImageAnalysisResult) []domain.CarServiceMatchCriterion {
 	if imageResult == nil {
 		return criteria
 	}
@@ -148,11 +142,8 @@ func appendCriteriaFromImageResult(
 	return criteria
 }
 
-func appendCriteriaFromPartSummary(
-	criteria []domain.CarServiceMatchCriterion,
-	seen map[string]struct{},
-	summary *domain.PartSummary,
-) []domain.CarServiceMatchCriterion {
+func appendCriteriaFromPartSummary(criteria []domain.CarServiceMatchCriterion,
+	seen map[string]struct{}, summary *domain.PartSummary) []domain.CarServiceMatchCriterion {
 	partCategoryCode := matchPartCategoryCode(summary)
 	if partCategoryCode == "" {
 		return criteria
@@ -170,11 +161,8 @@ func appendCriteriaFromPartSummary(
 	return criteria
 }
 
-func appendUniqueMatchCriterion(
-	criteria []domain.CarServiceMatchCriterion,
-	seen map[string]struct{},
-	damageTypeCode, partCategoryCode string,
-) []domain.CarServiceMatchCriterion {
+func appendUniqueMatchCriterion(criteria []domain.CarServiceMatchCriterion,
+	seen map[string]struct{}, damageTypeCode, partCategoryCode string) []domain.CarServiceMatchCriterion {
 	key := damageTypeCode + "\x00" + partCategoryCode
 	if _, ok := seen[key]; ok {
 		return criteria
@@ -199,10 +187,8 @@ func matchPartCategoryCode(summary *domain.PartSummary) string {
 	return normalizePartCode(summary.Name)
 }
 
-func (s *CarServiceMatchingService) carServiceMatchesWithImageURLs(
-	ctx context.Context,
-	matches []*domain.CarServiceMatch,
-) ([]*domain.CarServiceMatchWithImageURL, error) {
+func (s *CarServiceMatchingService) carServiceMatchesWithImageURLs(ctx context.Context,
+	matches []*domain.CarServiceMatch) ([]*domain.CarServiceMatchWithImageURL, error) {
 	out := make([]*domain.CarServiceMatchWithImageURL, 0, len(matches))
 	for _, match := range matches {
 		item, err := s.carServiceMatchWithImageURL(ctx, match)
@@ -215,10 +201,8 @@ func (s *CarServiceMatchingService) carServiceMatchesWithImageURLs(
 	return out, nil
 }
 
-func (s *CarServiceMatchingService) carServiceMatchWithImageURL(
-	ctx context.Context,
-	match *domain.CarServiceMatch,
-) (*domain.CarServiceMatchWithImageURL, error) {
+func (s *CarServiceMatchingService) carServiceMatchWithImageURL(ctx context.Context,
+	match *domain.CarServiceMatch) (*domain.CarServiceMatchWithImageURL, error) {
 	item := &domain.CarServiceMatchWithImageURL{Match: match}
 	if match == nil || match.PrimaryImage == nil {
 		return item, nil

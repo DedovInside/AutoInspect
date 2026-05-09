@@ -305,6 +305,7 @@ func (s *RepairRequestService) getIncomingPendingRequest(
 	if err != nil {
 		return nil, nil, err
 	}
+
 	if request.Status != domain.RepairRequestStatusPending {
 		return nil, nil, domain.ErrInvalidInput
 	}
@@ -330,6 +331,7 @@ func (s *RepairRequestService) repairRequestImageLinks(
 	if len(imageKeys) == 0 {
 		return []domain.RepairRequestImageLink{}, nil
 	}
+
 	if s.fileRepo == nil || s.s3Cfg == nil {
 		return nil, domain.ErrInternal
 	}
@@ -372,9 +374,11 @@ func validateAcceptRepairRequestInput(input *domain.AcceptRepairRequestInput) er
 	if input == nil || input.ID == uuid.Nil || input.CarServiceUserID == uuid.Nil {
 		return domain.ErrInvalidInput
 	}
+
 	if input.EstimatedPriceMin == nil || input.EstimatedPriceMax == nil {
 		return domain.ErrInvalidInput
 	}
+
 	if err := validatePriceRange(input.EstimatedPriceMin, input.EstimatedPriceMax); err != nil {
 		return err
 	}
@@ -397,12 +401,15 @@ func validatePriceRange(minPrice, maxPrice *float64) error {
 	if minPrice == nil && maxPrice == nil {
 		return nil
 	}
+
 	if minPrice != nil && *minPrice < 0 {
 		return domain.ErrInvalidInput
 	}
+
 	if maxPrice != nil && *maxPrice < 0 {
 		return domain.ErrInvalidInput
 	}
+
 	if minPrice != nil && maxPrice != nil && *minPrice > *maxPrice {
 		return domain.ErrInvalidInput
 	}
@@ -601,6 +608,7 @@ func repairDamageTypeCount(damageTypes []domain.RepairDamageTypeSummary) int {
 	for _, damageType := range damageTypes {
 		count += damageType.Count
 	}
+
 	return count
 }
 

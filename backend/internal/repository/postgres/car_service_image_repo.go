@@ -49,10 +49,8 @@ func (r *CarServiceImageRepo) Create(ctx context.Context, image *domain.CarServi
 	return nil
 }
 
-func (r *CarServiceImageRepo) ListByProfileID(
-	ctx context.Context,
-	profileID uuid.UUID,
-) ([]*domain.CarServiceImage, error) {
+func (r *CarServiceImageRepo) ListByProfileID(ctx context.Context,
+	profileID uuid.UUID) ([]*domain.CarServiceImage, error) {
 	dbImages, err := r.queries.ListCarServiceImagesByProfileID(ctx, pgtype.UUID{Bytes: profileID, Valid: true})
 	if err != nil {
 		return nil, domain.ErrInternal

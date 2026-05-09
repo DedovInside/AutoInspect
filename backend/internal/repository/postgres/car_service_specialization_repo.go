@@ -42,6 +42,7 @@ func (r *DamageTypeRepo) ExistsActive(ctx context.Context, code string) (bool, e
 	if err != nil {
 		return false, domain.ErrInternal
 	}
+
 	return exists, nil
 }
 
@@ -58,6 +59,7 @@ func (r *PartCategoryRepo) ListActive(ctx context.Context) ([]*domain.PartCatego
 	if err != nil {
 		return nil, domain.ErrInternal
 	}
+
 	return toDomainPartCategories(dbCategories), nil
 }
 
@@ -66,6 +68,7 @@ func (r *PartCategoryRepo) ExistsActive(ctx context.Context, code string) (bool,
 	if err != nil {
 		return false, domain.ErrInternal
 	}
+
 	return exists, nil
 }
 
@@ -77,10 +80,8 @@ func NewCarServiceSpecializationRepo(tx DBTX) *CarServiceSpecializationRepo {
 	return &CarServiceSpecializationRepo{queries: db.New(tx)}
 }
 
-func (r *CarServiceSpecializationRepo) Create(
-	ctx context.Context,
-	specialization *domain.CarServiceSpecialization,
-) error {
+func (r *CarServiceSpecializationRepo) Create(ctx context.Context,
+	specialization *domain.CarServiceSpecialization) error {
 	params := db.CreateCarServiceSpecializationParams{
 		ID:               pgtype.UUID{Bytes: specialization.ID, Valid: true},
 		ProfileID:        pgtype.UUID{Bytes: specialization.ProfileID, Valid: true},
@@ -96,17 +97,17 @@ func (r *CarServiceSpecializationRepo) Create(
 		}
 		return domain.ErrInternal
 	}
+
 	return nil
 }
 
-func (r *CarServiceSpecializationRepo) ListByProfileID(
-	ctx context.Context,
-	profileID uuid.UUID,
-) ([]*domain.CarServiceSpecialization, error) {
+func (r *CarServiceSpecializationRepo) ListByProfileID(ctx context.Context,
+	profileID uuid.UUID) ([]*domain.CarServiceSpecialization, error) {
 	dbSpecializations, err := r.queries.ListCarServiceSpecializationsByProfileID(ctx, pgtype.UUID{Bytes: profileID, Valid: true})
 	if err != nil {
 		return nil, domain.ErrInternal
 	}
+
 	return toDomainCarServiceSpecializations(dbSpecializations), nil
 }
 
@@ -114,6 +115,7 @@ func (r *CarServiceSpecializationRepo) DeleteByProfileID(ctx context.Context, pr
 	if err := r.queries.DeleteCarServiceSpecializationsByProfileID(ctx, pgtype.UUID{Bytes: profileID, Valid: true}); err != nil {
 		return domain.ErrInternal
 	}
+
 	return nil
 }
 
@@ -122,6 +124,7 @@ func toDomainDamageTypes(dbTypes []db.DamageType) []*domain.DamageType {
 	for i := range dbTypes {
 		items = append(items, toDomainDamageType(&dbTypes[i]))
 	}
+
 	return items
 }
 
@@ -140,6 +143,7 @@ func toDomainPartCategories(dbCategories []db.PartCategory) []*domain.PartCatego
 	for i := range dbCategories {
 		items = append(items, toDomainPartCategory(&dbCategories[i]))
 	}
+
 	return items
 }
 
@@ -154,19 +158,16 @@ func toDomainPartCategory(dbCategory *db.PartCategory) *domain.PartCategory {
 	}
 }
 
-func toDomainCarServiceSpecializations(
-	dbSpecializations []db.CarServiceSpecialization,
-) []*domain.CarServiceSpecialization {
+func toDomainCarServiceSpecializations(dbSpecializations []db.CarServiceSpecialization) []*domain.CarServiceSpecialization {
 	items := make([]*domain.CarServiceSpecialization, 0, len(dbSpecializations))
 	for i := range dbSpecializations {
 		items = append(items, toDomainCarServiceSpecialization(&dbSpecializations[i]))
 	}
+
 	return items
 }
 
-func toDomainCarServiceSpecialization(
-	dbSpecialization *db.CarServiceSpecialization,
-) *domain.CarServiceSpecialization {
+func toDomainCarServiceSpecialization(dbSpecialization *db.CarServiceSpecialization) *domain.CarServiceSpecialization {
 	return &domain.CarServiceSpecialization{
 		ID:               fromPgUUID(dbSpecialization.ID),
 		ProfileID:        fromPgUUID(dbSpecialization.ProfileID),

@@ -79,5 +79,6 @@ func (c *Client) HealthCheck(ctx context.Context) error {
 			return fmt.Errorf("s3 health check failed for bucket %q: %w", bucket, err)
 		}
 	}
+
 	return nil
 }

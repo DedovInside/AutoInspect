@@ -20,7 +20,8 @@ func NewCarModelRepo(tx DBTX) *CarModelRepo {
 	return &CarModelRepo{queries: db.New(tx)}
 }
 
-func (r *CarModelRepo) FindActiveModel(ctx context.Context, carMake, model, generation string, year int) (*domain.CarModel, error) {
+func (r *CarModelRepo) FindActiveModel(ctx context.Context,
+	carMake, model, generation string, year int) (*domain.CarModel, error) {
 	generationPtr := stringPtrOrNil(generation)
 	year32, err := intToInt32Checked(year)
 	if err != nil {
@@ -39,6 +40,7 @@ func (r *CarModelRepo) FindActiveModel(ctx context.Context, carMake, model, gene
 		}
 		return nil, domain.ErrInternal
 	}
+
 	return toDomainCarModel(&dbModel), nil
 }
 
@@ -50,6 +52,7 @@ func (r *CarModelRepo) GetUniversalModel(ctx context.Context) (*domain.CarModel,
 		}
 		return nil, domain.ErrInternal
 	}
+
 	return toDomainCarModel(&dbModel), nil
 }
 
@@ -73,6 +76,7 @@ func (r *CarModelRepo) CreateModel(ctx context.Context, cm *domain.CarModel) err
 		IsActive:          boolPtr(cm.IsActive),
 		CreatedAt:         pgtype.Timestamptz{Time: cm.CreatedAt, Valid: true},
 	}
+
 	if cm.YearTo > 0 {
 		y, err := intToInt32Checked(cm.YearTo)
 		if err != nil {
@@ -89,6 +93,7 @@ func (r *CarModelRepo) CreateModel(ctx context.Context, cm *domain.CarModel) err
 		}
 		return domain.ErrInternal
 	}
+
 	return nil
 }
 
@@ -97,6 +102,7 @@ func (r *CarModelRepo) ListModels(ctx context.Context, limit, offset int) ([]*do
 	if err != nil {
 		return nil, domain.ErrInvalidInput
 	}
+
 	offset32, err := intToInt32Checked(offset)
 	if err != nil {
 		return nil, domain.ErrInvalidInput
@@ -114,6 +120,7 @@ func (r *CarModelRepo) ListModels(ctx context.Context, limit, offset int) ([]*do
 	for i := range dbModels {
 		models = append(models, toDomainCarModel(&dbModels[i]))
 	}
+
 	return models, nil
 }
 
@@ -125,6 +132,7 @@ func (r *CarModelRepo) GetModelByID(ctx context.Context, id uuid.UUID) (*domain.
 		}
 		return nil, domain.ErrInternal
 	}
+
 	return toDomainCarModel(&dbModel), nil
 }
 
@@ -132,6 +140,7 @@ func (r *CarModelRepo) DeactivateModel(ctx context.Context, id uuid.UUID) error 
 	if err := r.queries.DeactivateCarModel(ctx, pgtype.UUID{Bytes: id, Valid: true}); err != nil {
 		return domain.ErrInternal
 	}
+
 	return nil
 }
 

@@ -18,6 +18,7 @@ const (
 	// #nosec
 	yandexTokenURL    = "https://oauth.yandex.ru/token"
 	yandexUserInfoURL = "https://login.yandex.ru/info"
+	yandexAvatarURL   = "https://avatars.yandex.net/get-yapic/%s/islands-200"
 )
 
 type YandexOAuthClient struct {
@@ -26,9 +27,11 @@ type YandexOAuthClient struct {
 }
 
 type YandexProfile struct {
-	ID           string `json:"id"`
-	Login        string `json:"login"`
-	DefaultEmail string `json:"default_email"`
+	ID              string `json:"id"`
+	Login           string `json:"login"`
+	DefaultEmail    string `json:"default_email"`
+	DefaultAvatarID string `json:"default_avatar_id"`
+	IsAvatarEmpty   bool   `json:"is_avatar_empty"`
 }
 
 func NewYandexOAuthClient(clientID, clientSecret, redirectURL string, timeout time.Duration) (*YandexOAuthClient, error) {
@@ -49,10 +52,19 @@ func NewYandexOAuthClient(clientID, clientSecret, redirectURL string, timeout ti
 				AuthURL:  yandexAuthURL,
 				TokenURL: yandexTokenURL,
 			},
-			Scopes: []string{"login:email", "login:info"},
+			Scopes: []string{"login:email", "login:info", "login:avatar"},
 		},
 		httpClient: &http.Client{Timeout: timeout},
 	}, nil
+}
+
+func (p *YandexProfile) AvatarURL() *string {
+	if p == nil || p.IsAvatarEmpty || strings.TrimSpace(p.DefaultAvatarID) == "" {
+		return nil
+	}
+
+	url := fmt.Sprintf(yandexAvatarURL, p.DefaultAvatarID)
+	return &url
 }
 
 func (c *YandexOAuthClient) AuthCodeURL(state string) string {

@@ -57,17 +57,14 @@ func NewAnalysisService(
 	}
 }
 
-func (s *AnalysisService) SubmitAnalysis(
-	ctx context.Context,
-	userID uuid.UUID,
-	idempotencyKey *string,
-	carInfo domain.CarInfo,
-	images []multipart.File,
-) (*domain.AnalysisJob, error) {
+func (s *AnalysisService) SubmitAnalysis(ctx context.Context,
+	userID uuid.UUID, idempotencyKey *string, carInfo domain.CarInfo,
+	images []multipart.File) (*domain.AnalysisJob, error) {
 	existing, err := s.findIdempotentJob(ctx, userID, idempotencyKey)
 	if err != nil {
 		return nil, err
 	}
+
 	if existing != nil {
 		if err := s.ensurePublished(ctx, existing); err != nil {
 			return nil, fmt.Errorf("republish existing job: %w", err)
@@ -94,19 +91,21 @@ func (s *AnalysisService) SubmitAnalysis(
 	if err != nil {
 		return nil, err
 	}
+
 	if published {
 		return job, nil
 	}
 
 	if err := s.publishAnalysisRequest(ctx, job, model); err != nil {
-		// Задача уже создана. На retry с тем же idempotency-key service репаблишит pending задачу.
+		// Задача уже создана. На retry с тем же idempotency-key service переопубликует pending задачу.
 		return nil, fmt.Errorf("publish to Kafka: %w", err)
 	}
 
 	return job, nil
 }
 
-func (s *AnalysisService) findIdempotentJob(ctx context.Context, userID uuid.UUID, idempotencyKey *string) (*domain.AnalysisJob, error) {
+func (s *AnalysisService) findIdempotentJob(ctx context.Context,
+	userID uuid.UUID, idempotencyKey *string) (*domain.AnalysisJob, error) {
 	if idempotencyKey == nil || *idempotencyKey == "" {
 		return nil, nil
 	}
@@ -146,17 +145,14 @@ func newAnalysisJob(
 	}
 }
 
-func (s *AnalysisService) createAnalysisJob(
-	ctx context.Context,
-	job *domain.AnalysisJob,
-	imageKeys []string,
-	idempotencyKey *string,
-) (bool, error) {
+func (s *AnalysisService) createAnalysisJob(ctx context.Context,
+	job *domain.AnalysisJob, imageKeys []string, idempotencyKey *string) (bool, error) {
 	if err := s.jobRepo.Create(ctx, job); err != nil {
 		existing, handled, handleErr := s.handleCreateConflict(ctx, err, job.UserID, idempotencyKey, imageKeys)
 		if handleErr != nil {
 			return false, handleErr
 		}
+
 		if handled {
 			*job = *existing
 			return true, nil
@@ -165,16 +161,12 @@ func (s *AnalysisService) createAnalysisJob(
 		s.cleanupUploaded(ctx, imageKeys)
 		return false, fmt.Errorf("create job in DB: %w", err)
 	}
+
 	return false, nil
 }
 
-func (s *AnalysisService) handleCreateConflict(
-	ctx context.Context,
-	createErr error,
-	userID uuid.UUID,
-	idempotencyKey *string,
-	imageKeys []string,
-) (*domain.AnalysisJob, bool, error) {
+func (s *AnalysisService) handleCreateConflict(ctx context.Context,
+	createErr error, userID uuid.UUID, idempotencyKey *string, imageKeys []string) (*domain.AnalysisJob, bool, error) {
 	if !errors.Is(createErr, domain.ErrAlreadyExists) || idempotencyKey == nil || *idempotencyKey == "" {
 		return nil, false, nil
 	}
@@ -336,7 +328,6 @@ func (s *AnalysisService) notifyJobEvent(ctx context.Context, event *notify.JobE
 
 func (s *AnalysisService) GetJobStatus(ctx context.Context, jobID, userID uuid.UUID) (*domain.AnalysisJob, error) {
 	job, err := s.jobRepo.GetByID(ctx, jobID)
-
 	if err != nil {
 		return nil, err
 	}
@@ -348,9 +339,9 @@ func (s *AnalysisService) GetJobStatus(ctx context.Context, jobID, userID uuid.U
 	return job, nil
 }
 
-func (s *AnalysisService) GetPresignedImageURL(ctx context.Context, jobID, userID uuid.UUID, idx int) (string, time.Time, error) {
+func (s *AnalysisService) GetPresignedImageURL(ctx context.Context,
+	jobID, userID uuid.UUID, idx int) (string, time.Time, error) {
 	job, err := s.jobRepo.GetByID(ctx, jobID)
-
 	if err != nil {
 		return "", time.Time{}, err
 	}
@@ -365,6 +356,7 @@ func (s *AnalysisService) GetPresignedImageURL(ctx context.Context, jobID, userI
 
 	objectKey := job.ImageKeys[idx]
 	expiresAt := time.Now().Add(s.s3Cfg.PresignedURLTTL)
+
 	url, err := s.fileRepo.GetPresignedURL(ctx, s.s3Cfg.BucketUploads, objectKey, s.s3Cfg.PresignedURLTTL)
 	if err != nil {
 		return "", time.Time{}, err
@@ -373,7 +365,8 @@ func (s *AnalysisService) GetPresignedImageURL(ctx context.Context, jobID, userI
 	return url, expiresAt, nil
 }
 
-func (s *AnalysisService) ListUserJobs(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*domain.AnalysisJob, error) {
+func (s *AnalysisService) ListUserJobs(ctx context.Context,
+	userID uuid.UUID, limit, offset int) ([]*domain.AnalysisJob, error) {
 	return s.jobRepo.GetByUserID(ctx, userID, limit, offset)
 }
 
@@ -393,8 +386,8 @@ func (s *AnalysisService) ensurePublished(ctx context.Context, job *domain.Analy
 		Generation: job.CarGeneration,
 		Year:       job.CarYear,
 	}
-	model, err := s.findModelForCar(ctx, carInfo)
 
+	model, err := s.findModelForCar(ctx, carInfo)
 	if err != nil {
 		return err
 	}
@@ -402,7 +395,8 @@ func (s *AnalysisService) ensurePublished(ctx context.Context, job *domain.Analy
 	return s.publishAnalysisRequest(ctx, job, model)
 }
 
-func (s *AnalysisService) publishAnalysisRequest(ctx context.Context, job *domain.AnalysisJob, model *domain.CarModel) error {
+func (s *AnalysisService) publishAnalysisRequest(ctx context.Context,
+	job *domain.AnalysisJob, model *domain.CarModel) error {
 	protoReq := DomainToProtoRequest(job, model)
 	data, err := proto.Marshal(protoReq)
 
@@ -477,7 +471,6 @@ func (s *AnalysisService) findModelForCar(ctx context.Context, carInfo domain.Ca
 	)
 
 	model, err = s.modelRepo.FindActiveModel(ctx, carInfo.Make, carInfo.Model, carInfo.Generation, carInfo.Year)
-
 	if err == nil {
 		return model, nil
 	}
@@ -487,7 +480,6 @@ func (s *AnalysisService) findModelForCar(ctx context.Context, carInfo domain.Ca
 	}
 
 	model, err = s.modelRepo.GetUniversalModel(ctx)
-
 	if err != nil {
 		return nil, fmt.Errorf("no suitable model found: %w", err)
 	}
@@ -495,7 +487,8 @@ func (s *AnalysisService) findModelForCar(ctx context.Context, carInfo domain.Ca
 	return model, nil
 }
 
-func (s *AnalysisService) uploadImages(ctx context.Context, userID uuid.UUID, images []multipart.File) ([]string, error) {
+func (s *AnalysisService) uploadImages(ctx context.Context,
+	userID uuid.UUID, images []multipart.File) ([]string, error) {
 	imageKeys := make([]string, 0, len(images))
 
 	for i, img := range images {
@@ -554,7 +547,6 @@ func detectUploadMeta(file multipart.File) (contentType string, size int64, err 
 	}
 
 	size, err = file.Seek(0, io.SeekEnd)
-
 	if err != nil {
 		return contentType, -1, nil
 	}

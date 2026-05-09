@@ -35,10 +35,8 @@ func NewModelTrainingRequestService(
 	}
 }
 
-func (s *ModelTrainingRequestService) Create(
-	ctx context.Context,
-	input *domain.CreateModelTrainingRequestInput,
-) (*domain.ModelTrainingRequest, error) {
+func (s *ModelTrainingRequestService) Create(ctx context.Context,
+	input *domain.CreateModelTrainingRequestInput) (*domain.ModelTrainingRequest, error) {
 	if err := validateCreateModelTrainingRequestInput(input); err != nil {
 		return nil, err
 	}
@@ -89,11 +87,8 @@ func (s *ModelTrainingRequestService) Create(
 	return request, nil
 }
 
-func (s *ModelTrainingRequestService) ListMine(
-	ctx context.Context,
-	userID uuid.UUID,
-	limit, offset int,
-) ([]*domain.ModelTrainingRequest, error) {
+func (s *ModelTrainingRequestService) ListMine(ctx context.Context,
+	userID uuid.UUID, limit, offset int) ([]*domain.ModelTrainingRequest, error) {
 	if userID == uuid.Nil {
 		return nil, domain.ErrInvalidInput
 	}

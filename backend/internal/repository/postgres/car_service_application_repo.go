@@ -62,10 +62,8 @@ func (r *CarServiceApplicationRepo) GetByID(ctx context.Context, id uuid.UUID) (
 	return toDomainCarServiceApplication(&dbApplication), nil
 }
 
-func (r *CarServiceApplicationRepo) GetPendingByUserID(
-	ctx context.Context,
-	userID uuid.UUID,
-) (*domain.CarServiceApplication, error) {
+func (r *CarServiceApplicationRepo) GetPendingByUserID(ctx context.Context,
+	userID uuid.UUID) (*domain.CarServiceApplication, error) {
 	dbApplication, err := r.queries.GetPendingCarServiceApplicationByUserID(ctx, pgtype.UUID{Bytes: userID, Valid: true})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -73,14 +71,12 @@ func (r *CarServiceApplicationRepo) GetPendingByUserID(
 		}
 		return nil, domain.ErrInternal
 	}
+
 	return toDomainCarServiceApplication(&dbApplication), nil
 }
 
-func (r *CarServiceApplicationRepo) ListByUserID(
-	ctx context.Context,
-	userID uuid.UUID,
-	limit, offset int,
-) ([]*domain.CarServiceApplication, error) {
+func (r *CarServiceApplicationRepo) ListByUserID(ctx context.Context,
+	userID uuid.UUID, limit, offset int) ([]*domain.CarServiceApplication, error) {
 	limit32, offset32, err := checkedLimitOffset(limit, offset)
 	if err != nil {
 		return nil, err
@@ -98,11 +94,8 @@ func (r *CarServiceApplicationRepo) ListByUserID(
 	return toDomainCarServiceApplications(dbApplications), nil
 }
 
-func (r *CarServiceApplicationRepo) ListForAdmin(
-	ctx context.Context,
-	status *domain.CarServiceApplicationStatus,
-	limit, offset int,
-) ([]*domain.CarServiceApplication, error) {
+func (r *CarServiceApplicationRepo) ListForAdmin(ctx context.Context,
+	status *domain.CarServiceApplicationStatus, limit, offset int) ([]*domain.CarServiceApplication, error) {
 	limit32, offset32, err := checkedLimitOffset(limit, offset)
 	if err != nil {
 		return nil, err
@@ -126,10 +119,7 @@ func (r *CarServiceApplicationRepo) ListForAdmin(
 	return toDomainCarServiceApplications(dbApplications), nil
 }
 
-func (r *CarServiceApplicationRepo) Approve(
-	ctx context.Context,
-	input domain.ApproveCarServiceApplicationInput,
-) error {
+func (r *CarServiceApplicationRepo) Approve(ctx context.Context, input domain.ApproveCarServiceApplicationInput) error {
 	now := time.Now().UTC()
 	params := db.ApproveCarServiceApplicationParams{
 		ID:               pgtype.UUID{Bytes: input.ID, Valid: true},
@@ -143,16 +133,14 @@ func (r *CarServiceApplicationRepo) Approve(
 	if err != nil {
 		return domain.ErrInternal
 	}
+
 	if rowsAffected == 0 {
 		return domain.ErrNotFound
 	}
 	return nil
 }
 
-func (r *CarServiceApplicationRepo) Reject(
-	ctx context.Context,
-	input domain.RejectCarServiceApplicationInput,
-) error {
+func (r *CarServiceApplicationRepo) Reject(ctx context.Context, input domain.RejectCarServiceApplicationInput) error {
 	now := time.Now().UTC()
 	params := db.RejectCarServiceApplicationParams{
 		ID:              pgtype.UUID{Bytes: input.ID, Valid: true},
@@ -166,9 +154,11 @@ func (r *CarServiceApplicationRepo) Reject(
 	if err != nil {
 		return domain.ErrInternal
 	}
+
 	if rowsAffected == 0 {
 		return domain.ErrNotFound
 	}
+
 	return nil
 }
 
@@ -177,6 +167,7 @@ func toDomainCarServiceApplications(dbApplications []db.CarServiceApplication) [
 	for i := range dbApplications {
 		applications = append(applications, toDomainCarServiceApplication(&dbApplications[i]))
 	}
+
 	return applications
 }
 

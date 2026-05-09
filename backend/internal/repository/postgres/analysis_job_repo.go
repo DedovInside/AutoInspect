@@ -76,7 +76,8 @@ func (r *AnalysisJobRepo) GetByCorrelationID(ctx context.Context, correlationID 
 	return toDomainAnalysisJob(&dbJob), nil
 }
 
-func (r *AnalysisJobRepo) GetByUserAndIdempotencyKey(ctx context.Context, userID uuid.UUID, idempotencyKey string) (*domain.AnalysisJob, error) {
+func (r *AnalysisJobRepo) GetByUserAndIdempotencyKey(ctx context.Context,
+	userID uuid.UUID, idempotencyKey string) (*domain.AnalysisJob, error) {
 	params := db.GetAnalysisJobByUserAndIdempotencyKeyParams{
 		UserID:         pgtype.UUID{Bytes: userID, Valid: true},
 		IdempotencyKey: &idempotencyKey,
@@ -93,7 +94,8 @@ func (r *AnalysisJobRepo) GetByUserAndIdempotencyKey(ctx context.Context, userID
 	return toDomainAnalysisJob(&dbJob), nil
 }
 
-func (r *AnalysisJobRepo) GetByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*domain.AnalysisJob, error) {
+func (r *AnalysisJobRepo) GetByUserID(ctx context.Context,
+	userID uuid.UUID, limit, offset int) ([]*domain.AnalysisJob, error) {
 	limit32, err := intToInt32Checked(limit)
 
 	if err != nil {
@@ -127,7 +129,8 @@ func (r *AnalysisJobRepo) GetByUserID(ctx context.Context, userID uuid.UUID, lim
 	return jobs, nil
 }
 
-func (r *AnalysisJobRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status domain.JobStatus, errorMessage *string) error {
+func (r *AnalysisJobRepo) UpdateStatus(ctx context.Context,
+	id uuid.UUID, status domain.JobStatus, errorMessage *string) error {
 	pgID := pgtype.UUID{Bytes: id, Valid: true}
 	params := db.UpdateAnalysisJobStatusParams{
 		Status:       string(status),
@@ -147,7 +150,8 @@ func (r *AnalysisJobRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status
 	return nil
 }
 
-func (r *AnalysisJobRepo) UpdateStatusByCorrelationID(ctx context.Context, correlationID uuid.UUID, status domain.JobStatus, errorMessage *string) error {
+func (r *AnalysisJobRepo) UpdateStatusByCorrelationID(ctx context.Context,
+	correlationID uuid.UUID, status domain.JobStatus, errorMessage *string) error {
 	params := db.UpdateAnalysisJobStatusByCorrelationIDParams{
 		Status:        string(status),
 		ErrorMessage:  errorMessage,
@@ -164,7 +168,8 @@ func (r *AnalysisJobRepo) UpdateStatusByCorrelationID(ctx context.Context, corre
 	return nil
 }
 
-func (r *AnalysisJobRepo) UpdateResult(ctx context.Context, id uuid.UUID, result *domain.AnalysisResult, modelVersion string) error {
+func (r *AnalysisJobRepo) UpdateResult(ctx context.Context,
+	id uuid.UUID, result *domain.AnalysisResult, modelVersion string) error {
 	pgID := pgtype.UUID{Bytes: id, Valid: true}
 
 	resultJSON, err := json.Marshal(result)
@@ -191,7 +196,8 @@ func (r *AnalysisJobRepo) UpdateResult(ctx context.Context, id uuid.UUID, result
 	return nil
 }
 
-func (r *AnalysisJobRepo) UpdateResultByCorrelationID(ctx context.Context, correlationID uuid.UUID, result *domain.AnalysisResult, modelVersion string) error {
+func (r *AnalysisJobRepo) UpdateResultByCorrelationID(ctx context.Context,
+	correlationID uuid.UUID, result *domain.AnalysisResult, modelVersion string) error {
 	resultJSON, err := json.Marshal(result)
 	if err != nil {
 		return domain.ErrInternal

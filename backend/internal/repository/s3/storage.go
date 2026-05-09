@@ -14,7 +14,8 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-func (c *Client) Upload(ctx context.Context, bucket, objectKey string, data io.Reader, contentType string, size int64) error {
+func (c *Client) Upload(ctx context.Context,
+	bucket, objectKey string, data io.Reader, contentType string, size int64) error {
 	input := &s3.PutObjectInput{
 		Bucket:      aws.String(bucket),
 		Key:         aws.String(objectKey),

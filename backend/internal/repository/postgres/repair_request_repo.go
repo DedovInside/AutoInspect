@@ -77,10 +77,8 @@ func (r *RepairRequestRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 	return toDomainRepairRequest(&dbRequest)
 }
 
-func (r *RepairRequestRepo) GetByIDAndCarServiceProfileID(
-	ctx context.Context,
-	id, carServiceProfileID uuid.UUID,
-) (*domain.RepairRequest, error) {
+func (r *RepairRequestRepo) GetByIDAndCarServiceProfileID(ctx context.Context,
+	id, carServiceProfileID uuid.UUID) (*domain.RepairRequest, error) {
 	params := db.GetRepairRequestByIDAndCarServiceProfileIDParams{
 		ID:                  pgtype.UUID{Bytes: id, Valid: true},
 		CarServiceProfileID: pgtype.UUID{Bytes: carServiceProfileID, Valid: true},
@@ -97,10 +95,8 @@ func (r *RepairRequestRepo) GetByIDAndCarServiceProfileID(
 	return toDomainRepairRequest(&dbRequest)
 }
 
-func (r *RepairRequestRepo) GetPendingByUserAnalysisAndService(
-	ctx context.Context,
-	userID, analysisJobID, carServiceProfileID uuid.UUID,
-) (*domain.RepairRequest, error) {
+func (r *RepairRequestRepo) GetPendingByUserAnalysisAndService(ctx context.Context,
+	userID, analysisJobID, carServiceProfileID uuid.UUID) (*domain.RepairRequest, error) {
 	params := db.GetPendingRepairRequestByUserAnalysisAndServiceParams{
 		UserID:              pgtype.UUID{Bytes: userID, Valid: true},
 		AnalysisJobID:       pgtype.UUID{Bytes: analysisJobID, Valid: true},
@@ -118,11 +114,8 @@ func (r *RepairRequestRepo) GetPendingByUserAnalysisAndService(
 	return toDomainRepairRequest(&dbRequest)
 }
 
-func (r *RepairRequestRepo) ListByUserID(
-	ctx context.Context,
-	userID uuid.UUID,
-	limit, offset int,
-) ([]*domain.RepairRequest, error) {
+func (r *RepairRequestRepo) ListByUserID(ctx context.Context,
+	userID uuid.UUID, limit, offset int) ([]*domain.RepairRequest, error) {
 	limit32, offset32, err := checkedLimitOffset(limit, offset)
 	if err != nil {
 		return nil, err
@@ -140,11 +133,8 @@ func (r *RepairRequestRepo) ListByUserID(
 	return toDomainRepairRequests(dbRequests)
 }
 
-func (r *RepairRequestRepo) ListByCarServiceProfileID(
-	ctx context.Context,
-	carServiceProfileID uuid.UUID,
-	limit, offset int,
-) ([]*domain.RepairRequest, error) {
+func (r *RepairRequestRepo) ListByCarServiceProfileID(ctx context.Context,
+	carServiceProfileID uuid.UUID, limit, offset int) ([]*domain.RepairRequest, error) {
 	limit32, offset32, err := checkedLimitOffset(limit, offset)
 	if err != nil {
 		return nil, err
@@ -184,9 +174,8 @@ func (r *RepairRequestRepo) CancelPendingByUserID(ctx context.Context, id, userI
 	return nil
 }
 
-func (r *RepairRequestRepo) RespondByCarServiceProfileID(ctx context.Context, carServiceProfileID uuid.UUID,
-	input *domain.RespondRepairRequestInput,
-) error {
+func (r *RepairRequestRepo) RespondByCarServiceProfileID(ctx context.Context,
+	carServiceProfileID uuid.UUID, input *domain.RespondRepairRequestInput) error {
 	serviceEstimateJSON, err := marshalNullableJSON(input.ServiceEstimate)
 	if err != nil {
 		return domain.ErrInternal
@@ -223,6 +212,7 @@ func toDomainRepairRequests(dbRequests []db.RepairRequest) ([]*domain.RepairRequ
 		if err != nil {
 			return nil, err
 		}
+
 		requests = append(requests, request)
 	}
 

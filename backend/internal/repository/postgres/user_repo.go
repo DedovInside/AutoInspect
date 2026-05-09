@@ -28,6 +28,7 @@ func (r *UserRepo) Create(ctx context.Context, user *domain.User) error {
 		ID:            pgtype.UUID{Bytes: user.ID, Valid: true},
 		Username:      user.Username,
 		Email:         user.Email,
+		AvatarUrl:     user.AvatarURL,
 		PasswordHash:  user.PasswordHash,
 		Role:          string(user.Role),
 		EmailVerified: &user.EmailVerified,
@@ -43,6 +44,7 @@ func (r *UserRepo) Create(ctx context.Context, user *domain.User) error {
 		}
 		return domain.ErrInternal
 	}
+
 	return nil
 }
 
@@ -55,6 +57,7 @@ func (r *UserRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, err
 		}
 		return nil, domain.ErrInternal
 	}
+
 	return toDomainUser(&dbUser), nil
 }
 
@@ -66,6 +69,7 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, 
 		}
 		return nil, domain.ErrInternal
 	}
+
 	return toDomainUser(&dbUser), nil
 }
 
@@ -73,6 +77,7 @@ func (r *UserRepo) Update(ctx context.Context, user *domain.User) error {
 	params := db.UpdateUserParams{
 		Username:      user.Username,
 		Email:         user.Email,
+		AvatarUrl:     user.AvatarURL,
 		PasswordHash:  user.PasswordHash,
 		Role:          string(user.Role),
 		EmailVerified: &user.EmailVerified,
@@ -125,7 +130,6 @@ func (r *UserRepo) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
 	pgID := pgtype.UUID{Bytes: id, Valid: true}
 
 	rowsAffected, err := r.queries.UpdateLastLogin(ctx, pgID)
-
 	if err != nil {
 		return domain.ErrInternal
 	}
@@ -148,8 +152,8 @@ func (r *UserRepo) List(ctx context.Context, limit, offset int) ([]*domain.User,
 	if err != nil {
 		return nil, domain.ErrInternal
 	}
-	users := make([]*domain.User, len(dbUsers))
 
+	users := make([]*domain.User, len(dbUsers))
 	for i := range dbUsers {
 		users[i] = toDomainUser(&dbUsers[i])
 	}
@@ -184,6 +188,7 @@ func toDomainUser(dbUser *db.User) *domain.User {
 		ID:            id,
 		Username:      dbUser.Username,
 		Email:         dbUser.Email,
+		AvatarURL:     dbUser.AvatarUrl,
 		PasswordHash:  dbUser.PasswordHash,
 		Role:          domain.Role(dbUser.Role),
 		EmailVerified: emailVerified,

@@ -24,7 +24,6 @@ func (s *AuthService) StartYandexOAuth(ctx context.Context) (string, error) {
 	}
 
 	state, err := s.tokens.GenerateOpaqueToken(24)
-
 	if err != nil {
 		return "", err
 	}
@@ -41,22 +40,28 @@ func (s *AuthService) handleExistingYandexIdentity(
 	usersTx repository.UserRepository,
 	sessionsTx repository.AuthSessionRepository,
 	identity *domain.OAuthIdentity,
+	profile *YandexProfile,
 	userAgent, ipAddress *string,
 ) (*AuthResult, error) {
 	user, err := usersTx.GetByID(ctx, identity.UserID)
 	if err != nil {
 		return nil, err
 	}
+
 	if !user.IsActive {
 		return nil, domain.ErrUnauthorized
 	}
 
+	if err := updateUserAvatarFromYandex(ctx, usersTx, user, profile); err != nil {
+		return nil, err
+	}
+
 	ipAddr := stringToNetIPPtr(ipAddress)
 	result, _, err := s.issueTokensWithRepos(ctx, user, userAgent, ipAddr, uuid.Nil, sessionsTx)
-
 	if err != nil {
 		return nil, err
 	}
+
 	return result, nil
 }
 
@@ -73,6 +78,9 @@ func (s *AuthService) getOrCreateYandexUserByEmail(
 	if err == nil {
 		if !user.IsActive {
 			return nil, domain.ErrUnauthorized
+		}
+		if err := updateUserAvatarFromYandex(ctx, usersTx, user, profile); err != nil {
+			return nil, err
 		}
 		return user, nil
 	}
@@ -92,6 +100,7 @@ func (s *AuthService) getOrCreateYandexUserByEmail(
 		ID:            uuid.New(),
 		Username:      username,
 		Email:         strings.ToLower(profile.DefaultEmail),
+		AvatarURL:     profile.AvatarURL(),
 		PasswordHash:  "",
 		Role:          domain.RoleUser,
 		EmailVerified: true,
@@ -103,15 +112,12 @@ func (s *AuthService) getOrCreateYandexUserByEmail(
 	if err := usersTx.Create(ctx, user); err != nil {
 		return nil, err
 	}
+
 	return user, nil
 }
 
-func (s *AuthService) ensureYandexOAuthIdentity(
-	ctx context.Context,
-	identitiesTx repository.OAuthIdentityRepository,
-	user *domain.User,
-	profile *YandexProfile,
-) error {
+func (s *AuthService) ensureYandexOAuthIdentity(ctx context.Context,
+	identitiesTx repository.OAuthIdentityRepository, user *domain.User, profile *YandexProfile) error {
 	identity := &domain.OAuthIdentity{
 		ID:             uuid.New(),
 		UserID:         user.ID,
@@ -120,14 +126,31 @@ func (s *AuthService) ensureYandexOAuthIdentity(
 		Email:          &profile.DefaultEmail,
 		CreatedAt:      time.Now().UTC(),
 	}
+
 	return identitiesTx.Create(ctx, identity)
 }
 
-func (s *AuthService) processYandexOAuth(
-	ctx context.Context,
-	profile *YandexProfile,
-	userAgent, ipAddress *string,
-) (*AuthResult, error) {
+func updateUserAvatarFromYandex(ctx context.Context,
+	usersTx repository.UserRepository, user *domain.User, profile *YandexProfile) error {
+	avatarURL := profile.AvatarURL()
+	if stringPtrEqual(user.AvatarURL, avatarURL) {
+		return nil
+	}
+
+	user.AvatarURL = avatarURL
+	return usersTx.Update(ctx, user)
+}
+
+func stringPtrEqual(left, right *string) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+
+	return *left == *right
+}
+
+func (s *AuthService) processYandexOAuth(ctx context.Context,
+	profile *YandexProfile, userAgent, ipAddress *string) (*AuthResult, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return nil, domain.ErrInternal
@@ -140,7 +163,7 @@ func (s *AuthService) processYandexOAuth(
 
 	identity, err := identitiesTx.GetByProviderSubject(ctx, domain.OAuthProviderYandex, profile.ID)
 	if err == nil {
-		result, err := s.handleExistingYandexIdentity(ctx, usersTx, sessionsTx, identity, userAgent, ipAddress)
+		result, err := s.handleExistingYandexIdentity(ctx, usersTx, sessionsTx, identity, profile, userAgent, ipAddress)
 
 		if err != nil {
 			return nil, err
@@ -155,7 +178,6 @@ func (s *AuthService) processYandexOAuth(
 	}
 
 	user, err := s.getOrCreateYandexUserByEmail(ctx, usersTx, profile)
-
 	if err != nil {
 		return nil, err
 	}
@@ -173,10 +195,12 @@ func (s *AuthService) processYandexOAuth(
 	if err := tx.Commit(ctx); err != nil {
 		return nil, domain.ErrInternal
 	}
+
 	return result, nil
 }
 
-func (s *AuthService) ExchangeYandexCode(ctx context.Context, code, state string, userAgent, ipAddress *string) (*AuthResult, error) {
+func (s *AuthService) ExchangeYandexCode(ctx context.Context,
+	code, state string, userAgent, ipAddress *string) (*AuthResult, error) {
 	if s.yandex == nil {
 		return nil, domain.ErrUnauthorized
 	}
@@ -190,7 +214,6 @@ func (s *AuthService) ExchangeYandexCode(ctx context.Context, code, state string
 	}
 
 	ok, err := s.cache.ConsumeOAuthState(ctx, state)
-
 	if err != nil {
 		return nil, err
 	}
@@ -200,9 +223,9 @@ func (s *AuthService) ExchangeYandexCode(ctx context.Context, code, state string
 	}
 
 	profile, err := s.yandex.ExchangeCodeAndFetchProfile(ctx, code)
-
 	if err != nil {
 		return nil, err
 	}
+
 	return s.processYandexOAuth(ctx, profile, userAgent, ipAddress)
 }

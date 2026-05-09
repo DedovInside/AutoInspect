@@ -10,15 +10,15 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *AuthService) issueTokensWithRepos(ctx context.Context, user *domain.User, userAgent *string, ipAddress *netip.Addr, familyID uuid.UUID, sessionRepo repository.AuthSessionRepository) (*AuthResult, *domain.AuthSession, error) {
+func (s *AuthService) issueTokensWithRepos(ctx context.Context,
+	user *domain.User, userAgent *string, ipAddress *netip.Addr, familyID uuid.UUID,
+	sessionRepo repository.AuthSessionRepository) (*AuthResult, *domain.AuthSession, error) {
 	accessToken, _, accessExp, err := s.tokens.GenerateAccessToken(user)
-
 	if err != nil {
 		return nil, nil, err
 	}
 
 	refreshToken, err := s.tokens.GenerateOpaqueToken(48)
-
 	if err != nil {
 		return nil, nil, err
 	}

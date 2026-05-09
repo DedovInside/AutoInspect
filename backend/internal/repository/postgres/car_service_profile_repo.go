@@ -45,6 +45,7 @@ func (r *CarServiceProfileRepo) Create(ctx context.Context, profile *domain.CarS
 		}
 		return domain.ErrInternal
 	}
+
 	return nil
 }
 
@@ -56,6 +57,7 @@ func (r *CarServiceProfileRepo) GetByID(ctx context.Context, id uuid.UUID) (*dom
 		}
 		return nil, domain.ErrInternal
 	}
+
 	return toDomainCarServiceProfile(&dbProfile), nil
 }
 
@@ -67,6 +69,7 @@ func (r *CarServiceProfileRepo) GetByUserID(ctx context.Context, userID uuid.UUI
 		}
 		return nil, domain.ErrInternal
 	}
+
 	return toDomainCarServiceProfile(&dbProfile), nil
 }
 
@@ -93,9 +96,11 @@ func (r *CarServiceProfileRepo) Update(ctx context.Context, input *domain.Update
 	if err != nil {
 		return domain.ErrInternal
 	}
+
 	if rowsAffected == 0 {
 		return domain.ErrNotFound
 	}
+
 	return nil
 }
 
@@ -108,9 +113,11 @@ func (r *CarServiceProfileRepo) SetActive(ctx context.Context, userID uuid.UUID,
 	if err != nil {
 		return domain.ErrInternal
 	}
+
 	if rowsAffected == 0 {
 		return domain.ErrNotFound
 	}
+
 	return nil
 }
 

@@ -68,10 +68,8 @@ func NewCarServiceProfileService(
 	}
 }
 
-func (s *CarServiceProfileService) GetMyProfile(
-	ctx context.Context,
-	userID uuid.UUID,
-) (*domain.CarServiceProfile, error) {
+func (s *CarServiceProfileService) GetMyProfile(ctx context.Context,
+	userID uuid.UUID) (*domain.CarServiceProfile, error) {
 	if userID == uuid.Nil {
 		return nil, domain.ErrInvalidInput
 	}
@@ -79,10 +77,8 @@ func (s *CarServiceProfileService) GetMyProfile(
 	return s.profileRepo.GetByUserID(ctx, userID)
 }
 
-func (s *CarServiceProfileService) UpdateMyProfile(
-	ctx context.Context,
-	input *domain.UpdateCarServiceProfileInput,
-) (*domain.CarServiceProfile, error) {
+func (s *CarServiceProfileService) UpdateMyProfile(ctx context.Context,
+	input *domain.UpdateCarServiceProfileInput) (*domain.CarServiceProfile, error) {
 	if err := validateUpdateCarServiceProfileInput(input); err != nil {
 		return nil, err
 	}
@@ -95,11 +91,8 @@ func (s *CarServiceProfileService) UpdateMyProfile(
 	return s.profileRepo.GetByUserID(ctx, normalized.UserID)
 }
 
-func (s *CarServiceProfileService) SetMyProfileActive(
-	ctx context.Context,
-	userID uuid.UUID,
-	isActive bool,
-) (*domain.CarServiceProfile, error) {
+func (s *CarServiceProfileService) SetMyProfileActive(ctx context.Context,
+	userID uuid.UUID, isActive bool) (*domain.CarServiceProfile, error) {
 	if userID == uuid.Nil {
 		return nil, domain.ErrInvalidInput
 	}
@@ -111,10 +104,8 @@ func (s *CarServiceProfileService) SetMyProfileActive(
 	return s.profileRepo.GetByUserID(ctx, userID)
 }
 
-func (s *CarServiceProfileService) UploadImage(
-	ctx context.Context,
-	input *UploadCarServiceImageInput,
-) (*CarServiceImageWithURL, error) {
+func (s *CarServiceProfileService) UploadImage(ctx context.Context,
+	input *UploadCarServiceImageInput) (*CarServiceImageWithURL, error) {
 	if err := validateUploadCarServiceImageInput(input); err != nil {
 		return nil, err
 	}
@@ -169,10 +160,8 @@ func (s *CarServiceProfileService) UploadImage(
 	return s.carServiceImageWithURL(ctx, image)
 }
 
-func (s *CarServiceProfileService) ListImages(
-	ctx context.Context,
-	userID uuid.UUID,
-) ([]*CarServiceImageWithURL, error) {
+func (s *CarServiceProfileService) ListImages(ctx context.Context,
+	userID uuid.UUID) ([]*CarServiceImageWithURL, error) {
 	if userID == uuid.Nil {
 		return nil, domain.ErrInvalidInput
 	}
@@ -190,10 +179,8 @@ func (s *CarServiceProfileService) ListImages(
 	return s.carServiceImagesWithURLs(ctx, images)
 }
 
-func (s *CarServiceProfileService) SetPrimaryImage(
-	ctx context.Context,
-	userID, imageID uuid.UUID,
-) (*CarServiceImageWithURL, error) {
+func (s *CarServiceProfileService) SetPrimaryImage(ctx context.Context,
+	userID, imageID uuid.UUID) (*CarServiceImageWithURL, error) {
 	profile, image, err := s.getOwnedCarServiceImage(ctx, userID, imageID)
 	if err != nil {
 		return nil, err
@@ -207,10 +194,7 @@ func (s *CarServiceProfileService) SetPrimaryImage(
 	return s.carServiceImageWithURL(ctx, image)
 }
 
-func (s *CarServiceProfileService) DeleteImage(
-	ctx context.Context,
-	userID, imageID uuid.UUID,
-) error {
+func (s *CarServiceProfileService) DeleteImage(ctx context.Context, userID, imageID uuid.UUID) error {
 	_, image, err := s.getOwnedCarServiceImage(ctx, userID, imageID)
 	if err != nil {
 		return err
@@ -224,9 +208,7 @@ func (s *CarServiceProfileService) DeleteImage(
 	return nil
 }
 
-func (s *CarServiceProfileService) ListSpecializationOptions(
-	ctx context.Context,
-) (*domain.SpecializationOptions, error) {
+func (s *CarServiceProfileService) ListSpecializationOptions(ctx context.Context) (*domain.SpecializationOptions, error) {
 	damageTypes, err := s.damageTypeRepo.ListActive(ctx)
 	if err != nil {
 		return nil, err
@@ -243,10 +225,8 @@ func (s *CarServiceProfileService) ListSpecializationOptions(
 	}, nil
 }
 
-func (s *CarServiceProfileService) ListMySpecializations(
-	ctx context.Context,
-	userID uuid.UUID,
-) ([]*domain.CarServiceSpecialization, error) {
+func (s *CarServiceProfileService) ListMySpecializations(ctx context.Context,
+	userID uuid.UUID) ([]*domain.CarServiceSpecialization, error) {
 	if userID == uuid.Nil {
 		return nil, domain.ErrInvalidInput
 	}
@@ -259,11 +239,8 @@ func (s *CarServiceProfileService) ListMySpecializations(
 	return s.specializationRepo.ListByProfileID(ctx, profile.ID)
 }
 
-func (s *CarServiceProfileService) ReplaceMySpecializations(
-	ctx context.Context,
-	userID uuid.UUID,
-	inputs []domain.CarServiceSpecializationInput,
-) ([]*domain.CarServiceSpecialization, error) {
+func (s *CarServiceProfileService) ReplaceMySpecializations(ctx context.Context, userID uuid.UUID,
+	inputs []domain.CarServiceSpecializationInput) ([]*domain.CarServiceSpecialization, error) {
 	if userID == uuid.Nil {
 		return nil, domain.ErrInvalidInput
 	}
@@ -285,20 +262,17 @@ func (s *CarServiceProfileService) ReplaceMySpecializations(
 	return s.specializationRepo.ListByProfileID(ctx, profile.ID)
 }
 
-func (s *CarServiceProfileService) createCarServiceImageRecord(
-	ctx context.Context,
-	image *domain.CarServiceImage,
-) error {
+func (s *CarServiceProfileService) createCarServiceImageRecord(ctx context.Context,
+	image *domain.CarServiceImage) error {
 	if image.IsPrimary {
 		return s.createPrimaryCarServiceImageRecord(ctx, image)
 	}
+
 	return s.imageRepo.Create(ctx, image)
 }
 
-func (s *CarServiceProfileService) createPrimaryCarServiceImageRecord(
-	ctx context.Context,
-	image *domain.CarServiceImage,
-) error {
+func (s *CarServiceProfileService) createPrimaryCarServiceImageRecord(ctx context.Context,
+	image *domain.CarServiceImage) error {
 	if s.db == nil {
 		return domain.ErrInternal
 	}
@@ -325,10 +299,7 @@ func (s *CarServiceProfileService) createPrimaryCarServiceImageRecord(
 	return nil
 }
 
-func (s *CarServiceProfileService) setPrimaryCarServiceImage(
-	ctx context.Context,
-	profileID, imageID uuid.UUID,
-) error {
+func (s *CarServiceProfileService) setPrimaryCarServiceImage(ctx context.Context, profileID, imageID uuid.UUID) error {
 	if s.db == nil {
 		return domain.ErrInternal
 	}
@@ -355,11 +326,8 @@ func (s *CarServiceProfileService) setPrimaryCarServiceImage(
 	return nil
 }
 
-func (s *CarServiceProfileService) replaceSpecializations(
-	ctx context.Context,
-	profileID uuid.UUID,
-	inputs []domain.CarServiceSpecializationInput,
-) error {
+func (s *CarServiceProfileService) replaceSpecializations(ctx context.Context,
+	profileID uuid.UUID, inputs []domain.CarServiceSpecializationInput) error {
 	if s.db == nil {
 		return domain.ErrInternal
 	}
@@ -393,13 +361,12 @@ func (s *CarServiceProfileService) replaceSpecializations(
 	if err := tx.Commit(ctx); err != nil {
 		return domain.ErrInternal
 	}
+
 	return nil
 }
 
-func (s *CarServiceProfileService) getOwnedCarServiceImage(
-	ctx context.Context,
-	userID, imageID uuid.UUID,
-) (*domain.CarServiceProfile, *domain.CarServiceImage, error) {
+func (s *CarServiceProfileService) getOwnedCarServiceImage(ctx context.Context,
+	userID, imageID uuid.UUID) (*domain.CarServiceProfile, *domain.CarServiceImage, error) {
 	if userID == uuid.Nil || imageID == uuid.Nil {
 		return nil, nil, domain.ErrInvalidInput
 	}
@@ -421,10 +388,8 @@ func (s *CarServiceProfileService) getOwnedCarServiceImage(
 	return profile, image, nil
 }
 
-func (s *CarServiceProfileService) carServiceImagesWithURLs(
-	ctx context.Context,
-	images []*domain.CarServiceImage,
-) ([]*CarServiceImageWithURL, error) {
+func (s *CarServiceProfileService) carServiceImagesWithURLs(ctx context.Context,
+	images []*domain.CarServiceImage) ([]*CarServiceImageWithURL, error) {
 	out := make([]*CarServiceImageWithURL, 0, len(images))
 	for _, image := range images {
 		item, err := s.carServiceImageWithURL(ctx, image)
@@ -437,10 +402,8 @@ func (s *CarServiceProfileService) carServiceImagesWithURLs(
 	return out, nil
 }
 
-func (s *CarServiceProfileService) carServiceImageWithURL(
-	ctx context.Context,
-	image *domain.CarServiceImage,
-) (*CarServiceImageWithURL, error) {
+func (s *CarServiceProfileService) carServiceImageWithURL(ctx context.Context,
+	image *domain.CarServiceImage) (*CarServiceImageWithURL, error) {
 	if image == nil || s.fileRepo == nil || s.s3Cfg == nil {
 		return nil, domain.ErrInternal
 	}
@@ -478,9 +441,7 @@ func validateUpdateCarServiceProfileInput(input *domain.UpdateCarServiceProfileI
 	return nil
 }
 
-func normalizeUpdateCarServiceProfileInput(
-	input *domain.UpdateCarServiceProfileInput,
-) *domain.UpdateCarServiceProfileInput {
+func normalizeUpdateCarServiceProfileInput(input *domain.UpdateCarServiceProfileInput) *domain.UpdateCarServiceProfileInput {
 	return &domain.UpdateCarServiceProfileInput{
 		UserID:           input.UserID,
 		OrganizationName: strings.TrimSpace(input.OrganizationName),

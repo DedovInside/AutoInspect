@@ -67,7 +67,8 @@ func NewModelService(
 	}
 }
 
-func (s *ModelService) UploadModelArtifacts(ctx context.Context, input *UploadModelArtifactsInput) (*domain.CarModel, error) {
+func (s *ModelService) UploadModelArtifacts(ctx context.Context,
+	input *UploadModelArtifactsInput) (*domain.CarModel, error) {
 	if err := validateModelUploadInput(input); err != nil {
 		return nil, err
 	}

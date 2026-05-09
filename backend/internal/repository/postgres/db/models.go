@@ -208,4 +208,5 @@ type User struct {
 	CreatedAt     pgtype.Timestamptz
 	UpdatedAt     pgtype.Timestamptz
 	LastLogin     pgtype.Timestamptz
+	AvatarUrl     *string
 }
