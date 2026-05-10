@@ -20,5 +20,6 @@ COPY proto ./proto
 COPY configs ./configs
 COPY .env.example ./
 
-CMD ["python", "-m", "app.kafka.worker"]
+EXPOSE 8081
 
+CMD ["python", "-m", "app.kafka.worker"]

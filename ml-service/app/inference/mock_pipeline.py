@@ -6,6 +6,7 @@ from app.inference.models import (
     DamageInstance,
     ImageAnalysisResult,
     PartAssociation,
+    PartSummary,
 )
 
 
@@ -29,6 +30,14 @@ class MockPipeline:
             width=640,
             height=480,
             damage_instances=[damage],
+            parts_summary=[
+                PartSummary(
+                    name="hood",
+                    side=None,
+                    damage_count=1,
+                    damage_types={"scratch": 1},
+                )
+            ],
         )
 
         return AnalysisResult(
@@ -40,4 +49,3 @@ class MockPipeline:
             batch_id=task.correlation_id or "batch-1",
             results=[image_result],
         )
-

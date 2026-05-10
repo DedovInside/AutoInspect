@@ -1,16 +1,22 @@
 from __future__ import annotations
 
 import json
+import logging
+import time
 from pathlib import Path
 
 from confluent_kafka import KafkaException
 
+import app.logging_config  # noqa: F401
 from app.contracts.mapper import build_analysis_result_message, build_failed_result, parse_analysis_request
+from app.health import HealthServer, HealthState
 from app.inference.adapter import AutoInspectPipeline
 from app.kafka.consumer import create_consumer
 from app.kafka.producer import create_producer
 from app.settings import get_settings
 from app.storage.s3_client import S3Storage
+
+logger = logging.getLogger(__name__)
 
 
 class KafkaWorker:
@@ -19,6 +25,25 @@ class KafkaWorker:
         self._consumer = create_consumer(self._settings)
         self._producer = create_producer(self._settings)
         self._pipeline = AutoInspectPipeline()
+        self._health = HealthState()
+        self._health_server: HealthServer | None = None
+
+        if self._settings.health_enabled:
+            self._health_server = HealthServer(
+                self._settings.health_host,
+                self._settings.health_port,
+                self._health.snapshot,
+            )
+            self._health_server.start()
+            logger.info("Health endpoint started on %s:%s", self._settings.health_host, self._settings.health_port)
+
+        self._preflight_artifacts()
+
+    def _preflight_artifacts(self) -> None:
+        storage = S3Storage(self._settings)
+        storage.ensure_exists(self._settings.damage_model_s3_key)
+        storage.ensure_exists(self._settings.damage_config_s3_key)
+        logger.info("Damage artifacts found in S3")
 
     def _read_model_meta(self, config_path: Path) -> tuple[str, str]:
         try:
@@ -55,8 +80,27 @@ class KafkaWorker:
             model_version,
         )
 
+    def _produce_with_retry(self, key: str, payload: bytes) -> None:
+        retries = max(1, int(self._settings.kafka_produce_retries))
+        backoff = float(self._settings.kafka_retry_backoff_ms) / 1000.0
+        for attempt in range(1, retries + 1):
+            try:
+                self._producer.produce(
+                    self._settings.kafka_result_topic,
+                    key=key,
+                    value=payload,
+                )
+                self._producer.poll(0)
+                return
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Kafka produce failed (attempt %s/%s): %s", attempt, retries, exc)
+                if attempt >= retries:
+                    raise
+                time.sleep(backoff * attempt)
+
     def run_forever(self) -> None:
         self._consumer.subscribe([self._settings.kafka_request_topic])
+        logger.info("Kafka worker started on topic=%s", self._settings.kafka_request_topic)
 
         try:
             while True:
@@ -64,7 +108,11 @@ class KafkaWorker:
                 if msg is None:
                     continue
                 if msg.error():
-                    raise KafkaException(msg.error())
+                    err = msg.error()
+                    if getattr(err, "fatal", lambda: False)():
+                        raise KafkaException(err)
+                    logger.warning("Kafka consumer error: %s", err)
+                    continue
 
                 try:
                     task = parse_analysis_request(msg.value())
@@ -92,29 +140,24 @@ class KafkaWorker:
                         correlation_id=task.correlation_id,
                     )
                     payload = build_analysis_result_message(result).SerializeToString()
-                    self._producer.produce(
-                        self._settings.kafka_result_topic,
-                        key=task.correlation_id,
-                        value=payload,
-                    )
-                    self._producer.poll(0)
+                    self._produce_with_retry(task.correlation_id, payload)
                     self._consumer.commit(message=msg, asynchronous=False)
+                    self._health.mark_success()
                 except Exception as exc:  # noqa: BLE001
                     correlation_id = ""
                     try:
                         correlation_id = task.correlation_id
                     except Exception:  # noqa: BLE001
                         pass
+                    logger.exception("Failed to process message: %s", exc)
+                    self._health.mark_error(str(exc))
                     failed = build_failed_result(correlation_id, str(exc))
                     payload = build_analysis_result_message(failed).SerializeToString()
-                    self._producer.produce(
-                        self._settings.kafka_result_topic,
-                        key=correlation_id,
-                        value=payload,
-                    )
-                    self._producer.poll(0)
+                    self._produce_with_retry(correlation_id, payload)
                     self._consumer.commit(message=msg, asynchronous=False)
         finally:
+            if self._health_server is not None:
+                self._health_server.stop()
             self._producer.flush(5)
             self._consumer.close()
 

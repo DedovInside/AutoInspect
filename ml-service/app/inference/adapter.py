@@ -14,6 +14,7 @@ from app.inference.models import (
     DamageInstance,
     ImageAnalysisResult,
     PartAssociation,
+    PartSummary,
 )
 
 
@@ -199,12 +200,27 @@ class AutoInspectPipeline:
                     )
                 )
 
+            parts_summary: list[PartSummary] = []
+            for part in image_dict.get("parts_summary", []):
+                parts_summary.append(
+                    PartSummary(
+                        name=part["name"],
+                        side=part.get("side"),
+                        damage_count=int(part.get("damage_count", 0)),
+                        damage_types={
+                            str(key): int(value)
+                            for key, value in (part.get("damage_types") or {}).items()
+                        },
+                    )
+                )
+
             image_result = ImageAnalysisResult(
                 image_id=image_dict.get("image_id"),
                 image_uri=image_dict.get("image_uri"),
                 width=int(image_dict.get("image", {}).get("width", 0)),
                 height=int(image_dict.get("image", {}).get("height", 0)),
                 damage_instances=damage_instances,
+                parts_summary=parts_summary,
             )
 
             image_results.append(image_result)

@@ -8,6 +8,7 @@ from app.inference.models import (
     DamageInstance,
     ImageAnalysisResult,
     PartAssociation,
+    PartSummary,
 )
 
 
@@ -87,6 +88,16 @@ def build_analysis_result_message(result: AnalysisResult) -> result_pb2.Analysis
                 if part.side is not None:
                     part_message.side = part.side
 
+        for summary in image_result.parts_summary:
+            summary_message = image_message.parts_summary.add(
+                name=summary.name,
+                damage_count=int(summary.damage_count),
+            )
+            if summary.side is not None:
+                summary_message.side = summary.side
+            for damage_type, count in summary.damage_types.items():
+                summary_message.damage_types[str(damage_type)] = int(count)
+
 
     return message
 
@@ -115,4 +126,3 @@ def _validate_bbox(bbox: list[int]) -> None:
 def _validate_point(point: list[int]) -> None:
     if len(point) != 2:
         raise ValueError("polygon point must contain 2 integers [x, y]")
-

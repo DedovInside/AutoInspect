@@ -33,7 +33,7 @@ ML‑микросервис принимает `AnalysisRequest` (protobuf) из
 - `model_id`, `model_version`, `batch_id`
 - `results[]` → `ImageAnalysisResult`
 
-`parts_summary` **не отправляется** (считается на backend при необходимости).
+`ImageAnalysisResult` включает `damage_instances` и `parts_summary`.
 
 ### Конфиги
 
@@ -65,10 +65,17 @@ ML‑микросервис принимает `AnalysisRequest` (protobuf) из
 - скачивание в локальный кэш: `app/storage/s3_client.py`
 - модели кэшируются по ключу
 - изображения - в каталоге job по `correlation_id`
+- при старте проверяются `DAMAGE_MODEL_S3_KEY` и `DAMAGE_CONFIG_S3_KEY`
 
 ### Ошибки
 
 - если обработка запроса падает, публикуется `AnalysisResult` со `status="failed"` и `error_message`
+- S3 download и Kafka produce выполняются с ретраями
+
+### Health
+
+- endpoint: `GET /health` или `GET /healthz`
+- порт задается `HEALTH_PORT` (по умолчанию 8081)
 
 ### Docker/Compose
 
