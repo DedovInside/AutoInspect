@@ -4,7 +4,7 @@
 Example:
     python infer_parts.py \
         --source "path/to/car.jpg" \
-        --model "car_parts_model.pt" \
+        --model "parts_segmentation.pt" \
         --imgsz 768 \
         --conf 0.25 \
         --iou 0.70 \
@@ -26,7 +26,7 @@ from ultralytics import YOLO
 
 
 DEFAULT_REPO_ID = "mitbersh/car-parts-segmentation"
-DEFAULT_MODEL_FILENAME = "car_parts_model.pt"
+DEFAULT_MODEL_FILENAME = "parts_segmentation.pt"
 DEFAULT_PROJECT = "runs/parts_infer"
 DEFAULT_NAME = "predict"
 
@@ -83,7 +83,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=(
             "Path to local YOLO weights. If omitted, the script downloads "
-            "car_parts_model.pt from Hugging Face."
+            "parts_segmentation.pt from Hugging Face."
         ),
     )
     parser.add_argument(

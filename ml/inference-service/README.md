@@ -59,14 +59,14 @@ pip install -r requirements.infer.txt
 #### 2. Скачать модели
 
 ```bash
-python -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='mitbersh/car-parts-segmentation', filename='car_parts_model.pt', local_dir='.')"
-python -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='mitbersh/car-damage-segmentation', filename='car_damage_model.pt', local_dir='.')"
+python -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='mitbersh/car-parts-segmentation', filename='parts_segmentation.pt', local_dir='.')"
+python -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='mitbersh/car-damage-segmentation', filename='damage_segmentation.pt', local_dir='.')"
 ```
 
 #### 3. Запустить инференс
 
 ```bash
-python inference.py --source "path/to/car.jpg" --parts-model "car_parts_model.pt" --damage-model "car_damage_model.pt" --output "outputs/autoinspect_predictions.json" --retina-masks
+python inference.py --source "path/to/car.jpg" --parts-model "parts_segmentation.pt" --damage-model "damage_segmentation.pt" --output "outputs/autoinspect_predictions.json" --retina-masks
 ```
 
 #### 4. Визуализировать

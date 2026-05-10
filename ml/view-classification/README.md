@@ -4,7 +4,7 @@
 [![Hugging Face](https://img.shields.io/badge/Hugging%20Face-car--view-yellow?logo=huggingface)](https://huggingface.co/mitbersh/car-view-classification)
 [![PyTorch](https://img.shields.io/badge/PyTorch-ResNet18%20Two--Head-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![Task](https://img.shields.io/badge/Task-Car%20View%20Classification-blue)]()
-[![Classes](https://img.shields.io/badge/Classes-9-success)]()
+[![Classes](https://img.shields.io/badge/Classes-8-success)]()
 
 Модель классификации ракурса автомобиля из проекта **AutoInspect**.
 

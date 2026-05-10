@@ -16,9 +16,9 @@ SIDE_PREFIX_RE = re.compile(r"^(left|right)_(.+)$")
 
 
 PARTS_REPO_ID = "mitbersh/car-parts-segmentation"
-PARTS_FILENAME = "car_parts_model.pt"
+PARTS_FILENAME = "parts_segmentation.pt"
 DAMAGE_REPO_ID = "mitbersh/car-damage-segmentation"
-DAMAGE_FILENAME = "car_damage_model.pt"
+DAMAGE_FILENAME = "damage_segmentation.pt"
 
 
 def resolve_weights(model_path: str | None, repo_id: str, filename: str) -> str:

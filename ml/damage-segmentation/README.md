@@ -2,7 +2,7 @@
 
 [![Project](https://img.shields.io/badge/Project-AutoInspect-black?logo=github)](https://github.com/DedovInside/AutoInspect/tree/ml/ml)
 [![Hugging Face](https://img.shields.io/badge/Hugging%20Face-car--damage-yellow?logo=huggingface)](https://huggingface.co/mitbersh/car-damage-segmentation)
-[![Ultralytics](https://img.shields.io/badge/Ultralytics-YOLOv26--s-111111?logo=ultralytics&logoColor=white)](https://www.ultralytics.com/)
+[![Ultralytics](https://img.shields.io/badge/Ultralytics-YOLOv26--m-111111?logo=ultralytics&logoColor=white)](https://www.ultralytics.com/)
 [![Task](https://img.shields.io/badge/Task-Car%20Damage%20Segmentation-blue)]()
 [![Classes](https://img.shields.io/badge/Classes-6-success)]()
 
@@ -12,7 +12,7 @@
 
 ## О модели
 
-- **Backbone / model family:** `YOLOv26-s` / Ultralytics segmentation model
+- **Backbone / model family:** `YOLOv26-m` / Ultralytics segmentation model
 - **Задача:** instance segmentation повреждений автомобиля
 - **Input image size:** `896`
 - **Классы:** 6 типов повреждений из CarDD
@@ -66,13 +66,13 @@ pip install -r requirements.infer.txt
 #### 2. Скачать модель
 
 ```bash
-python -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='mitbersh/car-damage-segmentation', filename='car_damage_model.pt', local_dir='.')"
+python -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='mitbersh/car-damage-segmentation', filename='damage_segmentation.pt', local_dir='.')"
 ```
 
 #### 3. Запустить инференс
 
 ```bash
-python infer_damage.py --source "path/to/car.jpg" --model "car_damage_model.pt" --imgsz 896 --conf 0.25 --iou 0.70 --device auto --save --json "outputs/damage_predictions.json"
+python infer_damage.py --source "path/to/car.jpg" --model "damage_segmentation.pt" --imgsz 896 --conf 0.25 --iou 0.70 --device auto --save --json "outputs/damage_predictions.json"
 ```
 
 ## Что сохраняет infer-скрипт
@@ -110,12 +110,12 @@ YOLO-датасет: [mitbersh/car-damage-segmentation-yolo](https://huggingface
 
 ## Обучение
 
-Обучение проводилось в [Kaggle](https://www.kaggle.com/code/brshtskmit/train-car-damage-segmentation-yolov26-s-cardd).
+Обучение проводилось в [Kaggle](https://www.kaggle.com/code/brshtskmit/train-car-damage-segmentation-yolov26-m-cardd).
 
-- модель: `YOLOv26-s`
+- модель: `YOLOv26-m`
 - размер изображения: `896`
 - датасет: `mitbersh/car-damage-segmentation-yolo`
-- основной фокус: высокая детализация damage masks при сохранении practical inference speed
+- особый фокус на recall для tiny/small повреждений: царапины и трещины - самые сложные для сегментации дефекты
 
 ### Почему используется повышенное разрешение
 
@@ -132,23 +132,21 @@ imgsz = 896
 
 ## Метрики
 
-> Поле оставлено пустым демонстративно. Заполнить после финального выбора run / export из Kaggle / Comet.
-
 | Метрика | Значение |
 |---|---:|
-| `box/mAP50` |  |
-| `box/mAP50-95` |  |
-| `seg/mAP50` |  |
-| `seg/mAP50-95` |  |
-| `precision` |  |
-| `recall` |  |
-| `fitness` |  |
+| `test/seg_mAP50_95` | 0.567733 |
+| `test/seg_mAP50` | 0.774237 |
+| `test/seg_precision` | 0.807490 |
+| `test/seg_recall` | 0.738207 |
+| `test/small_damage_recall50_tiny_small` | 0.780488 |
+
+> **Примечание:** `tiny` — повреждения до 0.05% площади изображения, `small` — от 0.05% до 0.25%.
 
 ## Артефакты
 
 - Модель: https://huggingface.co/mitbersh/car-damage-segmentation
 - YOLO-датасет: https://huggingface.co/datasets/mitbersh/car-damage-segmentation-yolo
-- Обучение: https://www.kaggle.com/code/brshtskmit/train-car-damage-segmentation-yolov26-s-cardd
+- Обучение: https://www.kaggle.com/code/brshtskmit/train-car-damage-segmentation-yolov26-m-cardd
 - Источник CarDD: https://cardd-ustc.github.io/
 - SuperviselyPerspective: https://github.com/brshtsk/SuperviselyPerspective
 - SuperviselyPartsTags: https://github.com/brshtsk/SuperviselyPartsTags

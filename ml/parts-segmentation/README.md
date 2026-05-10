@@ -71,19 +71,13 @@ pip install -r requirements.infer.txt
 #### 2. Скачать модель
 
 ```bash
-python -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='mitbersh/car-parts-segmentation', filename='car_parts_model.pt', local_dir='.')"
+python -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='mitbersh/car-parts-segmentation', filename='parts_segmentation.pt', local_dir='.')"
 ```
 
 #### 3. Запустить инференс
 
 ```bash
-python infer_parts.py --source "path/to/car.jpg" --model "car_parts_model.pt" --imgsz 768 --conf 0.25 --iou 0.70 --device auto --save --json "outputs/parts_predictions.json"
-```
-
-Можно передать как один файл, так и директорию с изображениями:
-
-```bash
-python infer_parts.py --source "path/to/images" --model "car_parts_model.pt" --save
+python infer_parts.py --source "path/to/car.jpg" --model "parts_segmentation.pt" --imgsz 768 --conf 0.25 --iou 0.70 --device auto --save --json "outputs/parts_predictions.json"
 ```
 
 ## Что сохраняет infer-скрипт

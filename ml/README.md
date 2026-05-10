@@ -9,7 +9,7 @@
 
 ML-часть **AutoInspect** - это набор моделей компьютерного зрения для автоматической оценки повреждений автомобиля по фотографии.
 
-Проект построен с прицелом на production: есть general-модели, возможность дообучения под конкретные автомобили/домены и отдельный inference-сервис для интеграции с backend.
+Проект построен с прицелом на production: есть general-модели, возможность адаптации под конкретные автомобили/домены и отдельный inference-сервис для интеграции с backend.
 
 Автор: Бершицкий Дмитрий Александрович
 
@@ -17,14 +17,14 @@ ML-часть **AutoInspect** - это набор моделей компьют�
 
 ## Статус модулей
 
-| Модуль | Назначение | Статус |
-|---|---|---|
-| Part Segmentation General | Сегментация крупных деталей автомобиля | `READY` |
-| Damage Segmentation | Сегментация повреждений | `READY` |
+| Модуль | Назначение                                                   | Статус |
+|---|--------------------------------------------------------------|---|
+| Part Segmentation General | Сегментация крупных деталей автомобиля                       | `READY` |
+| Damage Segmentation | Сегментация повреждений                                      | `READY` |
 | View Model | Вспомогательная классификация ракурса / tooling для датасета | `READY / AUXILIARY` |
-| ML Inference Service | Объединение Parts + Damages в JSON для backend | `READY` |
-| Part Segmentation Tuned | Дообучение под конкретные авто/домены | `IN PROGRESS` |
-| Detailed Segmentation | Детальная сегментация мелких элементов | `IN PROGRESS` |
+| ML Inference Service | Объединение Parts + Damages в JSON для backend               | `READY` |
+| Part Segmentation Tuned | Адаптация под конкретные авто/домены                         | `IN PROGRESS` |
+| Detailed Segmentation | Детальная сегментация мелких элементов                       | `IN PROGRESS` |
 
 ---
 
@@ -175,7 +175,7 @@ View Model -> Part Segmentation -> Damage Segmentation
 
 ## 5. Part Segmentation Tuned
 
-`Part Segmentation Tuned` - дообучение general-модели под конкретные автомобили, марки, типы кузова или домены.
+`Part Segmentation Tuned` - адаптация general-модели под конкретные автомобили, марки, типы кузова или домены.
 
 Идея:
 
