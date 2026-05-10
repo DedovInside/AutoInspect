@@ -17,7 +17,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY scripts ./scripts
 COPY proto ./proto
-COPY configs ./configs
 COPY .env.example ./
 
 EXPOSE 8081
