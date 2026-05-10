@@ -25,4 +25,3 @@ class ImagePredictions:
     width: int
     height: int
     instances: list[InstancePrediction]
-

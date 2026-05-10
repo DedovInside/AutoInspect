@@ -227,7 +227,7 @@ class AutoInspectPipeline:
 
         result = AnalysisResult(
             correlation_id=correlation_id,
-            status="ok",
+            status="completed",
             error_message="",
             model_id=model_id,
             model_version=model_version,
@@ -236,4 +236,3 @@ class AutoInspectPipeline:
         )
 
         return result
-

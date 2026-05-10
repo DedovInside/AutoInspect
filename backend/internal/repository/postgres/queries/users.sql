@@ -10,14 +10,14 @@ VALUES ($1, $2, $3, $4, $5, $6,
 SELECT id,
        username,
        email,
+       avatar_url,
        password_hash,
        role,
        email_verified,
        is_active,
        created_at,
        updated_at,
-       last_login,
-       avatar_url
+       last_login
 FROM users
 WHERE id = $1 LIMIT 1;
 
@@ -25,14 +25,14 @@ WHERE id = $1 LIMIT 1;
 SELECT id,
        username,
        email,
+       avatar_url,
        password_hash,
        role,
        email_verified,
        is_active,
        created_at,
        updated_at,
-       last_login,
-       avatar_url
+       last_login
 FROM users
 WHERE email = $1 LIMIT 1;
 
@@ -51,9 +51,9 @@ WHERE id = $8;
 DELETE FROM users WHERE id = $1;
 
 -- name: ListUsers :many
-SELECT id, username, email, password_hash, role,
+SELECT id, username, email, avatar_url, password_hash, role,
        email_verified, is_active,
-       created_at, updated_at, last_login, avatar_url
+       created_at, updated_at, last_login
 FROM users
 ORDER BY created_at DESC
     LIMIT $1 OFFSET $2;

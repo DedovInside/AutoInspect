@@ -304,19 +304,25 @@ const updateAnalysisJobStatusByCorrelationID = `-- name: UpdateAnalysisJobStatus
 UPDATE analysis_jobs
 SET status = $1,
     error_message = $2,
-    completed_at = CASE WHEN $1 IN ('completed', 'failed') THEN NOW() ELSE completed_at END
-WHERE correlation_id = $3
+    completed_at = $3
+WHERE correlation_id = $4
   AND status = 'pending'
 `
 
 type UpdateAnalysisJobStatusByCorrelationIDParams struct {
 	Status        string
 	ErrorMessage  *string
+	CompletedAt   pgtype.Timestamptz
 	CorrelationID pgtype.UUID
 }
 
 func (q *Queries) UpdateAnalysisJobStatusByCorrelationID(ctx context.Context, arg UpdateAnalysisJobStatusByCorrelationIDParams) (int64, error) {
-	result, err := q.db.Exec(ctx, updateAnalysisJobStatusByCorrelationID, arg.Status, arg.ErrorMessage, arg.CorrelationID)
+	result, err := q.db.Exec(ctx, updateAnalysisJobStatusByCorrelationID,
+		arg.Status,
+		arg.ErrorMessage,
+		arg.CompletedAt,
+		arg.CorrelationID,
+	)
 	if err != nil {
 		return 0, err
 	}

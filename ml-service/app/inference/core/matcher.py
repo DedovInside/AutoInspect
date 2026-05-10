@@ -180,4 +180,3 @@ def build_batch_summary(image_results: list[dict[str, Any]]) -> dict[str, Any]:
         "damage_types": dict(damage_type_counter),
         "parts": parts,
     }
-

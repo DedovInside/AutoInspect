@@ -201,6 +201,7 @@ type User struct {
 	ID            pgtype.UUID
 	Username      string
 	Email         string
+	AvatarUrl     *string
 	PasswordHash  string
 	Role          string
 	EmailVerified *bool
@@ -208,5 +209,4 @@ type User struct {
 	CreatedAt     pgtype.Timestamptz
 	UpdatedAt     pgtype.Timestamptz
 	LastLogin     pgtype.Timestamptz
-	AvatarUrl     *string
 }

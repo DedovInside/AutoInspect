@@ -26,4 +26,3 @@ def job_dir(cache_dir: Path, correlation_id: str) -> Path:
 
 def job_file_path(cache_dir: Path, correlation_id: str, key: str) -> Path:
     return job_dir(cache_dir, correlation_id) / Path(key).name
-

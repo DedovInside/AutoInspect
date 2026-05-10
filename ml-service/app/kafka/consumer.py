@@ -13,4 +13,3 @@ def create_consumer(settings: Settings) -> Consumer:
         "enable.auto.commit": False,
     }
     return Consumer(config)
-

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository/postgres/db"
@@ -152,9 +153,15 @@ func (r *AnalysisJobRepo) UpdateStatus(ctx context.Context,
 
 func (r *AnalysisJobRepo) UpdateStatusByCorrelationID(ctx context.Context,
 	correlationID uuid.UUID, status domain.JobStatus, errorMessage *string) error {
+	var completedAt pgtype.Timestamptz
+	if status == domain.StatusCompleted || status == domain.StatusFailed {
+		completedAt = pgtype.Timestamptz{Time: time.Now(), Valid: true}
+	}
+
 	params := db.UpdateAnalysisJobStatusByCorrelationIDParams{
 		Status:        string(status),
 		ErrorMessage:  errorMessage,
+		CompletedAt:   completedAt,
 		CorrelationID: pgtype.UUID{Bytes: correlationID, Valid: true},
 	}
 
@@ -162,9 +169,11 @@ func (r *AnalysisJobRepo) UpdateStatusByCorrelationID(ctx context.Context,
 	if err != nil {
 		return domain.ErrInternal
 	}
+
 	if rowsAffected == 0 {
 		return domain.ErrJobNotFound
 	}
+
 	return nil
 }
 

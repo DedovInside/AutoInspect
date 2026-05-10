@@ -65,14 +65,14 @@ const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id,
        username,
        email,
+       avatar_url,
        password_hash,
        role,
        email_verified,
        is_active,
        created_at,
        updated_at,
-       last_login,
-       avatar_url
+       last_login
 FROM users
 WHERE email = $1 LIMIT 1
 `
@@ -84,6 +84,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.ID,
 		&i.Username,
 		&i.Email,
+		&i.AvatarUrl,
 		&i.PasswordHash,
 		&i.Role,
 		&i.EmailVerified,
@@ -91,7 +92,6 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastLogin,
-		&i.AvatarUrl,
 	)
 	return i, err
 }
@@ -100,14 +100,14 @@ const getUserByID = `-- name: GetUserByID :one
 SELECT id,
        username,
        email,
+       avatar_url,
        password_hash,
        role,
        email_verified,
        is_active,
        created_at,
        updated_at,
-       last_login,
-       avatar_url
+       last_login
 FROM users
 WHERE id = $1 LIMIT 1
 `
@@ -119,6 +119,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 		&i.ID,
 		&i.Username,
 		&i.Email,
+		&i.AvatarUrl,
 		&i.PasswordHash,
 		&i.Role,
 		&i.EmailVerified,
@@ -126,15 +127,14 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastLogin,
-		&i.AvatarUrl,
 	)
 	return i, err
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, username, email, password_hash, role,
+SELECT id, username, email, avatar_url, password_hash, role,
        email_verified, is_active,
-       created_at, updated_at, last_login, avatar_url
+       created_at, updated_at, last_login
 FROM users
 ORDER BY created_at DESC
     LIMIT $1 OFFSET $2
@@ -158,6 +158,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 			&i.ID,
 			&i.Username,
 			&i.Email,
+			&i.AvatarUrl,
 			&i.PasswordHash,
 			&i.Role,
 			&i.EmailVerified,
@@ -165,7 +166,6 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.LastLogin,
-			&i.AvatarUrl,
 		); err != nil {
 			return nil, err
 		}

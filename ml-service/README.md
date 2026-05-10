@@ -65,7 +65,7 @@ ML‑микросервис принимает `AnalysisRequest` (protobuf) из
 - скачивание в локальный кэш: `app/storage/s3_client.py`
 - модели кэшируются по ключу
 - изображения - в каталоге job по `correlation_id`
-- при старте проверяются `DAMAGE_MODEL_S3_KEY` и `DAMAGE_CONFIG_S3_KEY`
+- при обработке задачи скачиваются `DAMAGE_MODEL_S3_KEY` и `DAMAGE_CONFIG_S3_KEY`
 
 ### Ошибки
 

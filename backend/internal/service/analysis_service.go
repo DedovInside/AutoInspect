@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"strings"
@@ -188,30 +189,54 @@ func (s *AnalysisService) handleCreateConflict(ctx context.Context,
 }
 
 func (s *AnalysisService) HandleAnalysisResult(ctx context.Context, msg broker.Message) error {
+	log.Printf("analysis result received: topic=%s key=%s payload_bytes=%d", msg.Topic, string(msg.Key), len(msg.Value))
+
 	protoResult, jobCorrID, err := parseAnalysisResultMessage(msg)
 	if err != nil {
+		log.Printf("analysis result parse failed: topic=%s key=%s error=%v", msg.Topic, string(msg.Key), err)
 		return err
 	}
+
+	log.Printf(
+		"analysis result parsed: correlation_id=%s status=%q model_id=%q model_version=%q images=%d error=%q",
+		jobCorrID,
+		protoResult.Status,
+		protoResult.ModelId,
+		protoResult.ModelVersion,
+		len(protoResult.Results),
+		protoResult.ErrorMessage,
+	)
 
 	existingJob, err := s.jobRepo.GetByCorrelationID(ctx, jobCorrID)
 	if err != nil {
 		if errors.Is(err, domain.ErrJobNotFound) {
+			log.Printf("analysis result ignored: job not found correlation_id=%s", jobCorrID)
 			return nil
 		}
+		log.Printf("analysis result job lookup failed: correlation_id=%s error=%v", jobCorrID, err)
 		return fmt.Errorf("check existing job: %w", err)
 	}
 
 	if isTerminalStatus(existingJob.Status) {
+		log.Printf(
+			"analysis result ignored: job already terminal correlation_id=%s job_id=%s status=%s",
+			jobCorrID,
+			existingJob.ID,
+			existingJob.Status,
+		)
 		return nil
 	}
 
 	status := strings.ToLower(strings.TrimSpace(protoResult.Status))
 	switch status {
 	case string(domain.StatusFailed):
+		log.Printf("analysis result handling failed status: correlation_id=%s job_id=%s", jobCorrID, existingJob.ID)
 		return s.handleFailedAnalysisResult(ctx, jobCorrID, existingJob, protoResult.ErrorMessage)
 	case string(domain.StatusCompleted):
+		log.Printf("analysis result handling completed status: correlation_id=%s job_id=%s", jobCorrID, existingJob.ID)
 		return s.handleCompletedAnalysisResult(ctx, jobCorrID, existingJob, protoResult)
 	default:
+		log.Printf("analysis result unsupported status: correlation_id=%s status=%q", jobCorrID, protoResult.Status)
 		return fmt.Errorf("unsupported analysis status: %q", protoResult.Status)
 	}
 }
@@ -247,10 +272,14 @@ func (s *AnalysisService) handleFailedAnalysisResult(
 
 	if err := s.jobRepo.UpdateStatusByCorrelationID(ctx, correlationID, domain.StatusFailed, &errMsg); err != nil {
 		if errors.Is(err, domain.ErrJobNotFound) {
+			log.Printf("analysis job failed update skipped: job not found correlation_id=%s", correlationID)
 			return nil
 		}
+		log.Printf("analysis job failed update error: correlation_id=%s error=%v", correlationID, err)
 		return fmt.Errorf("update job status to failed: %w", err)
 	}
+
+	log.Printf("analysis job marked failed: correlation_id=%s job_id=%s error=%q", correlationID, job.ID, errMsg)
 
 	s.notifyJobEvent(ctx, &notify.JobEvent{
 		JobID:     job.ID,
@@ -282,15 +311,27 @@ func (s *AnalysisService) handleCompletedAnalysisResult(
 	}
 
 	if err := s.enrichAnalysisResult(ctx, domainResult, model); err != nil {
+		log.Printf("analysis result enrichment failed: correlation_id=%s job_id=%s error=%v", correlationID, job.ID, err)
 		return fmt.Errorf("enrich analysis result: %w", err)
 	}
 
 	if err := s.jobRepo.UpdateResultByCorrelationID(ctx, correlationID, domainResult, protoResult.ModelVersion); err != nil {
 		if errors.Is(err, domain.ErrJobNotFound) {
+			log.Printf("analysis job completed update skipped: job not found correlation_id=%s", correlationID)
 			return nil
 		}
+		log.Printf("analysis job completed update error: correlation_id=%s error=%v", correlationID, err)
 		return fmt.Errorf("update job result: %w", err)
 	}
+
+	log.Printf(
+		"analysis job marked completed: correlation_id=%s job_id=%s model_version=%q images=%d damages=%d",
+		correlationID,
+		job.ID,
+		protoResult.ModelVersion,
+		len(protoResult.Results),
+		countDamageInstances(domainResult),
+	)
 
 	s.notifyJobEvent(ctx, &notify.JobEvent{
 		JobID:     job.ID,

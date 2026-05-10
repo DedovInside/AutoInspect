@@ -127,7 +127,7 @@ services:
 
   migrator:
     build:
-      context: ..
+      context: ../backend
       dockerfile: Dockerfile
       target: migrator
     container_name: autoinspect-migrator
@@ -140,12 +140,12 @@ services:
 
   api:
     build:
-      context: ..
+      context: ../backend
       dockerfile: Dockerfile
       target: api
     container_name: autoinspect-api
     env_file:
-      - ../.env
+      - ../backend/.env
     environment:
       ENVIRONMENT: development
       HTTP_HOST: 0.0.0.0
@@ -188,12 +188,12 @@ services:
 
   worker:
     build:
-      context: ..
+      context: ../backend
       dockerfile: Dockerfile
       target: worker
     container_name: autoinspect-worker
     env_file:
-      - ../.env
+      - ../backend/.env
     environment:
       ENVIRONMENT: development
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/autoinspect?sslmode=disable
@@ -223,8 +223,44 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  ml-service:
+    build:
+      context: ../ml-service
+      dockerfile: Dockerfile
+    container_name: autoinspect-ml-service
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_REQUEST_TOPIC: autoinspect.analysis.request
+      KAFKA_RESULT_TOPIC: autoinspect.analysis.result
+      KAFKA_CONSUMER_GROUP: autoinspect-ml-service
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET_UPLOADS: autoinspect-uploads
+      S3_BUCKET_MODELS: autoinspect-models
+      S3_BUCKET_RESULTS: autoinspect-results
+      LOCAL_CACHE_DIR: /cache
+      DAMAGE_MODEL_S3_KEY: models/general/damage_segmentation.pt
+      DAMAGE_CONFIG_S3_KEY: models/general/damage_inference_config.json
+      HEALTH_ENABLED: "true"
+      HEALTH_HOST: 0.0.0.0
+      HEALTH_PORT: 8081
+    volumes:
+      - ml_cache:/cache
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+      create-buckets:
+        condition: service_completed_successfully
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
   minio_data:
   kafka_data:
+  ml_cache:

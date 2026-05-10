@@ -24,6 +24,13 @@ class S3Storage:
             aws_secret_access_key=settings.s3_secret_key,
         )
 
+    def bucket_for_key(self, key: str) -> str:
+        if key.startswith("models/"):
+            return self._settings.models_bucket
+        if key.startswith("results/"):
+            return self._settings.results_bucket
+        return self._settings.uploads_bucket
+
     def download_to_cache(self, key: str) -> Path:
         if not key:
             raise ValueError("S3 key is required")
@@ -40,7 +47,7 @@ class S3Storage:
         backoff = float(self._settings.s3_download_backoff_sec)
         for attempt in range(1, retries + 1):
             try:
-                self._client.download_file(self._settings.s3_bucket, key, str(target_path))
+                self._client.download_file(self.bucket_for_key(key), key, str(target_path))
                 return target_path
             except (BotoCoreError, ClientError) as exc:
                 logger.warning("S3 download failed (attempt %s/%s) for key=%s: %s", attempt, retries, key, exc)
@@ -53,6 +60,6 @@ class S3Storage:
         if not key:
             raise ValueError("S3 key is required")
         try:
-            self._client.head_object(Bucket=self._settings.s3_bucket, Key=key)
+            self._client.head_object(Bucket=self.bucket_for_key(key), Key=key)
         except ClientError as exc:
             raise FileNotFoundError(f"S3 key not found: {key}") from exc

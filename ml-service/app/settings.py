@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     s3_access_key: str = "minioadmin"
     s3_secret_key: str = "minioadmin"
     s3_bucket: str = "autoinspect"
+    s3_bucket_uploads: str | None = None
+    s3_bucket_models: str | None = None
+    s3_bucket_results: str | None = None
     s3_download_retries: int = 3
     s3_download_backoff_sec: float = 1.0
 
@@ -35,6 +38,18 @@ class Settings(BaseSettings):
     @property
     def cache_dir(self) -> Path:
         return Path(self.local_cache_dir)
+
+    @property
+    def uploads_bucket(self) -> str:
+        return self.s3_bucket_uploads or self.s3_bucket
+
+    @property
+    def models_bucket(self) -> str:
+        return self.s3_bucket_models or self.s3_bucket
+
+    @property
+    def results_bucket(self) -> str:
+        return self.s3_bucket_results or self.s3_bucket
 
 
 @lru_cache

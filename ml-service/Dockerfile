@@ -17,8 +17,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY scripts ./scripts
 COPY proto ./proto
-COPY configs ./configs
 COPY .env.example ./
+
+RUN python -m grpc_tools.protoc \
+    -I ./proto \
+    --python_out=./app/generated \
+    ./proto/analysis/v1/request.proto \
+    ./proto/analysis/v1/result.proto
 
 EXPOSE 8081
 

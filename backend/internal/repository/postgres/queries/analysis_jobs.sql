@@ -72,8 +72,8 @@ WHERE id = $3
 UPDATE analysis_jobs
 SET status = $1,
     error_message = $2,
-    completed_at = CASE WHEN $1 IN ('completed', 'failed') THEN NOW() ELSE completed_at END
-WHERE correlation_id = $3
+    completed_at = $3
+WHERE correlation_id = $4
   AND status = 'pending';
 
 -- name: UpdateAnalysisJobResult :execrows

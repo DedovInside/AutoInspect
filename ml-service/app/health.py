@@ -67,4 +67,3 @@ class HealthServer:
 
     def stop(self) -> None:
         self._server.shutdown()
-

@@ -144,4 +144,3 @@ def predict_one_image(
         verbose=False,
     )
     return result_to_predictions(results[0])
-
