@@ -8,14 +8,19 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/DedovInside/AutoInspect/backend/internal/api"
 	"github.com/DedovInside/AutoInspect/backend/internal/api/handlers"
+	"github.com/DedovInside/AutoInspect/backend/internal/broadcast"
+	"github.com/DedovInside/AutoInspect/backend/internal/broker/kafka"
+	rediscache "github.com/DedovInside/AutoInspect/backend/internal/cache/redis"
 	"github.com/DedovInside/AutoInspect/backend/internal/config"
-	rediscache "github.com/DedovInside/AutoInspect/backend/internal/queue/redis"
+	"github.com/DedovInside/AutoInspect/backend/internal/notify"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository/postgres"
+	"github.com/DedovInside/AutoInspect/backend/internal/repository/s3"
 	"github.com/DedovInside/AutoInspect/backend/internal/service"
 )
 
@@ -39,22 +44,31 @@ func run() error {
 
 	defer db.Close()
 
-	redisClient := rediscache.New(&cfg.Redis)
-
+	redisCacheClient := rediscache.New(&cfg.Redis)
 	defer func() {
-		if closeErr := redisClient.Close(); closeErr != nil {
+		if closeErr := redisCacheClient.Close(); closeErr != nil {
 			log.Printf("warning: redis close failed: %v", closeErr)
 		}
 	}()
-	if err := redisClient.Ping(initCtx); err != nil {
+
+	if err := redisCacheClient.Ping(initCtx); err != nil {
 		return fmt.Errorf("init redis: %w", err)
 	}
-
-	sessionCache := redisClient
 
 	userRepo := postgres.NewUserRepo(db)
 	sessionRepo := postgres.NewAuthSessionRepo(db)
 	oauthRepo := postgres.NewOAuthIdentityRepo(db)
+	jobRepo := postgres.NewAnalysisJobRepo(db)
+	modelRepo := postgres.NewCarModelRepo(db)
+	modelTrainingRequestRepo := postgres.NewModelTrainingRequestRepo(db)
+	carServiceApplicationRepo := postgres.NewCarServiceApplicationRepo(db)
+	carServiceProfileRepo := postgres.NewCarServiceProfileRepo(db)
+	carServiceImageRepo := postgres.NewCarServiceImageRepo(db)
+	carServiceMatchRepo := postgres.NewCarServiceMatchRepo(db)
+	repairRequestRepo := postgres.NewRepairRequestRepo(db)
+	damageTypeRepo := postgres.NewDamageTypeRepo(db)
+	partCategoryRepo := postgres.NewPartCategoryRepo(db)
+	carServiceSpecializationRepo := postgres.NewCarServiceSpecializationRepo(db)
 
 	tokenManager, err := service.NewTokenManager(
 		cfg.Auth.JWTSecret,
@@ -74,31 +88,163 @@ func run() error {
 		cfg.Auth.YandexRedirectURL,
 		10*time.Second,
 	)
+
 	if err != nil {
 		return fmt.Errorf("init yandex oauth client: %w", err)
 	}
 
-	authService := service.NewAuthService(
+	authService := service.NewAuthService(db, userRepo, sessionRepo, oauthRepo, tokenManager, redisCacheClient, yandexClient)
+
+	s3Client, err := s3.New(context.Background(), &cfg.S3)
+
+	if err != nil {
+		return fmt.Errorf("init s3 client: %w", err)
+	}
+
+	kafkaProducer, err := kafka.NewProducer(&cfg.Kafka)
+
+	if err != nil {
+		return fmt.Errorf("init kafka producer: %w", err)
+	}
+
+	defer func() {
+		if closeErr := kafkaProducer.Close(); closeErr != nil {
+			log.Printf("warning: kafka producer close failed: %v", closeErr)
+		}
+	}()
+
+	broadcastMgr := broadcast.NewManager()
+	defer broadcastMgr.Close()
+
+	rawRedisClient := redisCacheClient.Raw()
+	redisNotifier, err := notify.NewRedisNotifier(rawRedisClient, cfg.Redis.NotifyChannel)
+	if err != nil {
+		return fmt.Errorf("init redis notifier: %w", err)
+	}
+
+	analysisService := service.NewAnalysisService(
+		s3Client,
+		jobRepo,
+		modelRepo,
+		damageTypeRepo,
+		kafkaProducer,
+		redisNotifier,
+		&cfg.S3,
+		&cfg.Kafka,
+	)
+
+	carServiceMatchingService := service.NewCarServiceMatchingService(
+		jobRepo,
+		carServiceMatchRepo,
+		carServiceImageRepo,
+		s3Client,
+		&cfg.S3,
+	)
+
+	modelService := service.NewModelService(modelRepo, s3Client, &cfg.S3)
+
+	modelTrainingRequestService := service.NewModelTrainingRequestService(modelTrainingRequestRepo, modelRepo)
+
+	carServiceApplicationService := service.NewCarServiceApplicationService(
 		db,
+		carServiceApplicationRepo,
+		carServiceProfileRepo,
 		userRepo,
-		sessionRepo,
-		oauthRepo,
-		tokenManager,
-		sessionCache,
-		yandexClient,
+	)
+
+	carServiceProfileService := service.NewCarServiceProfileService(
+		db,
+		carServiceProfileRepo,
+		carServiceImageRepo,
+		damageTypeRepo,
+		partCategoryRepo,
+		carServiceSpecializationRepo,
+		s3Client,
+		&cfg.S3,
+	)
+
+	repairRequestService := service.NewRepairRequestService(
+		repairRequestRepo,
+		jobRepo,
+		carServiceProfileRepo,
+		s3Client,
+		&cfg.S3,
 	)
 
 	authHandler := handlers.NewAuthHandler(authService)
-	router := api.NewGinRouter(authHandler, tokenManager, sessionCache)
+	modelHandler := handlers.NewModelHandler(modelService)
+	modelTrainingRequestHandler := handlers.NewModelTrainingRequestHandler(modelTrainingRequestService)
+	carServiceApplicationHandler := handlers.NewCarServiceApplicationHandler(carServiceApplicationService)
+	carServiceProfileHandler := handlers.NewCarServiceProfileHandler(carServiceProfileService)
+	repairRequestHandler := handlers.NewRepairRequestHandler(repairRequestService)
 
-	server := &http.Server{
+	analysisHandler := handlers.NewAnalysisHandler(
+		analysisService,
+		carServiceMatchingService,
+		broadcastMgr,
+		10,
+		100,
+		[]string{"image/jpeg", "image/png", "image/webp"},
+		cfg.HTTP.WSAllowedOrigins,
+	)
+
+	stopSubscriber := startRedisSubscriber(redisNotifier, broadcastMgr)
+	defer stopSubscriber()
+
+	router := api.NewGinRouter(
+		authHandler,
+		analysisHandler,
+		modelHandler,
+		modelTrainingRequestHandler,
+		carServiceApplicationHandler,
+		carServiceProfileHandler,
+		repairRequestHandler,
+		tokenManager,
+		redisCacheClient,
+	)
+
+	server := newHTTPServer(cfg, router)
+	defer func() {
+		if closeErr := server.Close(); closeErr != nil && !errors.Is(closeErr, http.ErrServerClosed) {
+			log.Printf("warning: http server close failed: %v", closeErr)
+		}
+	}()
+
+	return serveHTTP(server, cfg.HTTP.ShutdownTimeout)
+}
+
+func startRedisSubscriber(redisNotifier *notify.RedisNotifier, broadcastMgr *broadcast.Manager) func() {
+	subscribeCtx, stopSubscriber := context.WithCancel(context.Background())
+	var subscriberWG sync.WaitGroup
+	subscriberWG.Add(1)
+
+	go func() {
+		defer subscriberWG.Done()
+		handler := func(ctx context.Context, event notify.JobEvent) {
+			_ = broadcastMgr.NotifyJobEvent(ctx, &event)
+		}
+		if err := redisNotifier.Subscribe(subscribeCtx, handler); err != nil {
+			log.Printf("Redis notifier subscriber stopped: %v", err)
+		}
+	}()
+
+	return func() {
+		stopSubscriber()
+		subscriberWG.Wait()
+	}
+}
+
+func newHTTPServer(cfg *config.Config, handler http.Handler) *http.Server {
+	return &http.Server{
 		Addr:           fmt.Sprintf("%s:%s", cfg.HTTP.Host, cfg.HTTP.Port),
-		Handler:        router,
+		Handler:        handler,
 		ReadTimeout:    cfg.HTTP.ReadTimeout,
 		WriteTimeout:   cfg.HTTP.WriteTimeout,
 		MaxHeaderBytes: 1 << 20,
 	}
+}
 
+func serveHTTP(server *http.Server, shutdownTimeout time.Duration) error {
 	errCh := make(chan error, 1)
 	go func() {
 		log.Printf("api listening on %s", server.Addr)
@@ -112,12 +258,12 @@ func run() error {
 
 	select {
 	case sig := <-sigCh:
-		log.Printf("shutdown signal: %s", sig.String())
+		log.Printf("shutdown signal received: %s", sig.String())
 	case serveErr := <-errCh:
 		return fmt.Errorf("listen and serve: %w", serveErr)
 	}
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.HTTP.ShutdownTimeout)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer shutdownCancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {

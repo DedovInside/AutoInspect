@@ -1,0 +1,9 @@
+.git
+.gocache
+.env
+deployments/
+tmp/
+*.log
+coverage.out
+dist/
+bin/

@@ -9,6 +9,7 @@ import (
 
 func (s *AuthService) GetMe(ctx context.Context, userID uuid.UUID) (*domain.User, error) {
 	user, err := s.users.GetByID(ctx, userID)
+
 	if err != nil {
 		return nil, err
 	}

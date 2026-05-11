@@ -12,18 +12,19 @@ import (
 )
 
 const createUser = `-- name: CreateUser :exec
-INSERT INTO users (id, username, email, password_hash, role,
+INSERT INTO users (id, username, email, avatar_url, password_hash, role,
                    email_verified, is_active,
                    created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5,
-        $6, $7,
-        $8, $9)
+VALUES ($1, $2, $3, $4, $5, $6,
+        $7, $8,
+        $9, $10)
 `
 
 type CreateUserParams struct {
 	ID            pgtype.UUID
 	Username      string
 	Email         string
+	AvatarUrl     *string
 	PasswordHash  string
 	Role          string
 	EmailVerified *bool
@@ -37,6 +38,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 		arg.ID,
 		arg.Username,
 		arg.Email,
+		arg.AvatarUrl,
 		arg.PasswordHash,
 		arg.Role,
 		arg.EmailVerified,
@@ -63,6 +65,7 @@ const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id,
        username,
        email,
+       avatar_url,
        password_hash,
        role,
        email_verified,
@@ -81,6 +84,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.ID,
 		&i.Username,
 		&i.Email,
+		&i.AvatarUrl,
 		&i.PasswordHash,
 		&i.Role,
 		&i.EmailVerified,
@@ -96,6 +100,7 @@ const getUserByID = `-- name: GetUserByID :one
 SELECT id,
        username,
        email,
+       avatar_url,
        password_hash,
        role,
        email_verified,
@@ -114,6 +119,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 		&i.ID,
 		&i.Username,
 		&i.Email,
+		&i.AvatarUrl,
 		&i.PasswordHash,
 		&i.Role,
 		&i.EmailVerified,
@@ -126,7 +132,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, username, email, password_hash, role,
+SELECT id, username, email, avatar_url, password_hash, role,
        email_verified, is_active,
        created_at, updated_at, last_login
 FROM users
@@ -152,6 +158,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 			&i.ID,
 			&i.Username,
 			&i.Email,
+			&i.AvatarUrl,
 			&i.PasswordHash,
 			&i.Role,
 			&i.EmailVerified,
@@ -186,16 +193,18 @@ const updateUser = `-- name: UpdateUser :execrows
 UPDATE users
 SET username       = $1,
     email          = $2,
-    password_hash  = $3,
-    role           = $4,
-    email_verified = $5,
-    is_active      = $6
-WHERE id = $7
+    avatar_url     = $3,
+    password_hash  = $4,
+    role           = $5,
+    email_verified = $6,
+    is_active      = $7
+WHERE id = $8
 `
 
 type UpdateUserParams struct {
 	Username      string
 	Email         string
+	AvatarUrl     *string
 	PasswordHash  string
 	Role          string
 	EmailVerified *bool
@@ -207,12 +216,33 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (int64, 
 	result, err := q.db.Exec(ctx, updateUser,
 		arg.Username,
 		arg.Email,
+		arg.AvatarUrl,
 		arg.PasswordHash,
 		arg.Role,
 		arg.EmailVerified,
 		arg.IsActive,
 		arg.ID,
 	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updateUserRole = `-- name: UpdateUserRole :execrows
+UPDATE users
+SET role = $2,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+type UpdateUserRoleParams struct {
+	ID   pgtype.UUID
+	Role string
+}
+
+func (q *Queries) UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateUserRole, arg.ID, arg.Role)
 	if err != nil {
 		return 0, err
 	}

@@ -9,14 +9,14 @@ import (
 type Role string
 
 const (
-	RoleUser  Role = "user"
-	RoleOwner Role = "owner"
-	RoleAdmin Role = "admin"
+	RoleUser       Role = "user"
+	RoleCarService Role = "car_service"
+	RoleAdmin      Role = "admin"
 )
 
 func (r Role) IsValid() bool {
 	switch r {
-	case RoleUser, RoleOwner, RoleAdmin:
+	case RoleUser, RoleCarService, RoleAdmin:
 		return true
 	}
 	return false
@@ -26,6 +26,7 @@ type User struct {
 	ID            uuid.UUID  `json:"id" db:"id"`
 	Username      string     `json:"username" db:"username"`
 	Email         string     `json:"email" db:"email"`
+	AvatarURL     *string    `json:"avatar_url,omitempty" db:"avatar_url"`
 	PasswordHash  string     `json:"-" db:"password_hash"`
 	Role          Role       `json:"role" db:"role"`
 	EmailVerified bool       `json:"email_verified" db:"email_verified"`

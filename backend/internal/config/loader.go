@@ -47,13 +47,24 @@ func validate(cfg *Config) error {
 	if err := validateEnvironment(cfg); err != nil {
 		return err
 	}
+
 	if err := validateAuth(cfg); err != nil {
 		return err
 	}
+
 	if err := validateRedis(cfg); err != nil {
 		return err
 	}
+
 	if err := validateYandex(cfg); err != nil {
+		return err
+	}
+
+	if err := validateS3(cfg); err != nil {
+		return err
+	}
+
+	if err := validateKafka(cfg); err != nil {
 		return err
 	}
 	return nil
@@ -71,6 +82,9 @@ func validateEnvironment(cfg *Config) error {
 	}
 	if cfg.HTTP.Port == "" {
 		return fmt.Errorf("HTTP_PORT cannot be empty")
+	}
+	if len(cfg.HTTP.WSAllowedOrigins) == 0 {
+		return fmt.Errorf("WS_ALLOWED_ORIGINS cannot be empty")
 	}
 	if strings.TrimSpace(cfg.Database.URL) == "" {
 		return fmt.Errorf("DATABASE_URL cannot be empty")
@@ -123,6 +137,77 @@ func validateYandex(cfg *Config) error {
 	u, err := url.Parse(cfg.Auth.YandexRedirectURL)
 	if err != nil || u.Scheme == "" || u.Host == "" {
 		return fmt.Errorf("YANDEX_REDIRECT_URL must be an absolute URL")
+	}
+	return nil
+}
+
+func validateS3(cfg *Config) error {
+	if strings.TrimSpace(cfg.S3.AccessKey) == "" || strings.TrimSpace(cfg.S3.SecretKey) == "" {
+		return fmt.Errorf("S3 credentials are required")
+	}
+	if strings.TrimSpace(cfg.S3.Region) == "" {
+		return fmt.Errorf("S3_REGION cannot be empty")
+	}
+	if strings.TrimSpace(cfg.S3.BucketUploads) == "" || strings.TrimSpace(cfg.S3.BucketModels) == "" || strings.TrimSpace(cfg.S3.BucketResults) == "" {
+		return fmt.Errorf("S3 bucket names are required")
+	}
+	if cfg.S3.PresignedURLTTL <= 0 {
+		return fmt.Errorf("S3_PRESIGNED_URL_TTL must be greater than 0")
+	}
+
+	if cfg.S3.Endpoint != "" {
+		u, err := url.Parse(cfg.S3.Endpoint)
+		if err != nil || u.Scheme == "" || u.Host == "" {
+			return fmt.Errorf("S3_ENDPOINT must be an absolute URL")
+		}
+	}
+
+	buckets := []string{cfg.S3.BucketUploads, cfg.S3.BucketModels, cfg.S3.BucketResults}
+	seen := make(map[string]struct{}, len(buckets))
+	for _, bucket := range buckets {
+		name := strings.TrimSpace(bucket)
+		if _, ok := seen[name]; ok {
+			return fmt.Errorf("S3 bucket names must be unique")
+		}
+		seen[name] = struct{}{}
+	}
+
+	return nil
+}
+
+func validateKafka(cfg *Config) error {
+	if len(cfg.Kafka.Brokers) == 0 {
+		return fmt.Errorf("KAFKA_BROKERS cannot be empty")
+	}
+	if strings.TrimSpace(cfg.Kafka.TopicAnalysisRequest) == "" {
+		return fmt.Errorf("KAFKA_TOPIC_ANALYSIS_REQUEST cannot be empty")
+	}
+	if strings.TrimSpace(cfg.Kafka.TopicAnalysisResult) == "" {
+		return fmt.Errorf("KAFKA_TOPIC_ANALYSIS_RESULT cannot be empty")
+	}
+	if strings.TrimSpace(cfg.Kafka.ConsumerGroupID) == "" {
+		return fmt.Errorf("KAFKA_CONSUMER_GROUP_ID cannot be empty")
+	}
+	if strings.TrimSpace(cfg.Kafka.TopicDLQ) == "" {
+		return fmt.Errorf("KAFKA_TOPIC_DLQ cannot be empty")
+	}
+	if cfg.Kafka.MaxRetries < 1 {
+		return fmt.Errorf("KAFKA_PRODUCER_MAX_RETRIES must be at least 1")
+	}
+	if cfg.Kafka.ConsumerMaxRetries < 0 {
+		return fmt.Errorf("KAFKA_CONSUMER_MAX_RETRIES cannot be negative")
+	}
+	if cfg.Kafka.ConsumerRetryBackoffMin <= 0 || cfg.Kafka.ConsumerRetryBackoffMax <= 0 {
+		return fmt.Errorf("KAFKA_CONSUMER_RETRY_BACKOFF_MIN/MAX must be greater than 0")
+	}
+	if cfg.Kafka.ConsumerRetryBackoffMin > cfg.Kafka.ConsumerRetryBackoffMax {
+		return fmt.Errorf("KAFKA_CONSUMER_RETRY_BACKOFF_MIN cannot be greater than KAFKA_CONSUMER_RETRY_BACKOFF_MAX")
+	}
+	if cfg.Kafka.ConsumerFetchBackoffMin <= 0 || cfg.Kafka.ConsumerFetchBackoffMax <= 0 {
+		return fmt.Errorf("KAFKA_CONSUMER_FETCH_BACKOFF_MIN/MAX must be greater than 0")
+	}
+	if cfg.Kafka.ConsumerFetchBackoffMin > cfg.Kafka.ConsumerFetchBackoffMax {
+		return fmt.Errorf("KAFKA_CONSUMER_FETCH_BACKOFF_MIN cannot be greater than KAFKA_CONSUMER_FETCH_BACKOFF_MAX")
 	}
 	return nil
 }

@@ -1,0 +1,21 @@
+syntax = "proto3";
+package autoinspect.analysis.v1;
+
+option go_package = "github.com/DedovInside/AutoInspect/backend/internal/proto/gen/go/analysis/v1;analysisv1";
+
+message AnalysisRequest {
+  string correlation_id = 1;
+  string user_id = 2;
+
+  CarInfo car_info = 3;
+  repeated string image_s3_keys = 4;
+  string parts_model_s3_key = 5;
+  string parts_config_s3_key = 6;
+}
+
+message CarInfo {
+  string make = 1;
+  string model = 2;
+  string generation = 3;
+  int32 year = 4;
+}

@@ -10,27 +10,19 @@ type Config struct {
 	HTTP     HTTPConfig
 	Database DatabaseConfig
 	Redis    RedisConfig
-	// MinIO    MinIOConfig
-	// GRPC     GRPCConfig
-	Auth AuthConfig
-	// Worker   WorkerConfig
-	// Logging  LoggingConfig
+	Auth     AuthConfig
+	S3       S3Config
+	Kafka    KafkaConfig
 }
 
 type HTTPConfig struct {
-	Host            string        `env:"HTTP_HOST" env-default:"0.0.0.0"`
-	Port            string        `env:"HTTP_PORT" env-default:"8080"`
-	ReadTimeout     time.Duration `env:"HTTP_READ_TIMEOUT" env-default:"10s"`
-	WriteTimeout    time.Duration `env:"HTTP_WRITE_TIMEOUT" env-default:"10s"`
-	ShutdownTimeout time.Duration `env:"HTTP_SHUTDOWN_TIMEOUT" env-default:"30s"`
-	// CORS            CORSConfig
+	Host             string        `env:"HTTP_HOST" env-default:"0.0.0.0"`
+	Port             string        `env:"HTTP_PORT" env-default:"8080"`
+	ReadTimeout      time.Duration `env:"HTTP_READ_TIMEOUT" env-default:"10s"`
+	WriteTimeout     time.Duration `env:"HTTP_WRITE_TIMEOUT" env-default:"10s"`
+	ShutdownTimeout  time.Duration `env:"HTTP_SHUTDOWN_TIMEOUT" env-default:"30s"`
+	WSAllowedOrigins []string      `env:"WS_ALLOWED_ORIGINS" env-default:"http://localhost:5173,http://localhost:3000,http://localhost:8080"`
 }
-
-// type CORSConfig struct {
-//	AllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS" env-default:"http://localhost:3000" env-separator:","`
-//	AllowedMethods []string `env:"CORS_ALLOWED_METHODS" env-default:"GET,POST,PUT,DELETE,PATCH,OPTIONS" env-separator:","`
-//	AllowedHeaders []string `env:"CORS_ALLOWED_HEADERS" env-default:"Content-Type,Authorization" env-separator:","`
-// }
 
 type DatabaseConfig struct {
 	URL             string        `env:"DATABASE_URL" env-required:"true"`
@@ -46,28 +38,12 @@ type RedisConfig struct {
 	Password string `env:"REDIS_PASSWORD" env-default:""`
 	DB       int    `env:"REDIS_DB" env-default:"0"`
 
-	QueueName         string        `env:"REDIS_QUEUE_NAME" env-default:"autoinspect:analysis:queue"`
+	CacheName         string        `env:"REDIS_CACHE_NAME" env-default:"autoinspect:analysis:cache"`
 	MaxRetries        int           `env:"REDIS_MAX_RETRIES" env-default:"3"`
 	VisibilityTimeout time.Duration `env:"REDIS_VISIBILITY_TIMEOUT" env-default:"5m"`
+
+	NotifyChannel string `env:"REDIS_NOTIFY_CHANNEL" env-default:"notify:analysis:job"`
 }
-
-// type MinIOConfig struct {
-//	Endpoint  string `env:"MINIO_ENDPOINT" env-default:"localhost:9000"`
-//	AccessKey string `env:"MINIO_ACCESS_KEY" env-default:"minioadmin"`
-//	SecretKey string `env:"MINIO_SECRET_KEY" env-default:"minioadmin"`
-//	UseSSL    bool   `env:"MINIO_USE_SSL" env-default:"false"`
-//
-//	// Buckets
-//	ImagesBucket string `env:"MINIO_IMAGES_BUCKET" env-default:"images"`
-//	ModelsBucket string `env:"MINIO_MODELS_BUCKET" env-default:"models"`
-//	LogsBucket   string `env:"MINIO_LOGS_BUCKET" env-default:"logs"`
-// }
-
-// type GRPCConfig struct {
-//	MLServiceAddr string        `env:"GRPC_ML_SERVICE_ADDR" env-default:"localhost:50051"`
-//	Timeout       time.Duration `env:"GRPC_TIMEOUT" env-default:"30s"`
-//	MaxRetries    int           `env:"GRPC_MAX_RETRIES" env-default:"3"`
-// }
 
 type AuthConfig struct {
 	JWTSecret       string        `env:"JWT_SECRET" env-required:"true"`
@@ -82,17 +58,43 @@ type AuthConfig struct {
 
 	YandexClientID     string `env:"YANDEX_CLIENT_ID" env-required:"true"`
 	YandexClientSecret string `env:"YANDEX_CLIENT_SECRET" env-required:"true"`
-	YandexRedirectURL  string `env:"YANDEX_REDIRECT_URL" env-default:"http://localhost:5173/auth/callback"`
+	YandexRedirectURL  string `env:"YANDEX_REDIRECT_URL" env-default:"http://localhost:8080/v1/auth/yandex/callback"`
 }
 
-// type WorkerConfig struct {
-//	Concurrency       int           `env:"WORKER_CONCURRENCY" env-default:"5"`
-//	PollInterval      time.Duration `env:"WORKER_POLL_INTERVAL" env-default:"1s"`
-//	MaxJobDuration    time.Duration `env:"WORKER_MAX_JOB_DURATION" env-default:"10m"`
-//	HeartbeatInterval time.Duration `env:"WORKER_HEARTBEAT_INTERVAL" env-default:"30s"`
-// }
+type S3Config struct {
+	Endpoint     string `env:"S3_ENDPOINT" env-default:"http://localhost:9000"`
+	AccessKey    string `env:"S3_ACCESS_KEY" env-default:"minioadmin"`
+	SecretKey    string `env:"S3_SECRET_KEY" env-default:"minioadmin"`
+	Region       string `env:"S3_REGION" env-default:"us-east-1"`
+	UseSSL       bool   `env:"S3_USE_SSL" env-default:"false"`
+	UsePathStyle bool   `env:"S3_USE_PATH_STYLE" env-default:"true"`
 
-// type LoggingConfig struct {
-//	Level  string `env:"LOG_LEVEL" env-default:"info"`
-//	Format string `env:"LOG_FORMAT" env-default:"json"`
-// }
+	BucketUploads string `env:"S3_BUCKET_UPLOADS" env-default:"autoinspect-uploads"`
+	BucketModels  string `env:"S3_BUCKET_MODELS" env-default:"autoinspect-models"`
+	BucketResults string `env:"S3_BUCKET_RESULTS" env-default:"autoinspect-results"`
+
+	PresignedURLTTL time.Duration `env:"S3_PRESIGNED_URL_TTL" env-default:"15m"`
+}
+
+type KafkaConfig struct {
+	Brokers []string `env:"KAFKA_BROKERS" env-default:"localhost:9092"`
+
+	TopicAnalysisRequest string `env:"KAFKA_TOPIC_ANALYSIS_REQUEST" env-default:"autoinspect.analysis.request"`
+	TopicAnalysisResult  string `env:"KAFKA_TOPIC_ANALYSIS_RESULT" env-default:"autoinspect.analysis.result"`
+
+	RequiredAcks string `env:"KAFKA_REQUIRED_ACKS" env-default:"all"`
+
+	MaxRetries int `env:"KAFKA_PRODUCER_MAX_RETRIES" env-default:"3"`
+
+	ConsumerGroupID         string        `env:"KAFKA_CONSUMER_GROUP_ID" env-default:"autoinspect-backend"`
+	ConsumerMaxRetries      int           `env:"KAFKA_CONSUMER_MAX_RETRIES" env-default:"3"`
+	ConsumerRetryBackoffMin time.Duration `env:"KAFKA_CONSUMER_RETRY_BACKOFF_MIN" env-default:"200ms"`
+	ConsumerRetryBackoffMax time.Duration `env:"KAFKA_CONSUMER_RETRY_BACKOFF_MAX" env-default:"5s"`
+	ConsumerFetchBackoffMin time.Duration `env:"KAFKA_CONSUMER_FETCH_BACKOFF_MIN" env-default:"200ms"`
+	ConsumerFetchBackoffMax time.Duration `env:"KAFKA_CONSUMER_FETCH_BACKOFF_MAX" env-default:"5s"`
+	TopicDLQ                string        `env:"KAFKA_TOPIC_DLQ" env-default:"autoinspect.analysis.dlq"`
+
+	SecurityProtocol string `env:"KAFKA_SECURITY_PROTOCOL" env-default:"PLAINTEXT"`
+	SASLUsername     string `env:"KAFKA_SASL_USERNAME" env-default:""`
+	SASLPassword     string `env:"KAFKA_SASL_PASSWORD" env-default:""`
+}

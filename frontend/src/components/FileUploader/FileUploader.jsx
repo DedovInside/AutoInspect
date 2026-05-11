@@ -11,8 +11,8 @@ function FileUploader({ onFileSelect }) {
 
   return (
     <div>
-      <input 
-        type="file" 
+      <input
+        type="file"
         accept="image/*"
         multiple
         onChange={handleChange}

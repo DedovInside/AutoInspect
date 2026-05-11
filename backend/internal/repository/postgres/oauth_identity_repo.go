@@ -36,13 +36,14 @@ func (r *OAuthIdentityRepo) Create(ctx context.Context, identity *domain.OAuthId
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return domain.ErrAlreadyExists
 		}
-
 		return domain.ErrInternal
 	}
+
 	return nil
 }
 
-func (r *OAuthIdentityRepo) GetByProviderSubject(ctx context.Context, provider, providerUserID string) (*domain.OAuthIdentity, error) {
+func (r *OAuthIdentityRepo) GetByProviderSubject(ctx context.Context,
+	provider, providerUserID string) (*domain.OAuthIdentity, error) {
 	params := db.GetOAuthIdentityByProviderSubjectParams{
 		Provider:       provider,
 		ProviderUserID: providerUserID,
@@ -57,6 +58,7 @@ func (r *OAuthIdentityRepo) GetByProviderSubject(ctx context.Context, provider, 
 		}
 		return nil, domain.ErrInternal
 	}
+
 	return toDomainOAuthIdentity(&dbIdentity), nil
 }
 

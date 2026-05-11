@@ -1,0 +1,266 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: autoinspect-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: autoinspect
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d autoinspect"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: autoinspect-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: autoinspect-kafka
+
+    environment:
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT'
+
+      KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093'
+
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:29092,PLAINTEXT_HOST://127.0.0.1:9092'
+
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:29093'
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+      CLUSTER_ID: 'sdtnbiMsSymQCRsGFjMjZg'
+
+    healthcheck:
+      test: [ "CMD-SHELL", "cub kafka-ready -b localhost:9092 1 20" ]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+
+    ports:
+      - "29092:29092"
+      - "9092:9092"
+
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    restart: unless-stopped
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: autoinspect-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        echo "Waiting for Kafka to be ready..."
+        cub kafka-ready -b kafka:29092 1 20
+        echo "Creating topics..."
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic autoinspect.analysis.request --partitions 1 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic autoinspect.analysis.result --partitions 1 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic autoinspect.analysis.dlq --partitions 1 --replication-factor 1
+        echo "Topics created."
+    restart: "no"
+
+  minio:
+    image: minio/minio:latest
+    container_name: autoinspect-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  create-buckets:
+    image: minio/mc
+    container_name: autoinspect-create-buckets
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      mc mb myminio/autoinspect-uploads || true;
+      mc mb myminio/autoinspect-models || true;
+      mc mb myminio/autoinspect-results || true;
+      "
+    restart: "no"
+
+  migrator:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: migrator
+    container_name: autoinspect-migrator
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/autoinspect?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: api
+    container_name: autoinspect-api
+    env_file:
+      - ../backend/.env
+    environment:
+      ENVIRONMENT: development
+      HTTP_HOST: 0.0.0.0
+      HTTP_PORT: 8080
+      WS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000,http://localhost:8080
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/autoinspect?sslmode=disable
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_TOPIC_ANALYSIS_REQUEST: autoinspect.analysis.request
+      KAFKA_TOPIC_ANALYSIS_RESULT: autoinspect.analysis.result
+      KAFKA_TOPIC_DLQ: autoinspect.analysis.dlq
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_REGION: us-east-1
+      S3_USE_PATH_STYLE: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+      create-buckets:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: worker
+    container_name: autoinspect-worker
+    env_file:
+      - ../backend/.env
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/autoinspect?sslmode=disable
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_TOPIC_ANALYSIS_RESULT: autoinspect.analysis.result
+      KAFKA_TOPIC_DLQ: autoinspect.analysis.dlq
+      KAFKA_CONSUMER_GROUP_ID: autoinspect-backend
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_REGION: us-east-1
+      S3_USE_PATH_STYLE: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+      create-buckets:
+        condition: service_completed_successfully
+      migrator:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  ml-service:
+    build:
+      context: ../ml-service
+      dockerfile: Dockerfile
+    container_name: autoinspect-ml-service
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_REQUEST_TOPIC: autoinspect.analysis.request
+      KAFKA_RESULT_TOPIC: autoinspect.analysis.result
+      KAFKA_CONSUMER_GROUP: autoinspect-ml-service
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET_UPLOADS: autoinspect-uploads
+      S3_BUCKET_MODELS: autoinspect-models
+      S3_BUCKET_RESULTS: autoinspect-results
+      LOCAL_CACHE_DIR: /cache
+      DAMAGE_MODEL_S3_KEY: models/general/damage_segmentation.pt
+      DAMAGE_CONFIG_S3_KEY: models/general/damage_inference_config.json
+      HEALTH_ENABLED: "true"
+      HEALTH_HOST: 0.0.0.0
+      HEALTH_PORT: 8081
+    volumes:
+      - ml_cache:/cache
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+      create-buckets:
+        condition: service_completed_successfully
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  kafka_data:
+  ml_cache:

@@ -10,41 +10,27 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type Analysis struct {
-	ID            pgtype.UUID
-	UserID        pgtype.UUID
-	Status        string
-	CarMake       string
-	CarModel      string
-	CarGeneration *string
-	CarYear       *int32
-	ImageKey      string
-	ImageMetadata []byte
-	ModelVersion  *string
-	ModelID       pgtype.UUID
-	ResultJson    []byte
-	ErrorMessage  *string
-	ErrorCode     *string
-	RetryCount    *int32
-	CreatedAt     pgtype.Timestamptz
-	UpdatedAt     pgtype.Timestamptz
-	ProcessedAt   pgtype.Timestamptz
+// Асинхронные задачи анализа изображений и результаты ML
+type AnalysisJob struct {
+	ID               pgtype.UUID
+	UserID           pgtype.UUID
+	IdempotencyKey   *string
+	CarMake          *string
+	CarModel         *string
+	CarGeneration    *string
+	CarYear          *int32
+	ImageKeys        []byte
+	CorrelationID    pgtype.UUID
+	Status           string
+	ErrorMessage     *string
+	Result           []byte
+	UsedModelVersion *string
+	RequestedAt      pgtype.Timestamptz
+	StartedAt        pgtype.Timestamptz
+	CompletedAt      pgtype.Timestamptz
 }
 
-type AuditLog struct {
-	ID         int64
-	UserID     pgtype.UUID
-	Action     string
-	EntityType *string
-	EntityID   pgtype.UUID
-	IpAddress  *netip.Addr
-	UserAgent  *string
-	RequestID  pgtype.UUID
-	Details    []byte
-	StatusCode *int32
-	CreatedAt  pgtype.Timestamptz
-}
-
+// Таблица для хранения связей между пользователями и их OAuth-учетными записями (Google, Facebook и т.д.)
 type AuthOauthIdentity struct {
 	ID             pgtype.UUID
 	UserID         pgtype.UUID
@@ -54,6 +40,7 @@ type AuthOauthIdentity struct {
 	CreatedAt      pgtype.Timestamptz
 }
 
+// Таблица для хранения сессий пользователей, поддерживающая механизмы замены и отзыва токенов
 type AuthSession struct {
 	ID            pgtype.UUID
 	UserID        pgtype.UUID
@@ -70,27 +57,151 @@ type AuthSession struct {
 	UpdatedAt     pgtype.Timestamptz
 }
 
-type Model struct {
-	ID            pgtype.UUID
-	Version       string
-	Name          string
-	CarMake       string
-	CarModel      string
-	CarGeneration *string
-	YearFrom      *int32
-	YearTo        *int32
-	WeightsPath   string
-	ConfigPath    *string
-	Status        string
-	Active        bool
-	CreatedAt     pgtype.Timestamptz
-	UpdatedAt     pgtype.Timestamptz
+// Реестр моделей сегментации деталей и связанных ML-артефактов
+type CarModel struct {
+	ID                pgtype.UUID
+	Make              string
+	Model             string
+	Generation        *string
+	YearFrom          int32
+	YearTo            *int32
+	PartsModelS3Key   string
+	PartsConfigS3Key  string
+	PartsCatalogS3Key string
+	ModelVersion      string
+	IsUniversal       *bool
+	IsActive          *bool
+	CreatedAt         pgtype.Timestamptz
 }
 
+// Заявки пользователей на получение роли автосервиса
+type CarServiceApplication struct {
+	ID               pgtype.UUID
+	UserID           pgtype.UUID
+	OrganizationName string
+	City             string
+	Address          string
+	Phone            *string
+	Email            *string
+	ContactInfo      *string
+	Description      string
+	Status           string
+	RejectionReason  *string
+	ReviewedBy       pgtype.UUID
+	ReviewedAt       pgtype.Timestamptz
+	CreatedProfileID pgtype.UUID
+	CreatedAt        pgtype.Timestamptz
+	UpdatedAt        pgtype.Timestamptz
+}
+
+// Изображения профилей автосервисов, хранящиеся в MinIO
+type CarServiceImage struct {
+	ID               pgtype.UUID
+	ProfileID        pgtype.UUID
+	S3Key            string
+	IsPrimary        bool
+	SortOrder        int32
+	OriginalFilename string
+	ContentType      string
+	SizeBytes        int64
+	CreatedAt        pgtype.Timestamptz
+}
+
+// Профили автосервисов, созданные после одобрения заявки пользователя
+type CarServiceProfile struct {
+	ID               pgtype.UUID
+	UserID           pgtype.UUID
+	OrganizationName string
+	City             string
+	Address          string
+	Phone            *string
+	Email            *string
+	WebsiteUrl       *string
+	ContactInfo      *string
+	Description      *string
+	IsActive         bool
+	CreatedAt        pgtype.Timestamptz
+	UpdatedAt        pgtype.Timestamptz
+}
+
+// Специализации автосервисов по типам повреждений и категориям деталей
+type CarServiceSpecialization struct {
+	ID               pgtype.UUID
+	ProfileID        pgtype.UUID
+	DamageTypeCode   string
+	PartCategoryCode string
+	CreatedAt        pgtype.Timestamptz
+}
+
+// Справочник типов повреждений, соответствующих результатам ML-сервиса
+type DamageType struct {
+	Code      string
+	NameRu    string
+	IsActive  bool
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
+// Заявки пользователей на добавление или обучение моделей сегментации деталей
+type ModelTrainingRequest struct {
+	ID              pgtype.UUID
+	InitiatorUserID pgtype.UUID
+	InitiatorRole   string
+	Make            string
+	Model           string
+	Generation      *string
+	YearFrom        int32
+	YearTo          *int32
+	Description     string
+	Status          string
+	AdminComment    *string
+	ReviewedBy      pgtype.UUID
+	ReviewedAt      pgtype.Timestamptz
+	CreatedModelID  pgtype.UUID
+	IdempotencyKey  *string
+	CreatedAt       pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
+}
+
+// Справочник обобщённых категорий деталей автомобиля для специализации автосервисов
+type PartCategory struct {
+	Code      string
+	NameRu    string
+	IsPair    bool
+	IsActive  bool
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
+// Заявки пользователей на ремонт автомобиля по результатам анализа
+type RepairRequest struct {
+	ID                  pgtype.UUID
+	UserID              pgtype.UUID
+	AnalysisJobID       pgtype.UUID
+	CarServiceProfileID pgtype.UUID
+	Status              string
+	// Снимок ремонтной сводки, сформированной из результата анализа на момент создания заявки
+	RepairSummary []byte
+	// Предварительная смета автосервиса по парам деталь и тип повреждения
+	ServiceEstimate   []byte
+	CustomerName      *string
+	CustomerPhone     *string
+	CustomerEmail     *string
+	CustomerComment   *string
+	ServiceComment    *string
+	EstimatedPriceMin pgtype.Numeric
+	EstimatedPriceMax pgtype.Numeric
+	CreatedAt         pgtype.Timestamptz
+	UpdatedAt         pgtype.Timestamptz
+	RespondedAt       pgtype.Timestamptz
+}
+
+// Таблица для хранения информации о пользователях, включая аутентификацию и роли
 type User struct {
 	ID            pgtype.UUID
 	Username      string
 	Email         string
+	AvatarUrl     *string
 	PasswordHash  string
 	Role          string
 	EmailVerified *bool

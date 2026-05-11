@@ -116,6 +116,7 @@ func closeMigrator(m *migrate.Migrate) {
 	if sourceErr != nil {
 		log.Printf("warning: failed to close migration source: %v", sourceErr)
 	}
+
 	if dbErr != nil {
 		log.Printf("warning: failed to close migration database connection: %v", dbErr)
 	}
@@ -165,6 +166,7 @@ func runDown(m *migrate.Migrate) error {
 	if err != nil {
 		return err
 	}
+
 	if !confirmed {
 		fmt.Println("Operation canceled")
 		return nil
@@ -225,6 +227,7 @@ func runVersion(m *migrate.Migrate) error {
 			fmt.Println("Database is at initial version (no migrations applied)")
 			return nil
 		}
+
 		return fmt.Errorf("failed to get current version: %w", err)
 	}
 
@@ -269,6 +272,7 @@ func runDrop(m *migrate.Migrate) error {
 	if err != nil {
 		return err
 	}
+
 	if !confirmed {
 		fmt.Println("Operation canceled")
 		return nil
@@ -285,6 +289,7 @@ func runDrop(m *migrate.Migrate) error {
 func askForConfirmation(prompt string) (bool, error) {
 	fmt.Print(prompt)
 	var confirmation string
+
 	if _, err := fmt.Scanln(&confirmation); err != nil {
 		return false, fmt.Errorf("read confirmation: %w", err)
 	}
@@ -311,6 +316,7 @@ func parseUintArg(args []string, command string) (uint, error) {
 	}
 
 	var version uint
+
 	if _, err := fmt.Sscanf(args[0], "%d", &version); err != nil {
 		return 0, fmt.Errorf("invalid %s version: %w", command, err)
 	}

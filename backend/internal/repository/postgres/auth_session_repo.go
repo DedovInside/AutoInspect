@@ -41,6 +41,7 @@ func (r *AuthSessionRepo) Create(ctx context.Context, s *domain.AuthSession) err
 	if err != nil {
 		return domain.ErrInternal
 	}
+
 	return nil
 }
 
@@ -52,10 +53,12 @@ func (r *AuthSessionRepo) GetByTokenHash(ctx context.Context, tokenHash string) 
 		}
 		return nil, domain.ErrInternal
 	}
+
 	return toDomainAuthSession(&dbSession), nil
 }
 
-func (r *AuthSessionRepo) Revoke(ctx context.Context, id uuid.UUID, revokedReason string, replacedByID *uuid.UUID) error {
+func (r *AuthSessionRepo) Revoke(ctx context.Context,
+	id uuid.UUID, revokedReason string, replacedByID *uuid.UUID) error {
 	params := db.RevokeAuthSessionParams{
 		RevokedReason: &revokedReason,
 		ReplacedByID:  toPgUUIDPtr(replacedByID),
@@ -65,9 +68,11 @@ func (r *AuthSessionRepo) Revoke(ctx context.Context, id uuid.UUID, revokedReaso
 	if err != nil {
 		return domain.ErrInternal
 	}
+
 	if rowsAffected == 0 {
 		return domain.ErrNotFound
 	}
+
 	return nil
 }
 
@@ -95,11 +100,12 @@ func (r *AuthSessionRepo) RevokeFamily(ctx context.Context, familyID uuid.UUID, 
 		RevokedReason: &revokedReason,
 		TokenFamilyID: pgtype.UUID{Bytes: familyID, Valid: true},
 	}
-	err := r.queries.RevokeFamily(ctx, params)
 
+	err := r.queries.RevokeFamily(ctx, params)
 	if err != nil {
 		return domain.ErrInternal
 	}
+
 	return nil
 }
 
@@ -119,41 +125,4 @@ func toDomainAuthSession(dbSession *db.AuthSession) *domain.AuthSession {
 		UpdatedAt:     fromPgTimestamptzPtr(dbSession.UpdatedAt),
 		LastUsedAt:    fromPgTimestamptzPtr(dbSession.LastUsedAt),
 	}
-}
-
-func toPgUUIDPtr(id *uuid.UUID) pgtype.UUID {
-	if id == nil {
-		return pgtype.UUID{Valid: false}
-	}
-	return pgtype.UUID{Bytes: *id, Valid: true}
-}
-
-func toPgTimestamptzPtr(t *time.Time) pgtype.Timestamptz {
-	if t == nil || t.IsZero() {
-		return pgtype.Timestamptz{Valid: false}
-	}
-	return pgtype.Timestamptz{Time: *t, Valid: true}
-}
-
-func fromPgUUID(uid pgtype.UUID) uuid.UUID {
-	if !uid.Valid {
-		return uuid.Nil
-	}
-	id, _ := uuid.FromBytes(uid.Bytes[:])
-	return id
-}
-
-func fromPgUUIDPtr(uid pgtype.UUID) *uuid.UUID {
-	if !uid.Valid {
-		return nil
-	}
-	id := fromPgUUID(uid)
-	return &id
-}
-
-func fromPgTimestamptzPtr(t pgtype.Timestamptz) *time.Time {
-	if !t.Valid {
-		return nil
-	}
-	return &t.Time
 }
