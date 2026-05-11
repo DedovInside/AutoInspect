@@ -1,14 +1,14 @@
 import { Navigate } from "react-router-dom";
-import { getUserRole } from "../../services/authService";
+import { useAuth } from "../../auth/AuthContext";
 
 function RoleBasedRoute({ children, allowedRoles = [] }) {
-  const role = getUserRole();
+  const { role } = useAuth();
 
   if (allowedRoles.length === 0) {
     return children;
   }
 
-  if (!allowedRoles.includes(role)) {
+  if (!role || !allowedRoles.includes(role)) {
     return <Navigate to="/home" replace />;
   }
 

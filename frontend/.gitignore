@@ -12,6 +12,20 @@ dist
 dist-ssr
 *.local
 
+# Tooling / test / Vite
+coverage
+.nyc_output
+.eslintcache
+.stylelintcache
+.vite
+
+# Secrets (local certs)
+*.pem
+
+# OS
+Thumbs.db
+Desktop.ini
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,20 +1,97 @@
-button {
-    background: #1E3A5F;
-    color: white;
-    padding: 14px 24px;
-    border-radius: 14px;
-    font-size: 16px;
-    font-weight: 600;
-  
-    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-    transition: all 0.25s ease;
-  }
-  
-  button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 24px rgba(0,0,0,0.12);
-  }
-  
-  button:active {
-    transform: translateY(0);
-  }
+/* ---------- Base buttons (class-based, shared) ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.05s ease;
+  white-space: nowrap;
+  text-decoration: none;
+  user-select: none;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 2px;
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Variants */
+.btn-primary {
+  background: var(--brand-600);
+  color: #fff;
+  border-color: var(--brand-600);
+  box-shadow: var(--shadow-sm);
+}
+.btn-primary:hover { background: var(--brand-700); border-color: var(--brand-700); box-shadow: var(--shadow-md); }
+.btn-primary:active { transform: translateY(0); }
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+  box-shadow: var(--shadow-xs);
+}
+.btn-secondary:hover { background: var(--slate-50); border-color: var(--border-strong); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border-color: transparent;
+}
+.btn-ghost:hover { background: var(--slate-100); }
+
+.btn-danger {
+  background: var(--danger-600);
+  color: #fff;
+  border-color: var(--danger-600);
+}
+.btn-danger:hover { background: var(--danger-700); border-color: var(--danger-700); }
+
+.btn-success {
+  background: var(--success-600);
+  color: #fff;
+  border-color: var(--success-600);
+}
+.btn-success:hover { background: var(--success-700); border-color: var(--success-700); }
+
+.btn-outline {
+  background: transparent;
+  color: var(--brand-700);
+  border-color: var(--brand-200);
+}
+.btn-outline:hover { background: var(--brand-50); border-color: var(--brand-500); }
+
+/* Sizes */
+.btn-sm { padding: 7px 12px; font-size: 13px; border-radius: 10px; }
+.btn-lg { padding: 14px 22px; font-size: 16px; border-radius: 14px; }
+.btn-xl { padding: 16px 28px; font-size: 17px; border-radius: 16px; }
+
+.btn-block { width: 100%; }
+
+.btn-icon {
+  width: 36px; height: 36px;
+  padding: 0;
+  border-radius: 10px;
+}
