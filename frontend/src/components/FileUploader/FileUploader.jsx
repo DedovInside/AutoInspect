@@ -1,12 +1,12 @@
 import { useState } from "react";
 
 function FileUploader({ onFileSelect }) {
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
 
   const handleChange = (e) => {
-    const selectedFile = e.target.files[0];
-    setFile(selectedFile);
-    onFileSelect(selectedFile);
+    const selectedFiles = Array.from(e.target.files);
+    setFiles(selectedFiles);
+    onFileSelect(selectedFiles);
   };
 
   return (
@@ -14,17 +14,21 @@ function FileUploader({ onFileSelect }) {
       <input 
         type="file" 
         accept="image/*"
+        multiple
         onChange={handleChange}
       />
 
-      {file && (
+      {files.length > 0 && (
         <div>
           <h3>Превью:</h3>
-          <img
+          {files.map((file, index) => (
+            <img
+            key={index}
             src={URL.createObjectURL(file)}
             alt="preview"
             style={{ width: "300px", marginTop: "10px" }}
           />
+          ))}
         </div>
       )}
     </div>

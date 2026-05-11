@@ -6,69 +6,104 @@ import UploadPage from './pages/UploadPage/UploadPage';
 import ResultPage from './pages/ResultPage/ResultPage';
 import HistoryPage from './pages/HistoryPage/HistoryPage';
 import AdminPage from './pages/AdminPage/AdminPage';
+import ServiceProfilePage from './pages/ServiceProfilePage/ServiceProfilePage';
+import RepairRequestsPage from './pages/RepairRequestsPage/RepairRequestsPage';
 import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute';
+import RoleBasedRoute from './components/RoleBasedRoute/RoleBasedRoute';
 import Layout from './components/Layout/Layout';
-import { hasAccessToken } from './services/authService';
+import { useAuth } from './auth/AuthContext';
 
 function App() {
-  const isAuth = hasAccessToken();
+  const { isAuthenticated } = useAuth();
   return (
     <BrowserRouter>
       <Routes>
-        <Route 
-          path="/" 
+        <Route
+          path="/"
           element={
-            isAuth ? <Navigate to="/home" /> : <Navigate to="/auth" />
-          } 
+            isAuthenticated ? <Navigate to="/home" /> : <Navigate to="/auth" />
+          }
         />
 
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
         <Route element={<Layout />}>
-          <Route 
-            path="/home" 
+          <Route
+            path="/home"
             element={
               <ProtectedRoute>
-                <HomePage />
+                <RoleBasedRoute allowedRoles={["USER", "SERVICE", "ADMIN"]}>
+                  <HomePage />
+                </RoleBasedRoute>
               </ProtectedRoute>
-            } 
+            }
           />
 
-          <Route 
-            path="/upload" 
+          <Route
+            path="/upload"
             element={
               <ProtectedRoute>
-                <UploadPage />
+                <RoleBasedRoute allowedRoles={["USER", "SERVICE", "ADMIN"]}>
+                  <UploadPage />
+                </RoleBasedRoute>
               </ProtectedRoute>
-            } 
+            }
           />
 
-          <Route 
-            path="/result" 
+          <Route
+            path="/result/:id"
             element={
               <ProtectedRoute>
-                <ResultPage />
+                <RoleBasedRoute allowedRoles={["USER", "SERVICE", "ADMIN"]}>
+                  <ResultPage />
+                </RoleBasedRoute>
               </ProtectedRoute>
-            } 
+            }
           />
 
-          <Route 
-            path="/history" 
+          <Route
+            path="/history"
             element={
               <ProtectedRoute>
-                <HistoryPage />
+                <RoleBasedRoute allowedRoles={["USER", "SERVICE", "ADMIN"]}>
+                  <HistoryPage />
+                </RoleBasedRoute>
               </ProtectedRoute>
-            } 
+            }
           />
 
-          <Route 
-            path="/admin" 
+          <Route
+            path="/repair-requests"
             element={
               <ProtectedRoute>
-                <AdminPage />
+                <RoleBasedRoute allowedRoles={["USER", "SERVICE", "ADMIN"]}>
+                  <RepairRequestsPage />
+                </RoleBasedRoute>
               </ProtectedRoute>
-            } 
+            }
+          />
+
+          <Route
+            path="/service-profile"
+            element={
+              <ProtectedRoute>
+                <RoleBasedRoute allowedRoles={["SERVICE"]}>
+                  <ServiceProfilePage />
+                </RoleBasedRoute>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <RoleBasedRoute allowedRoles={["ADMIN"]}>
+                  <AdminPage />
+                </RoleBasedRoute>
+              </ProtectedRoute>
+            }
           />
         </Route>
       </Routes>

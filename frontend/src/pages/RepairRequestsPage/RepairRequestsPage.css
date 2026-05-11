@@ -1,0 +1,194 @@
+.repair-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.repair-toolbar .right { margin-left: auto; }
+
+.repair-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.repair-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+}
+
+.repair-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.repair-card-title { font-size: 15px; font-weight: 600; color: var(--text); }
+.repair-card-sub { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+.repair-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 18px;
+  font-size: 13px;
+}
+@media (max-width: 640px) { .repair-meta { grid-template-columns: 1fr; } }
+
+.repair-meta .label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+.repair-meta .val {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+}
+
+.repair-contact-block {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--success-50);
+  border: 1px solid var(--success-100);
+  border-radius: 8px;
+  color: var(--success-700);
+  font-size: 13px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.service-user-contact-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  line-height: 1.35;
+  min-width: 0;
+}
+
+.repair-contact-intro {
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.repair-contact-email {
+  font-size: 13px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.repair-status-pill {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  box-sizing: border-box;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.repair-status-pill-label {
+  position: relative;
+  top: 0.5px;
+}
+.repair-status-pill-pending {
+  background: var(--warning-50);
+  color: var(--warning-700);
+  border-color: var(--warning-100);
+}
+.repair-status-pill-accepted {
+  background: var(--success-50);
+  color: var(--success-700);
+  border-color: var(--success-100);
+}
+.repair-status-pill-rejected {
+  background: var(--danger-50);
+  color: var(--danger-700);
+  border-color: var(--danger-100);
+}
+.repair-status-pill-unknown {
+  background: var(--slate-100);
+  color: var(--slate-600);
+  border-color: var(--border);
+}
+
+/* SERVICE incoming card */
+.service-request-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+}
+.service-request-card--rejected {
+  box-shadow: inset 3px 0 0 var(--danger-200);
+}
+.service-request-analysis-link {
+  color: var(--brand-700);
+  font-weight: 600;
+  text-decoration: none;
+}
+.service-request-analysis-link:hover {
+  text-decoration: underline;
+}
+.service-request-analysis-id--muted {
+  color: var(--text-muted);
+  font-weight: 500;
+  cursor: default;
+}
+.service-request-rejected-hint {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--danger-700);
+  background: var(--danger-50);
+  border: 1px solid var(--danger-100);
+  border-radius: 8px;
+  flex: 1;
+  min-width: min(100%, 200px);
+}
+.service-request-card .head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.service-request-card .title { font-weight: 600; font-size: 15px; color: var(--text); }
+.service-request-card .meta {
+  font-size: 13px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.service-request-card .meta .row {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.service-request-card .body { font-size: 13px; color: var(--slate-700); }
+.service-request-card .repair-contact-block {
+  margin-top: 10px;
+}
+.service-request-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}

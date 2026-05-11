@@ -1,18 +1,32 @@
 import './Header.css';
-import { Link, useNavigate } from "react-router-dom";
-import { getStoredUser, hasAccessToken, logout } from "../../services/authService";
+import { useEffect, useState } from "react";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "../../auth/AuthContext";
+import { getRoleLabel } from "../../auth/roleLabels";
+import Icon from "../Icon/Icon";
+import logo from "../../assets/logo.jpeg";
 
 function Header() {
   const navigate = useNavigate();
-  const token = hasAccessToken();
-  const user = getStoredUser();
+  const { user, role, isAuthenticated, logout } = useAuth();
 
   const displayName = user?.username || "Пользователь";
-  const email = user?.email || "";
+  const email = user?.email || "user@autoinspect.ru";
   const avatarURL = user?.avatar_url || user?.avatarUrl || "";
 
   const initialsSource = (displayName || email || "U").trim();
   const initials = initialsSource.slice(0, 2).toUpperCase();
+
+  // Reset the "image is broken" flag whenever the avatar URL changes
+  // (login → logout → login with a different account, profile photo update, etc.)
+  const [avatarBroken, setAvatarBroken] = useState(false);
+  useEffect(() => {
+    setAvatarBroken(false);
+  }, [avatarURL]);
+
+  const showAvatarImage = Boolean(avatarURL) && !avatarBroken;
+
+  const token = isAuthenticated;
 
   const handleLogout = async () => {
     await logout();
@@ -20,49 +34,75 @@ function Header() {
   };
 
   return (
-    <header className='header'>
-      <nav className='header-nav'>
-        
-        {/* Левая часть */}
-        <div>
-          <Link to="/home" className='header-logo'>
-            AutoInspect
-          </Link>
-        </div>
+    <header className="app-header">
+      <div className="app-header-inner">
+        <Link to="/home" className="header-brand">
+          <img src={logo} alt="AutoInspect logo" className="logo" />
+          AutoInspect
+        </Link>
 
-        {/* Правая часть */}
-        <div className='header-links'>
-          {token && (
-            <>
-              <Link to="/upload">Анализ</Link>
-              <Link to="/history">История</Link>
+        {token && (
+          <nav className="header-nav" aria-label="Главная навигация">
+            <NavLink to="/upload" className={({ isActive }) => "header-nav-link" + (isActive ? " active" : "")}>
+              Анализ
+            </NavLink>
+            <NavLink to="/history" className={({ isActive }) => "header-nav-link" + (isActive ? " active" : "")}>
+              История
+            </NavLink>
+            <NavLink to="/repair-requests" className={({ isActive }) => "header-nav-link" + (isActive ? " active" : "")}>
+              Заявки
+            </NavLink>
+            {role === "SERVICE" && (
+              <NavLink to="/service-profile" className={({ isActive }) => "header-nav-link" + (isActive ? " active" : "")}>
+                Профиль сервиса
+              </NavLink>
+            )}
+            {role === "ADMIN" && (
+              <NavLink to="/admin" className={({ isActive }) => "header-nav-link" + (isActive ? " active" : "")}>
+                Админ панель
+              </NavLink>
+            )}
+          </nav>
+        )}
 
-              <div className="profile-menu">
-                <button type="button" className="profile-trigger" aria-label="Профиль пользователя">
-                  {avatarURL ? (
-                    <img src={avatarURL} alt="avatar" className="profile-avatar" />
+        <div className="header-actions">
+          {token ? (
+            <div className="profile-menu">
+              <button type="button" className="profile-trigger" aria-label="Профиль пользователя">
+                <span className="avatar" aria-hidden="true">
+                  {showAvatarImage ? (
+                    <img
+                      src={avatarURL}
+                      alt={displayName}
+                      onError={() => setAvatarBroken(true)}
+                      referrerPolicy="no-referrer"
+                    />
                   ) : (
-                    <span className="profile-initials">{initials}</span>
+                    initials
                   )}
-                </button>
+                </span>
+                <span className="name">{displayName}</span>
+                <Icon name="chevronDown" size={14} />
+              </button>
 
-                <div className="profile-dropdown">
-                  <div className="profile-name">{displayName}</div>
-                  {email ? <div className="profile-email">{email}</div> : null}
-                  <button className='logout-button' onClick={handleLogout}>
-                    Выйти
-                  </button>
+              <div className="profile-dropdown" role="menu">
+                <div className="profile-dropdown-header">
+                  <div className="profile-dropdown-name">{displayName}</div>
+                  <div className="profile-dropdown-email">{email}</div>
+                  {role && (
+                    <div className="profile-dropdown-role">{getRoleLabel(role)}</div>
+                  )}
                 </div>
+                <button type="button" className="profile-dropdown-item danger" onClick={handleLogout}>
+                  <Icon name="logout" size={14} /> Выйти
+                </button>
               </div>
-            </>
-          )}
-
-          {!token && (
-            <Link to="/auth">Войти</Link>
+            </div>
+          ) : (
+            <Link to="/auth" className="btn btn-primary btn-sm">Войти</Link>
           )}
         </div>
-
-      </nav>
+      </div>
     </header>
   );
 }
