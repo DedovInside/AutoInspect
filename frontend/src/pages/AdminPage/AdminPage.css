@@ -1,0 +1,151 @@
+.admin-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.admin-toolbar .right { margin-left: auto; }
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.modal-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 520px;
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-header h3 { font-size: 16px; font-weight: 600; }
+.modal-body { padding: 20px; }
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+
+.actions-col {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.kbd-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--slate-600);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.kbd-action:hover { background: var(--slate-50); color: var(--text); }
+.kbd-action.danger { color: var(--danger-600); border-color: var(--danger-100); background: var(--danger-50); }
+.kbd-action.danger:hover { background: var(--danger-100); }
+.kbd-action.success { color: var(--success-700); border-color: var(--success-100); background: var(--success-50); }
+.kbd-action.success:hover { background: var(--success-100); }
+/* Тот же тон, что у бейджа «Выполнено» (.badge-training-completed) */
+.kbd-action.training-completed {
+  color: #5b21b6;
+  border-color: #ddd6fe;
+  background: #f3f0ff;
+}
+.kbd-action.training-completed:hover { background: #ebe4ff; color: #4c1d95; }
+
+.uploader-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 18px;
+  border-radius: var(--radius-md);
+  border: 2px dashed var(--border-strong);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  overflow: hidden;
+}
+.uploader-tile:hover { border-color: var(--brand-500); }
+.uploader-tile-error {
+  border-color: var(--danger-200);
+  background: var(--danger-50);
+}
+.uploader-tile-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 0;
+  z-index: 2;
+}
+.uploader-tile-hint {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-weight: 400;
+}
+
+.training-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  margin-bottom: 10px;
+}
+.training-card-meta { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.training-card-spec {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 12px;
+  row-gap: 4px;
+  font-size: 13px;
+  align-items: baseline;
+}
+.training-card-spec-label {
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.training-card-spec-value {
+  font-weight: 600;
+  color: var(--text);
+  word-break: break-word;
+}
+.training-card-desc { font-size: 13px; color: var(--text-muted); }
+.training-card-sub { font-size: 12px; color: var(--text-muted); }

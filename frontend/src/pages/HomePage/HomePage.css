@@ -1,0 +1,60 @@
+.home-intro {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px 28px;
+  margin-bottom: 24px;
+}
+
+.home-intro h1 {
+  font-size: 26px;
+  margin-bottom: 8px;
+}
+
+.home-intro p {
+  color: var(--text-muted);
+  font-size: 14px;
+  max-width: 640px;
+  margin-bottom: 16px;
+}
+
+.home-forms-header {
+  margin-bottom: 14px;
+}
+.home-forms-header h2 {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+.home-forms-header p {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.home-form-card h3 {
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+.home-form-card .desc {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-bottom: 18px;
+}
+
+/* Небольшой отступ перед первым полем форм заявок (после описания) */
+.home-form-card--service > .form-row:first-child,
+.home-form-card--training > .form-row:first-child {
+  margin-top: 10px;
+}
+
+.home-form-success {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--success-50);
+  border: 1px solid var(--success-100);
+  color: var(--success-700);
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
