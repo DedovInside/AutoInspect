@@ -17,14 +17,13 @@ ML-часть **AutoInspect** - это набор моделей компьют�
 
 ## Статус модулей
 
-| Модуль | Назначение                                                   | Статус |
-|---|--------------------------------------------------------------|---|
-| Part Segmentation General | Сегментация крупных деталей автомобиля                       | `READY` |
-| Damage Segmentation | Сегментация повреждений                                      | `READY` |
+| Модуль | Назначение                                                  | Статус |
+|---|-------------------------------------------------------------|---|
+| Part Segmentation General | Сегментация крупных деталей автомобиля               | `READY` |
+| Damage Segmentation | Сегментация повреждений автомобиля                          | `READY` |
 | View Model | Вспомогательная классификация ракурса / tooling для датасета | `READY / AUXILIARY` |
-| ML Inference Service | Объединение Parts + Damages в JSON для backend               | `READY` |
-| Part Segmentation Tuned | Адаптация под конкретные авто/домены                         | `IN PROGRESS` |
-| Detailed Segmentation | Детальная сегментация мелких элементов                       | `IN PROGRESS` |
+| ML Inference Service | Объединение Parts + Damages в JSON для backend              | `READY` |
+| Specialized Parts Segmentation | Сегментация деталей под конкретное авто / домен / автопарк  | `IN PROGRESS` |
 
 ---
 
@@ -35,7 +34,9 @@ ML-часть **AutoInspect** - это набор моделей компьют�
 ```text
 Input image
     ↓
-Part Segmentation General
+Parts Segmentation
+    ├── General Parts model: coarse parts
+    └── Specialized Parts model: detailed classes for a specific vehicle/domain
     ↓
 Damage Segmentation
     ↓
@@ -43,6 +44,9 @@ Mask matching: damages -> parts
     ↓
 Structured JSON response for backend
 ```
+
+В базовом сценарии используется универсальная модель `Part Segmentation General`, которая выделяет основные детали автомобиля.  
+Для конкретных автомобилей или доменов может использоваться `Specialized Parts Segmentation`, обученная на отдельном датасете. Такая модель работает не с coarse-классами General-модели, а со всеми классами specialized-датасета, то есть фактически дает более детальную сегментацию под конкретный тип автомобиля.
 
 Главная задача пайплайна - определить:
 
@@ -91,24 +95,26 @@ Structured JSON response for backend
 
 `Damage Segmentation` - модель сегментации повреждений автомобиля.
 
-Она выделяет зоны повреждений и используется вместе с `Part Segmentation General`.
+Используется вместе с `Part Segmentation` (`General` или `Specialized`) и выделяет зоны повреждений:
+
+- вмятины;
+- царапины;
+- трещины;
+- разбитое стекло;
+- поврежденные фары;
+- спущенные колеса.
 
 ### Артефакты
 
 - Модель: https://huggingface.co/mitbersh/car-damage-segmentation
-- Обучение: https://www.kaggle.com/code/brshtskmit/train-car-damage-segmentation-yolov26-s-cardd
+- Обучение: https://www.kaggle.com/code/brshtskmit/train-car-damage-segmentation-yolov26-m-cardd
 - Датасет YOLO: https://huggingface.co/datasets/mitbersh/car-damage-segmentation-yolo
 - Исходный датасет CArDD: https://cardd-ustc.github.io/
 - Comet: https://www.comet.com/brshtsk/car-damage-test
 
-### Назначение
+### Особенности
 
-Модель используется для:
-
-- поиска повреждений;
-- получения масок повреждений;
-- классификации типов повреждений;
-- последующего сопоставления повреждений с деталями автомобиля.
+При обучении особое внимание уделялось корректному определению мелких повреждений. При оценке качества модели учитывались специализированные метрики по распознаванию `tiny` (до 0.05% площади изображения) и `small` (от 0.05% до 0.25%) повреждений.
 
 ---
 
@@ -118,7 +124,7 @@ Structured JSON response for backend
 
 Сервис выполняет:
 
-1. запуск `Part Segmentation General`;
+1. запуск `Part Segmentation` (`General` или `Specialized`);
 2. запуск `Damage Segmentation`;
 3. сопоставление масок повреждений с масками деталей;
 4. агрегацию повреждений по деталям;
@@ -137,16 +143,6 @@ damage instance -> affected car parts
 ## 4. View Model
 
 `View Model` - вспомогательная модель классификации ракурса автомобиля.
-
-Она определяет ракурс фото, например:
-
-- `front`;
-- `rear`;
-- `side`;
-- `front-left`;
-- `front-right`;
-- `back-left`;
-- `back-right`.
 
 ### Артефакты
 
@@ -173,13 +169,13 @@ View Model -> Part Segmentation -> Damage Segmentation
 
 ---
 
-## 5. Part Segmentation Tuned
+## 5. Specialized Parts Segmentation
 
-`Part Segmentation Tuned` - адаптация general-модели под конкретные автомобили, марки, типы кузова или домены.
+`Specialized Parts Segmentation` - адаптация general-модели под конкретные автомобили, марки, типы кузова или домены.
 
 Идея:
 
-> General-модель работает как универсальный MVP-сегментатор, а tuned-модель может давать дополнительную точность в конкретном сервисном сценарии.
+> General-модель работает как универсальный сегментатор, а specialized-модель может давать дополнительную точность в конкретном сервисном сценарии.
 
 Примеры сценариев:
 
@@ -187,14 +183,6 @@ View Model -> Part Segmentation -> Damage Segmentation
 - корпоративный клиент;
 - страховой партнер;
 - специфичные условия съемки.
-
----
-
-## 6. Detailed Segmentation
-
-`Detailed Segmentation` - направление для более точной сегментации мелких элементов автомобиля.
-
-Detailed-модель может быть полезна для advanced/enterprise-сценариев или для автосервисов, которым нужна более глубокая детализация.
 
 ---
 
@@ -260,10 +248,6 @@ Comet используется для хранения эксперименто�
 
 ### In Progress
 
-- [ ] Pipeline для Part Segmentation Tuned
-- [ ] Detailed Segmentation
-- [ ] Fine-tuning под конкретные автомобили
-- [ ] Поддержка нескольких `model_id`
-- [ ] Поддержка нескольких версий моделей
+- [ ] Specialized Segmentation
 
 ---
