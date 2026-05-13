@@ -1,4 +1,4 @@
-# AutoInspect — фронтенд
+# AutoInspect - фронтенд
 
 Веб-клиент для загрузки изображений, просмотра результатов анализа повреждений, истории, заявок и админ-панели. Доступ к разделам зависит от роли: **USER**, **SERVICE**, **ADMIN**.
 
@@ -18,9 +18,9 @@
 
 Создать `.env.local` в корне фронтенда:
 
-- `VITE_API_BASE_URL` — базовый URL API.
-- `VITE_DEV_AUTH_BYPASS` — обход авторизации только в `npm run dev`.
-- `VITE_DEV_ROLE` — роль при обходе, например `USER`, `SERVICE` или `ADMIN`.
+- `VITE_API_BASE_URL` - базовый URL API.
+- `VITE_DEV_AUTH_BYPASS` - обход авторизации только в `npm run dev`.
+- `VITE_DEV_ROLE` - роль при обходе, например `USER`, `SERVICE` или `ADMIN`.
 
 ## Структура `src`
 
@@ -33,4 +33,4 @@
 
 ## Сборка
 
-`npm run build` — продакшен-сборка в `dist/`.
+`npm run build` - продакшен-сборка в `dist/`.
