@@ -32,6 +32,13 @@
   color: var(--text-soft);
 }
 
+.history-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .history-info { display: flex; flex-direction: column; gap: 2px; }
 .history-info .brand { font-weight: 600; color: var(--text); font-size: 14px; }
 .history-info .date { color: var(--text-muted); font-size: 13px; }

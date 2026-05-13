@@ -8,6 +8,7 @@ import { analysisDevLog } from "./analysisDebug";
 import {
   normalizeAnalysisList,
   normalizeAnalysisResponse,
+  normalizeMatchedCarServices,
   normalizeUploadResponse,
 } from "./analysisNormalize";
 import { MOCK_ANALYSES, getMockAnalysis } from "./mockData";
@@ -20,6 +21,7 @@ export {
   normalizeAnalysisListItem,
   normalizeAnalysisResponse,
   normalizeAnalysisStatus,
+  normalizeMatchedCarServices,
   normalizeUploadResponse,
 } from "./analysisNormalize";
 
@@ -35,6 +37,14 @@ function shouldUseAnalysisMocks() {
   if (import.meta.env.VITE_USE_MOCK_ANALYSES === "true") return true;
   if (import.meta.env.VITE_USE_MOCK_ANALYSES === "false") return false;
   return import.meta.env.DEV;
+}
+
+function makeIdempotencyKey(prefix) {
+  const random =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `${prefix}-${random}`;
 }
 
 /**
@@ -105,7 +115,7 @@ export async function uploadImages(payload, options = {}) {
   try {
     const form = new FormData();
     (files ?? []).forEach((f) => form.append("images", f));
-    form.append("brand", brand ?? "");
+    form.append("make", brand ?? "");
     form.append("model", model ?? "");
     form.append("generation", generation ?? "");
     form.append("year", year ?? "");
@@ -113,6 +123,9 @@ export async function uploadImages(payload, options = {}) {
     const raw = await apiClient.post("/v1/analyses", form, {
       signal: combined,
       auth: true,
+      headers: {
+        "Idempotency-Key": options.idempotencyKey || makeIdempotencyKey("analysis"),
+      },
     });
 
     const out = normalizeUploadResponse(raw);
@@ -127,6 +140,57 @@ export async function uploadImages(payload, options = {}) {
     throw err;
   } finally {
     clearTimeoutTimer();
+  }
+}
+
+/**
+ * GET /v1/analyses/:id/images/:idx — presigned URL for uploaded image.
+ * @param {string} id
+ * @param {number} index
+ * @param {{ signal?: AbortSignal, timeoutMs?: number }} [options]
+ */
+export async function getAnalysisImageURL(id, index, options = {}) {
+  const { signal: userSignal, timeoutMs = 30_000 } = options;
+
+  const { signal: timeoutSig, clear: clearT } = abortAfter(timeoutMs);
+  const combined = combineAbortSignals(userSignal, timeoutSig);
+
+  try {
+    return await apiClient.get(
+      `/v1/analyses/${encodeURIComponent(String(id))}/images/${encodeURIComponent(String(index))}`,
+      {
+        signal: combined,
+        auth: true,
+      }
+    );
+  } finally {
+    clearT();
+  }
+}
+
+/**
+ * GET /v1/analyses/:id/car-services — services matching analysis result.
+ * @param {string} id
+ * @param {{ limit?: number, offset?: number, signal?: AbortSignal, timeoutMs?: number }} [options]
+ */
+export async function getMatchingCarServices(id, options = {}) {
+  const { limit = 20, offset = 0, signal: userSignal, timeoutMs = 45_000 } = options;
+
+  const { signal: timeoutSig, clear: clearT } = abortAfter(timeoutMs);
+  const combined = combineAbortSignals(userSignal, timeoutSig);
+
+  try {
+    const raw = await apiClient.get(
+      `/v1/analyses/${encodeURIComponent(String(id))}/car-services`,
+      {
+        query: { limit, offset },
+        signal: combined,
+        auth: true,
+      }
+    );
+    return normalizeMatchedCarServices(raw);
+  } finally {
+    clearT();
   }
 }
 

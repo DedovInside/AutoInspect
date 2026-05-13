@@ -156,7 +156,7 @@ function enqueueSubmit(fn) {
 }
 
 /**
- * POST /v1/service-registrations
+ * POST /v1/car-service-applications
  * @param {unknown} payload
  * @param {{ signal?: AbortSignal, timeoutMs?: number }} [options]
  */
@@ -197,7 +197,7 @@ export async function submitServiceRegistration(payload, options = {}) {
     try {
       const body = serviceRegistrationPayloadToApiBody(cleaned);
       /** @type {unknown} */
-      const raw = await apiClient.post("/v1/service-registrations", body, {
+      const raw = await apiClient.post("/v1/car-service-applications", body, {
         signal: combined,
         auth: true,
       });
@@ -223,7 +223,7 @@ export async function submitServiceRegistration(payload, options = {}) {
 }
 
 /**
- * GET /v1/admin/service-registrations?status=
+ * GET /v1/admin/car-service-applications?status=
  * @param {{ status?: string, signal?: AbortSignal, timeoutMs?: number }} [options]
  */
 export async function listServiceRegistrations(options = {}) {
@@ -247,7 +247,7 @@ export async function listServiceRegistrations(options = {}) {
 
   try {
     /** @type {unknown} */
-    const raw = await apiClient.get("/v1/admin/service-registrations", {
+    const raw = await apiClient.get("/v1/admin/car-service-applications", {
       signal: combined,
       auth: true,
       query: { status: status ?? "" },
@@ -255,6 +255,40 @@ export async function listServiceRegistrations(options = {}) {
     return normalizeServiceRegistrationList(raw);
   } catch (e) {
     rethrowAbortOrWrapAdminError(e);
+  } finally {
+    clear();
+  }
+}
+
+/**
+ * GET /v1/car-service-applications?offset=&limit=
+ * @param {{ signal?: AbortSignal, timeoutMs?: number }} [options]
+ */
+export async function listMyServiceRegistrations(options = {}) {
+  const { signal: userSignal, timeoutMs = 25_000 } = options ?? {};
+
+  if (shouldUseServiceRegistrationMocks()) {
+    await delay(120);
+    return registrations.map((r) => normalizeServiceRegistration(r));
+  }
+
+  const { signal: timeoutSig, clear } = abortAfter(timeoutMs);
+  const combined = combineAbortSignals(userSignal, timeoutSig);
+
+  try {
+    /** @type {unknown} */
+    const raw = await apiClient.get("/v1/car-service-applications", {
+      signal: combined,
+      auth: true,
+      query: { limit: 20, offset: 0 },
+    });
+    return normalizeServiceRegistrationList(raw);
+  } catch (e) {
+    const n = normalizeApiError(e);
+    if (n.code === "aborted") {
+      throw e instanceof Error ? e : new Error(n.message || "Запрос отменён");
+    }
+    throw new Error(n.message || "Не удалось загрузить заявки на регистрацию");
   } finally {
     clear();
   }
@@ -309,8 +343,8 @@ async function approveServiceRegistrationImpl(id, options = {}) {
 
   try {
     /** @type {unknown} */
-    const raw = await apiClient.post(
-      `/v1/admin/service-registrations/${encodeURIComponent(sid)}/approve`,
+    const raw = await apiClient.patch(
+      `/v1/admin/car-service-applications/${encodeURIComponent(sid)}/approve`,
       {},
       { signal: combined, auth: true }
     );
@@ -328,7 +362,7 @@ async function approveServiceRegistrationImpl(id, options = {}) {
 }
 
 /**
- * POST /v1/admin/service-registrations/:id/approve
+ * PATCH /v1/admin/car-service-applications/:id/approve
  * @param {string} id
  * @param {{ snapshot?: unknown, from?: string, signal?: AbortSignal, timeoutMs?: number }} [options]
  */
@@ -382,9 +416,9 @@ async function rejectServiceRegistrationImpl(id, options = {}) {
 
   try {
     /** @type {unknown} */
-    const raw = await apiClient.post(
-      `/v1/admin/service-registrations/${encodeURIComponent(sid)}/reject`,
-      { reason: body.reason },
+    const raw = await apiClient.patch(
+      `/v1/admin/car-service-applications/${encodeURIComponent(sid)}/reject`,
+      { rejection_reason: body.reason || "Отклонено администратором" },
       { signal: combined, auth: true }
     );
     return mergeServiceRegistrationAdmin(
@@ -406,7 +440,7 @@ async function rejectServiceRegistrationImpl(id, options = {}) {
 }
 
 /**
- * POST /v1/admin/service-registrations/:id/reject
+ * PATCH /v1/admin/car-service-applications/:id/reject
  * @param {string} id
  * @param {{ reason?: string, snapshot?: unknown, from?: string, signal?: AbortSignal, timeoutMs?: number }} [options]
  */

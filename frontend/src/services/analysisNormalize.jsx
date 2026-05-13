@@ -43,6 +43,10 @@ export function unwrapAnalysisEnvelope(raw) {
     return top.analysis;
   }
 
+  if (top.job !== undefined && typeof top.job === "object") {
+    return top.job;
+  }
+
   return top;
 }
 
@@ -160,6 +164,69 @@ function normalizeDamages(src) {
     .filter(Boolean);
 }
 
+function damageLabel(code, nameRU) {
+  const ru = coerceString(nameRU, "");
+  const en = coerceString(code, "");
+  if (ru && en) return `${ru} (${en})`;
+  return ru || en || "повреждение";
+}
+
+function vehicleLabel(make, model, generation, year) {
+  const parts = [
+    coerceString(make, ""),
+    coerceString(model, ""),
+    coerceString(generation, ""),
+    coerceString(year, ""),
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(" ") : "—";
+}
+
+function normalizeBackendDamageSummary(result) {
+  if (!result || typeof result !== "object" || Array.isArray(result)) return [];
+
+  /** @type {Record<string, unknown>} */
+  const r = /** @type {Record<string, unknown>} */ (result);
+  const images = Array.isArray(r.results) ? r.results : [];
+  const rows = [];
+
+  images.forEach((image, imageIndex) => {
+    if (!image || typeof image !== "object" || Array.isArray(image)) return;
+    const summaries = Array.isArray(image.parts_summary)
+      ? image.parts_summary
+      : [];
+
+    summaries.forEach((summary, summaryIndex) => {
+      if (!summary || typeof summary !== "object" || Array.isArray(summary)) return;
+      const s = /** @type {Record<string, unknown>} */ (summary);
+      const part = coerceString(
+        s.name_ru ?? s.name ?? s.parent_name_ru ?? s.parent_name,
+        "Не указано"
+      );
+      const side = coerceString(s.side_ru ?? s.side, "");
+      const damageTypes = Array.isArray(s.damage_types) ? s.damage_types : [];
+      const damageText = damageTypes
+        .map((item) => {
+          if (!item || typeof item !== "object" || Array.isArray(item)) return "";
+          const d = /** @type {Record<string, unknown>} */ (item);
+          const count = Number(d.count ?? 0);
+          const suffix = Number.isFinite(count) && count > 1 ? ` ×${count}` : "";
+          return `${damageLabel(d.code, d.name_ru)}${suffix}`;
+        })
+        .filter(Boolean)
+        .join(", ");
+
+      rows.push({
+        id: `${imageIndex}-${summaryIndex}`,
+        part: side ? `${part}, ${side}` : part,
+        severity: damageText || "Повреждение",
+        damage_count: Number(s.damage_count ?? 0) || damageTypes.length,
+      });
+    });
+  });
+
+  return rows;
+}
+
 /** @param {unknown} src */
 function normalizeServices(src) {
   const env = unwrapAnalysisEnvelope(src);
@@ -222,6 +289,67 @@ function normalizeServices(src) {
     .filter(Boolean);
 }
 
+function normalizeServiceImage(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = /** @type {Record<string, unknown>} */ (raw);
+  const url = coerceString(o.url ?? o.URL, "");
+  if (!url) return null;
+  return {
+    id: coerceString(o.id, url),
+    url,
+    is_primary: Boolean(o.is_primary ?? o.isPrimary),
+    original_filename: coerceString(
+      o.original_filename ?? o.originalFilename,
+      ""
+    ),
+  };
+}
+
+function normalizeServiceImages(raw, primaryRaw) {
+  const images = Array.isArray(raw)
+    ? raw.map((item) => normalizeServiceImage(item)).filter(Boolean)
+    : [];
+  const primary = normalizeServiceImage(primaryRaw);
+
+  if (primary && !images.some((image) => image.id === primary.id)) {
+    images.unshift({ ...primary, is_primary: true });
+  }
+
+  return images.sort((a, b) => Number(Boolean(b.is_primary)) - Number(Boolean(a.is_primary)));
+}
+
+export function normalizeMatchedCarServices(raw) {
+  const list =
+    raw && typeof raw === "object" && !Array.isArray(raw) && Array.isArray(raw.items)
+      ? raw.items
+      : Array.isArray(raw)
+        ? raw
+        : [];
+
+  return list.map((item, index) => {
+    const o =
+      item && typeof item === "object" && !Array.isArray(item)
+        ? /** @type {Record<string, unknown>} */ (item)
+        : {};
+    const primaryImage = o.primary_image ?? o.primaryImage ?? null;
+    const images = normalizeServiceImages(o.images, primaryImage);
+    return {
+      id: coerceString(o.id, `svc-${index}`),
+      name: coerceString(o.organization_name ?? o.name, "Автосервис"),
+      phone: coerceString(o.phone, "—"),
+      email: coerceString(o.email, ""),
+      address: coerceString(o.address, "—"),
+      city: coerceString(o.city, ""),
+      description: coerceString(o.description, ""),
+      score: Number(o.score ?? 0) || 0,
+      match_count: Number(o.match_count ?? 0) || 0,
+      required_count: Number(o.required_count ?? 0) || 0,
+      primary_image: primaryImage,
+      images,
+    };
+  }).filter((item) => item.id);
+}
+
 /**
  * Full analysis document for result screen.
  * @param {unknown} raw
@@ -252,6 +380,11 @@ export function normalizeAnalysisResponse(raw, ctx = {}) {
   /** @type {Record<string, unknown>} */
   const o = /** @type {Record<string, unknown>} */ (envelope);
 
+  const result =
+    o.result && typeof o.result === "object" && !Array.isArray(o.result)
+      ? /** @type {Record<string, unknown>} */ (o.result)
+      : null;
+
   const canonicalStatus = normalizeAnalysisStatus(
     o.status ?? o.state ?? o.phase ?? o.analysis_status ?? o.analysisStatus
   );
@@ -265,12 +398,23 @@ export function normalizeAnalysisResponse(raw, ctx = {}) {
   );
 
   const brand = coerceString(
-    o.brand ?? o.vehicle_brand ?? o.vehicleBrand,
+    o.brand ?? o.vehicle_brand ?? o.vehicleBrand ?? o.car_make ?? o.make,
     "—"
   );
+  const car_model = coerceString(o.car_model ?? o.model ?? o.vehicle_model, "");
+  const car_generation = coerceString(
+    o.car_generation ?? o.generation ?? o.vehicle_generation,
+    ""
+  );
+  const car_year = coerceString(o.car_year ?? o.year ?? o.vehicle_year, "");
 
   const created_at = coerceString(
-    o.created_at ?? o.createdAt ?? o.completed_at ?? o.completedAt,
+    o.created_at ??
+      o.createdAt ??
+      o.requested_at ??
+      o.requestedAt ??
+      o.completed_at ??
+      o.completedAt,
     new Date().toISOString()
   );
 
@@ -282,9 +426,12 @@ export function normalizeAnalysisResponse(raw, ctx = {}) {
     "Не указано"
   );
 
-  const damages = normalizeDamages(
-    o.damages ?? o.detections ?? o.damage_items ?? o.damageItems
-  );
+  const backendDamages = normalizeBackendDamageSummary(result);
+  const damages = backendDamages.length > 0
+    ? backendDamages
+    : normalizeDamages(
+        o.damages ?? o.detections ?? o.damage_items ?? o.damageItems
+      );
   const services = normalizeServices(
     o.services ?? o.service_recommendations ?? o.serviceRecommendations
   );
@@ -294,10 +441,17 @@ export function normalizeAnalysisResponse(raw, ctx = {}) {
     analysis_id: id,
     status: canonicalStatus,
     brand,
+    car_model,
+    car_generation,
+    car_year,
+    vehicle_label: vehicleLabel(brand, car_model, car_generation, car_year),
     created_at,
     overall_severity,
     damages,
     services,
+    result,
+    image_count: Number(o.image_count ?? 0) || 0,
+    error_message: coerceString(o.error_message, ""),
   };
 }
 
@@ -323,10 +477,24 @@ export function normalizeAnalysisListItem(raw) {
 
   const id = coerceString(o.analysis_id ?? o.analysisId ?? o.id, "");
   const created_at = coerceString(
-    o.created_at ?? o.createdAt,
+    o.created_at ??
+      o.createdAt ??
+      o.requested_at ??
+      o.requestedAt ??
+      o.completed_at ??
+      o.completedAt,
     new Date().toISOString()
   );
-  const brand = coerceString(o.brand ?? o.vehicle_brand ?? o.vehicleBrand, "—");
+  const brand = coerceString(
+    o.brand ?? o.vehicle_brand ?? o.vehicleBrand ?? o.car_make ?? o.make,
+    "—"
+  );
+  const car_model = coerceString(o.car_model ?? o.model ?? o.vehicle_model, "");
+  const car_generation = coerceString(
+    o.car_generation ?? o.generation ?? o.vehicle_generation,
+    ""
+  );
+  const car_year = coerceString(o.car_year ?? o.year ?? o.vehicle_year, "");
   const status = normalizeAnalysisStatus(
     o.status ?? o.state ?? o.phase ?? "processing"
   );
@@ -347,15 +515,25 @@ export function normalizeAnalysisListItem(raw) {
     damages_count = o.damages.length;
   } else if (Array.isArray(o.detections)) {
     damages_count = o.detections.length;
+  } else if (o.result && typeof o.result === "object") {
+    damages_count = normalizeBackendDamageSummary(o.result).reduce(
+      (sum, row) => sum + (Number(row.damage_count) || 1),
+      0
+    );
   }
 
   return {
     id,
     created_at,
     brand,
+    car_model,
+    car_generation,
+    car_year,
+    vehicle_label: vehicleLabel(brand, car_model, car_generation, car_year),
     status,
     overall_severity,
     damages_count,
+    image_count: Number(o.image_count ?? o.imageCount ?? 0) || 0,
   };
 }
 
@@ -409,7 +587,14 @@ export function normalizeUploadResponse(raw) {
   const top = /** @type {Record<string, unknown>} */ (o);
 
   const id = coerceString(
-    top.analysis_id ?? top.analysisId ?? top.id ?? top.job_id ?? top.jobId,
+    top.analysis_id ??
+      top.analysisId ??
+      top.id ??
+      top.job_id ??
+      top.jobId ??
+      (top.job && typeof top.job === "object"
+        ? /** @type {Record<string, unknown>} */ (top.job).id
+        : ""),
     ""
   );
 

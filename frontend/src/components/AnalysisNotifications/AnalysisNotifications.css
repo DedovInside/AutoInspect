@@ -1,0 +1,105 @@
+.analysis-notifications {
+  position: fixed;
+  top: 74px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(380px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.analysis-notification {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  pointer-events: auto;
+}
+
+.analysis-notification-success {
+  border-color: var(--success-100);
+}
+
+.analysis-notification-danger {
+  border-color: var(--danger-100);
+}
+
+.analysis-notification-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+.analysis-notification-success .analysis-notification-icon {
+  background: var(--success-50);
+  color: var(--success-700);
+}
+
+.analysis-notification-danger .analysis-notification-icon {
+  background: var(--danger-50);
+  color: var(--danger-700);
+}
+
+.analysis-notification-body {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  min-width: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.analysis-notification-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.analysis-notification-text {
+  display: block;
+  margin-top: 3px;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.analysis-notification-close {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.analysis-notification-close:hover {
+  background: var(--slate-100);
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  .analysis-notifications {
+    top: 64px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+  }
+}

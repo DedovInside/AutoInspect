@@ -2,9 +2,9 @@ name: Lint
 
 on:
   push:
-    branches: [main, backend, backend_continue]
+    branches: [main, backend, backend_continue, frontend-backend-connection-2]
   pull_request:
-    branches: [main, backend, backend_continue]
+    branches: [main, backend, backend_continue, frontend-backend-connection-2]
 
 jobs:
   golangci:
