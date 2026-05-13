@@ -44,6 +44,8 @@ type RepairRequest struct {
 	AnalysisJobID       uuid.UUID           `json:"analysis_job_id" db:"analysis_job_id"`
 	CarServiceProfileID uuid.UUID           `json:"car_service_profile_id" db:"car_service_profile_id"`
 	Status              RepairRequestStatus `json:"status" db:"status"`
+	Analysis            *AnalysisJob        `json:"analysis,omitempty"`
+	CarServiceProfile   *CarServiceProfile  `json:"car_service_profile,omitempty"`
 
 	RepairSummary   []RepairSummaryItem  `json:"repair_summary" db:"repair_summary"`
 	ServiceEstimate []RepairEstimateItem `json:"service_estimate,omitempty" db:"service_estimate"`

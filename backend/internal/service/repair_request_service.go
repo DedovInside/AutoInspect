@@ -97,6 +97,8 @@ func (s *RepairRequestService) Create(
 		AnalysisJobID:       input.AnalysisJobID,
 		CarServiceProfileID: input.CarServiceProfileID,
 		Status:              domain.RepairRequestStatusPending,
+		Analysis:            job,
+		CarServiceProfile:   profile,
 		RepairSummary:       repairSummary,
 		CustomerName:        normalizedOptionalString(input.CustomerName),
 		CustomerPhone:       normalizedOptionalString(input.CustomerPhone),
@@ -141,6 +143,10 @@ func (s *RepairRequestService) GetMine(
 		return nil, domain.ErrForbidden
 	}
 
+	if err := s.attachRepairRequestContext(ctx, request); err != nil {
+		return nil, err
+	}
+
 	return request, nil
 }
 
@@ -158,7 +164,16 @@ func (s *RepairRequestService) ListMine(
 		return nil, err
 	}
 
-	return s.requestRepo.ListByUserID(ctx, userID, limit, offset)
+	requests, err := s.requestRepo.ListByUserID(ctx, userID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.attachRepairRequestsContext(ctx, requests); err != nil {
+		return nil, err
+	}
+
+	return requests, nil
 }
 
 func (s *RepairRequestService) CancelMine(
@@ -192,7 +207,22 @@ func (s *RepairRequestService) ListIncoming(
 		return nil, err
 	}
 
-	return s.requestRepo.ListByCarServiceProfileID(ctx, profile.ID, limit, offset)
+	requests, err := s.requestRepo.ListByCarServiceProfileID(ctx, profile.ID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, request := range requests {
+		if request != nil {
+			request.CarServiceProfile = profile
+		}
+	}
+
+	if err := s.attachRepairRequestsContext(ctx, requests); err != nil {
+		return nil, err
+	}
+
+	return requests, nil
 }
 
 func (s *RepairRequestService) GetIncomingDetails(
@@ -322,6 +352,46 @@ func (s *RepairRequestService) getCarServiceProfile(
 	}
 
 	return s.profileRepo.GetByUserID(ctx, carServiceUserID)
+}
+
+func (s *RepairRequestService) attachRepairRequestsContext(
+	ctx context.Context,
+	requests []*domain.RepairRequest,
+) error {
+	for _, request := range requests {
+		if err := s.attachRepairRequestContext(ctx, request); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *RepairRequestService) attachRepairRequestContext(
+	ctx context.Context,
+	request *domain.RepairRequest,
+) error {
+	if request == nil {
+		return nil
+	}
+
+	if request.Analysis == nil {
+		analysis, err := s.jobRepo.GetByID(ctx, request.AnalysisJobID)
+		if err != nil {
+			return err
+		}
+		request.Analysis = analysis
+	}
+
+	if request.CarServiceProfile == nil {
+		profile, err := s.profileRepo.GetByID(ctx, request.CarServiceProfileID)
+		if err != nil {
+			return err
+		}
+		request.CarServiceProfile = profile
+	}
+
+	return nil
 }
 
 func (s *RepairRequestService) repairRequestImageLinks(

@@ -201,6 +201,9 @@ type User struct {
 	ID            pgtype.UUID
 	Username      string
 	Email         string
+	FirstName     *string
+	LastName      *string
+	DisplayName   *string
 	AvatarUrl     *string
 	PasswordHash  string
 	Role          string

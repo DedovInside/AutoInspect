@@ -68,19 +68,20 @@ type ListMatchedCarServicesResponse struct {
 }
 
 type MatchedCarServiceResponse struct {
-	ID               uuid.UUID                `json:"id"`
-	OrganizationName string                   `json:"organization_name"`
-	City             string                   `json:"city"`
-	Address          string                   `json:"address"`
-	Phone            *string                  `json:"phone,omitempty"`
-	Email            *string                  `json:"email,omitempty"`
-	WebsiteURL       *string                  `json:"website_url,omitempty"`
-	ContactInfo      *string                  `json:"contact_info,omitempty"`
-	Description      *string                  `json:"description,omitempty"`
-	MatchCount       int                      `json:"match_count"`
-	RequiredCount    int                      `json:"required_count"`
-	Score            float64                  `json:"score"`
-	PrimaryImage     *CarServiceImageResponse `json:"primary_image,omitempty"`
+	ID               uuid.UUID                 `json:"id"`
+	OrganizationName string                    `json:"organization_name"`
+	City             string                    `json:"city"`
+	Address          string                    `json:"address"`
+	Phone            *string                   `json:"phone,omitempty"`
+	Email            *string                   `json:"email,omitempty"`
+	WebsiteURL       *string                   `json:"website_url,omitempty"`
+	ContactInfo      *string                   `json:"contact_info,omitempty"`
+	Description      *string                   `json:"description,omitempty"`
+	MatchCount       int                       `json:"match_count"`
+	RequiredCount    int                       `json:"required_count"`
+	Score            float64                   `json:"score"`
+	PrimaryImage     *CarServiceImageResponse  `json:"primary_image,omitempty"`
+	Images           []CarServiceImageResponse `json:"images,omitempty"`
 }
 
 type AnalysisResultResponse struct {
@@ -261,6 +262,17 @@ func ToMatchedCarServiceResponse(match *domain.CarServiceMatchWithImageURL) Matc
 	if match.Match.PrimaryImage != nil && match.PrimaryImageExpiresAt != nil {
 		image := ToCarServiceImageResponse(match.Match.PrimaryImage, match.PrimaryImageURL, *match.PrimaryImageExpiresAt)
 		resp.PrimaryImage = &image
+	}
+
+	if len(match.ImageURLs) > 0 {
+		resp.Images = make([]CarServiceImageResponse, 0, len(match.ImageURLs))
+		for i := range match.ImageURLs {
+			resp.Images = append(resp.Images, ToCarServiceImageResponse(
+				match.ImageURLs[i].Image,
+				match.ImageURLs[i].URL,
+				match.ImageURLs[i].ExpiresAt,
+			))
+		}
 	}
 
 	return resp

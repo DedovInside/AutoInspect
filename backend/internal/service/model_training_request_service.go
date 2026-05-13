@@ -121,18 +121,22 @@ func (s *ModelTrainingRequestService) ListForAdmin(
 func (s *ModelTrainingRequestService) UpdateStatus(
 	ctx context.Context,
 	input *domain.UpdateModelTrainingRequestStatusInput,
-) error {
+) (*domain.ModelTrainingRequest, error) {
 	if err := validateUpdateModelTrainingRequestStatusInput(input); err != nil {
-		return err
+		return nil, err
 	}
 
 	if input.CreatedModelID != nil && s.modelRepo != nil {
 		if _, err := s.modelRepo.GetModelByID(ctx, *input.CreatedModelID); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return s.requestRepo.UpdateStatus(ctx, *input)
+	if err := s.requestRepo.UpdateStatus(ctx, *input); err != nil {
+		return nil, err
+	}
+
+	return s.requestRepo.GetByID(ctx, input.ID)
 }
 
 func (s *ModelTrainingRequestService) ensureActiveRequestLimit(

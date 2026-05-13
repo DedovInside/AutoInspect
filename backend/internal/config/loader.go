@@ -142,27 +142,57 @@ func validateYandex(cfg *Config) error {
 }
 
 func validateS3(cfg *Config) error {
+	if err := validateS3RequiredFields(cfg); err != nil {
+		return err
+	}
+	if err := validateS3Endpoints(cfg); err != nil {
+		return err
+	}
+	return validateS3BucketUniqueness(
+		cfg.S3.BucketUploads,
+		cfg.S3.BucketModels,
+		cfg.S3.BucketResults,
+	)
+}
+
+func validateS3RequiredFields(cfg *Config) error {
 	if strings.TrimSpace(cfg.S3.AccessKey) == "" || strings.TrimSpace(cfg.S3.SecretKey) == "" {
 		return fmt.Errorf("S3 credentials are required")
 	}
 	if strings.TrimSpace(cfg.S3.Region) == "" {
 		return fmt.Errorf("S3_REGION cannot be empty")
 	}
-	if strings.TrimSpace(cfg.S3.BucketUploads) == "" || strings.TrimSpace(cfg.S3.BucketModels) == "" || strings.TrimSpace(cfg.S3.BucketResults) == "" {
+	if strings.TrimSpace(cfg.S3.BucketUploads) == "" ||
+		strings.TrimSpace(cfg.S3.BucketModels) == "" ||
+		strings.TrimSpace(cfg.S3.BucketResults) == "" {
 		return fmt.Errorf("S3 bucket names are required")
 	}
 	if cfg.S3.PresignedURLTTL <= 0 {
 		return fmt.Errorf("S3_PRESIGNED_URL_TTL must be greater than 0")
 	}
+	return nil
+}
 
-	if cfg.S3.Endpoint != "" {
-		u, err := url.Parse(cfg.S3.Endpoint)
-		if err != nil || u.Scheme == "" || u.Host == "" {
-			return fmt.Errorf("S3_ENDPOINT must be an absolute URL")
-		}
+func validateS3Endpoints(cfg *Config) error {
+	if err := validateOptionalAbsoluteURL(cfg.S3.Endpoint, "S3_ENDPOINT"); err != nil {
+		return err
+	}
+	return validateOptionalAbsoluteURL(cfg.S3.PublicEndpoint, "S3_PUBLIC_ENDPOINT")
+}
+
+func validateOptionalAbsoluteURL(value, name string) error {
+	if strings.TrimSpace(value) == "" {
+		return nil
 	}
 
-	buckets := []string{cfg.S3.BucketUploads, cfg.S3.BucketModels, cfg.S3.BucketResults}
+	u, err := url.Parse(value)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return fmt.Errorf("%s must be an absolute URL", name)
+	}
+	return nil
+}
+
+func validateS3BucketUniqueness(buckets ...string) error {
 	seen := make(map[string]struct{}, len(buckets))
 	for _, bucket := range buckets {
 		name := strings.TrimSpace(bucket)

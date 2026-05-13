@@ -54,6 +54,8 @@ type RepairRequestResponse struct {
 	AnalysisJobID       uuid.UUID                  `json:"analysis_job_id"`
 	CarServiceProfileID uuid.UUID                  `json:"car_service_profile_id"`
 	Status              domain.RepairRequestStatus `json:"status"`
+	Analysis            *AnalysisJobResponse       `json:"analysis,omitempty"`
+	CarServiceProfile   *CarServiceProfileResponse `json:"car_service_profile,omitempty"`
 	RepairSummary       []RepairSummaryItem        `json:"repair_summary"`
 	ServiceEstimate     []RepairEstimateItem       `json:"service_estimate,omitempty"`
 	CustomerName        *string                    `json:"customer_name,omitempty"`
@@ -142,7 +144,7 @@ func ToRepairRequestResponse(request *domain.RepairRequest) RepairRequestRespons
 		return RepairRequestResponse{}
 	}
 
-	return RepairRequestResponse{
+	resp := RepairRequestResponse{
 		ID:                  request.ID,
 		UserID:              request.UserID,
 		AnalysisJobID:       request.AnalysisJobID,
@@ -161,6 +163,17 @@ func ToRepairRequestResponse(request *domain.RepairRequest) RepairRequestRespons
 		UpdatedAt:           request.UpdatedAt,
 		RespondedAt:         request.RespondedAt,
 	}
+
+	if request.Analysis != nil {
+		analysis := ToAnalysisJobResponse(request.Analysis)
+		resp.Analysis = &analysis
+	}
+	if request.CarServiceProfile != nil {
+		profile := ToCarServiceProfileResponse(request.CarServiceProfile)
+		resp.CarServiceProfile = &profile
+	}
+
+	return resp
 }
 
 func ToRepairRequestResponseList(requests []*domain.RepairRequest) []RepairRequestResponse {

@@ -62,12 +62,13 @@ type AuthConfig struct {
 }
 
 type S3Config struct {
-	Endpoint     string `env:"S3_ENDPOINT" env-default:"http://localhost:9000"`
-	AccessKey    string `env:"S3_ACCESS_KEY" env-default:"minioadmin"`
-	SecretKey    string `env:"S3_SECRET_KEY" env-default:"minioadmin"`
-	Region       string `env:"S3_REGION" env-default:"us-east-1"`
-	UseSSL       bool   `env:"S3_USE_SSL" env-default:"false"`
-	UsePathStyle bool   `env:"S3_USE_PATH_STYLE" env-default:"true"`
+	Endpoint       string `env:"S3_ENDPOINT" env-default:"http://localhost:9000"`
+	PublicEndpoint string `env:"S3_PUBLIC_ENDPOINT" env-default:""`
+	AccessKey      string `env:"S3_ACCESS_KEY" env-default:"minioadmin"`
+	SecretKey      string `env:"S3_SECRET_KEY" env-default:"minioadmin"`
+	Region         string `env:"S3_REGION" env-default:"us-east-1"`
+	UseSSL         bool   `env:"S3_USE_SSL" env-default:"false"`
+	UsePathStyle   bool   `env:"S3_USE_PATH_STYLE" env-default:"true"`
 
 	BucketUploads string `env:"S3_BUCKET_UPLOADS" env-default:"autoinspect-uploads"`
 	BucketModels  string `env:"S3_BUCKET_MODELS" env-default:"autoinspect-models"`

@@ -53,6 +53,10 @@ func NewGinRouter(
 	modelTrainingRequestsGroup.POST("", modelTrainingRequestHandler.Create)
 	modelTrainingRequestsGroup.GET("", modelTrainingRequestHandler.ListMine)
 
+	modelsGroup := router.Group("/v1/models")
+	modelsGroup.Use(middleware.Auth(tokenManager, cache))
+	modelsGroup.GET("/specialized", modelHandler.ListAvailableSpecialized)
+
 	carServiceApplicationsGroup := router.Group("/v1/car-service-applications")
 	carServiceApplicationsGroup.Use(middleware.Auth(tokenManager, cache))
 	carServiceApplicationsGroup.POST("", carServiceApplicationHandler.Create)
