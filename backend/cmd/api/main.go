@@ -201,6 +201,7 @@ func run() error {
 		repairRequestHandler,
 		tokenManager,
 		redisCacheClient,
+		cfg.HTTP.CORSAllowedOrigins,
 	)
 
 	server := newHTTPServer(cfg, router)

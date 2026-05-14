@@ -21,9 +21,11 @@ func NewGinRouter(
 	repairRequestHandler *handlers.RepairRequestHandler,
 	tokenManager *service.TokenManager,
 	cache service.SessionCache,
+	corsAllowedOrigins []string,
 ) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Recovery())
+	router.Use(middleware.CORS(corsAllowedOrigins))
 
 	router.GET("/health", func(c *gin.Context) {
 		c.String(http.StatusOK, "ok")

@@ -16,12 +16,13 @@ type Config struct {
 }
 
 type HTTPConfig struct {
-	Host             string        `env:"HTTP_HOST" env-default:"0.0.0.0"`
-	Port             string        `env:"HTTP_PORT" env-default:"8080"`
-	ReadTimeout      time.Duration `env:"HTTP_READ_TIMEOUT" env-default:"10s"`
-	WriteTimeout     time.Duration `env:"HTTP_WRITE_TIMEOUT" env-default:"10s"`
-	ShutdownTimeout  time.Duration `env:"HTTP_SHUTDOWN_TIMEOUT" env-default:"30s"`
-	WSAllowedOrigins []string      `env:"WS_ALLOWED_ORIGINS" env-default:"http://localhost:5173,http://localhost:3000,http://localhost:8080"`
+	Host               string        `env:"HTTP_HOST" env-default:"0.0.0.0"`
+	Port               string        `env:"HTTP_PORT" env-default:"8080"`
+	ReadTimeout        time.Duration `env:"HTTP_READ_TIMEOUT" env-default:"10s"`
+	WriteTimeout       time.Duration `env:"HTTP_WRITE_TIMEOUT" env-default:"10s"`
+	ShutdownTimeout    time.Duration `env:"HTTP_SHUTDOWN_TIMEOUT" env-default:"30s"`
+	CORSAllowedOrigins []string      `env:"CORS_ALLOWED_ORIGINS" env-default:"http://localhost:5173,http://localhost:3000,http://localhost:8080"`
+	WSAllowedOrigins   []string      `env:"WS_ALLOWED_ORIGINS" env-default:"http://localhost:5173,http://localhost:3000,http://localhost:8080"`
 }
 
 type DatabaseConfig struct {

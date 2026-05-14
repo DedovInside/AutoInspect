@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -17,6 +18,8 @@ class Settings(BaseSettings):
     s3_endpoint_url: str = "http://localhost:9000"
     s3_access_key: str = "minioadmin"
     s3_secret_key: str = "minioadmin"
+    s3_access_key_file: str | None = None
+    s3_secret_key_file: str | None = None
     s3_bucket: str = "autoinspect"
     s3_bucket_uploads: str | None = None
     s3_bucket_models: str | None = None
@@ -34,6 +37,10 @@ class Settings(BaseSettings):
     health_port: int = 8081
 
     model_config = SettingsConfigDict(env_file=".env", env_prefix="", case_sensitive=False)
+
+    def model_post_init(self, __context: Any) -> None:
+        self.s3_access_key = read_secret_file(self.s3_access_key_file) or self.s3_access_key
+        self.s3_secret_key = read_secret_file(self.s3_secret_key_file) or self.s3_secret_key
 
     @property
     def cache_dir(self) -> Path:
@@ -55,3 +62,13 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def read_secret_file(path: str | None) -> str | None:
+    if not path:
+        return None
+
+    value = Path(path).read_text(encoding="utf-8").rstrip("\r\n")
+    if not value.strip():
+        raise ValueError(f"Secret file is empty: {path}")
+    return value
