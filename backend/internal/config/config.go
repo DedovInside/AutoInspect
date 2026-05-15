@@ -26,7 +26,7 @@ type HTTPConfig struct {
 }
 
 type DatabaseConfig struct {
-	URL             string        `env:"DATABASE_URL" env-required:"true"`
+	URL             string        `env:"DATABASE_URL"`
 	MaxOpenConns    int           `env:"DB_MAX_OPEN_CONNS" env-default:"25"`
 	MaxIdleConns    int           `env:"DB_MAX_IDLE_CONNS" env-default:"5"`
 	ConnMaxLifetime time.Duration `env:"DB_CONN_MAX_LIFETIME" env-default:"5m"`
@@ -47,7 +47,7 @@ type RedisConfig struct {
 }
 
 type AuthConfig struct {
-	JWTSecret       string        `env:"JWT_SECRET" env-required:"true"`
+	JWTSecret       string        `env:"JWT_SECRET"`
 	JWTIssuer       string        `env:"JWT_ISSUER" env-default:"autoinspect-api"`
 	AccessTokenTTL  time.Duration `env:"ACCESS_TOKEN_TTL" env-default:"15m"`
 	RefreshTokenTTL time.Duration `env:"REFRESH_TOKEN_TTL" env-default:"168h"`
@@ -57,8 +57,8 @@ type AuthConfig struct {
 
 	RateLimitPerMinute int `env:"RATE_LIMIT_PER_MINUTE" env-default:"60"`
 
-	YandexClientID     string `env:"YANDEX_CLIENT_ID" env-required:"true"`
-	YandexClientSecret string `env:"YANDEX_CLIENT_SECRET" env-required:"true"`
+	YandexClientID     string `env:"YANDEX_CLIENT_ID"`
+	YandexClientSecret string `env:"YANDEX_CLIENT_SECRET"`
 	YandexRedirectURL  string `env:"YANDEX_REDIRECT_URL" env-default:"http://localhost:8080/v1/auth/yandex/callback"`
 }
 
