@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -59,8 +60,9 @@ func run() error {
 }
 
 type migratorEnv struct {
-	DatabaseURL    string `env:"DATABASE_URL"`
-	MigrationsPath string `env:"MIGRATIONS_PATH"`
+	DatabaseURL     string `env:"DATABASE_URL"`
+	DatabaseURLFile string `env:"DATABASE_URL_FILE"`
+	MigrationsPath  string `env:"MIGRATIONS_PATH"`
 }
 
 func loadMigratorEnv() error {
@@ -85,10 +87,43 @@ func loadMigratorEnv() error {
 	if os.Getenv("DATABASE_URL") == "" && fileCfg.DatabaseURL != "" {
 		_ = os.Setenv("DATABASE_URL", fileCfg.DatabaseURL)
 	}
+	if err := applyDatabaseURLFile(fileCfg.DatabaseURLFile); err != nil {
+		return err
+	}
 	if os.Getenv("MIGRATIONS_PATH") == "" && fileCfg.MigrationsPath != "" {
 		_ = os.Setenv("MIGRATIONS_PATH", fileCfg.MigrationsPath)
 	}
 
+	return nil
+}
+
+func applyDatabaseURLFile(fileCfgValue string) error {
+	if os.Getenv("DATABASE_URL") != "" {
+		return nil
+	}
+
+	path := strings.TrimSpace(os.Getenv("DATABASE_URL_FILE"))
+	if path == "" {
+		path = strings.TrimSpace(fileCfgValue)
+	}
+	if path == "" {
+		return nil
+	}
+	if path != "/run/secrets/database_url" {
+		return fmt.Errorf("DATABASE_URL_FILE must point to /run/secrets/database_url")
+	}
+
+	data, err := os.ReadFile("/run/secrets/database_url")
+	if err != nil {
+		return fmt.Errorf("DATABASE_URL_FILE: %w", err)
+	}
+
+	value := strings.TrimRight(string(data), "\r\n")
+	if strings.TrimSpace(value) == "" {
+		return errors.New("DATABASE_URL_FILE points to an empty secret file")
+	}
+
+	_ = os.Setenv("DATABASE_URL", value)
 	return nil
 }
 
