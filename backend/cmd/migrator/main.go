@@ -72,26 +72,28 @@ func loadMigratorEnv() error {
 	}
 
 	// #nosec
-	if _, err := os.Stat(envFile); err != nil {
+	if _, err := os.Stat(envFile); err == nil {
+		var fileCfg migratorEnv
+		if err := cleanenv.ReadConfig(envFile, &fileCfg); err != nil {
+			return fmt.Errorf("read config from %s: %w", envFile, err)
+		}
+
+		if os.Getenv("DATABASE_URL") == "" && fileCfg.DatabaseURL != "" {
+			_ = os.Setenv("DATABASE_URL", fileCfg.DatabaseURL)
+		}
+
+		if err := applyDatabaseURLFile(fileCfg.DatabaseURLFile); err != nil {
+			return err
+		}
+
+		if os.Getenv("MIGRATIONS_PATH") == "" && fileCfg.MigrationsPath != "" {
+			_ = os.Setenv("MIGRATIONS_PATH", fileCfg.MigrationsPath)
+		}
+	} else {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil
+			return applyDatabaseURLFile("")
 		}
 		return fmt.Errorf("check config file %s: %w", envFile, err)
-	}
-
-	var fileCfg migratorEnv
-	if err := cleanenv.ReadConfig(envFile, &fileCfg); err != nil {
-		return fmt.Errorf("read config from %s: %w", envFile, err)
-	}
-
-	if os.Getenv("DATABASE_URL") == "" && fileCfg.DatabaseURL != "" {
-		_ = os.Setenv("DATABASE_URL", fileCfg.DatabaseURL)
-	}
-	if err := applyDatabaseURLFile(fileCfg.DatabaseURLFile); err != nil {
-		return err
-	}
-	if os.Getenv("MIGRATIONS_PATH") == "" && fileCfg.MigrationsPath != "" {
-		_ = os.Setenv("MIGRATIONS_PATH", fileCfg.MigrationsPath)
 	}
 
 	return nil
@@ -103,12 +105,15 @@ func applyDatabaseURLFile(fileCfgValue string) error {
 	}
 
 	path := strings.TrimSpace(os.Getenv("DATABASE_URL_FILE"))
+
 	if path == "" {
 		path = strings.TrimSpace(fileCfgValue)
 	}
+
 	if path == "" {
 		return nil
 	}
+
 	if path != "/run/secrets/database_url" {
 		return fmt.Errorf("DATABASE_URL_FILE must point to /run/secrets/database_url")
 	}
