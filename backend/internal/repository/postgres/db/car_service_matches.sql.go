@@ -36,7 +36,7 @@ matched_profiles AS (
     FROM car_service_profiles p
     JOIN car_service_specializations s ON s.profile_id = p.id
     JOIN criteria c ON c.damage_type_code = s.damage_type_code
-       AND c.part_category_code = s.part_category_code
+       AND (c.part_category_code = s.part_category_code OR s.part_category_code = '*')
     WHERE p.is_active = TRUE
     GROUP BY p.id
 )
