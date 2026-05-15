@@ -4,6 +4,13 @@ import { useNavigate } from "react-router-dom";
 import { uploadImages } from "../../services/analyses";
 import Icon from "../../components/Icon/Icon";
 
+const MIN_CAR_YEAR = 1900;
+const MAX_CAR_YEAR = new Date().getFullYear() + 1;
+const MAX_IMAGE_COUNT = 10;
+const MAX_IMAGE_SIZE = 100 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const ALLOWED_IMAGE_LABEL = "JPG, PNG или WEBP";
+
 function formatBytes(bytes) {
   if (!bytes && bytes !== 0) return "";
   if (bytes < 1024) return `${bytes} B`;
@@ -18,6 +25,23 @@ const initialVehicle = {
   year: "",
 };
 
+function parseYear(value) {
+  const trimmed = String(value ?? "").trim();
+  if (!/^\d{4}$/.test(trimmed)) return null;
+  const year = Number(trimmed);
+  return Number.isInteger(year) ? year : null;
+}
+
+function validateImageFile(file) {
+  if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+    return `Файл «${file.name}» должен быть в формате ${ALLOWED_IMAGE_LABEL}`;
+  }
+  if (file.size > MAX_IMAGE_SIZE) {
+    return `Файл «${file.name}» больше ${formatBytes(MAX_IMAGE_SIZE)}`;
+  }
+  return "";
+}
+
 function UploadPage() {
   const navigate = useNavigate();
   const inputRef = useRef(null);
@@ -30,7 +54,30 @@ function UploadPage() {
   const [submitError, setSubmitError] = useState("");
 
   const onFiles = (fileList) => {
-    const fresh = Array.from(fileList || []).map((f) => ({
+    const incoming = Array.from(fileList || []);
+    const nextErrors = [];
+    const freeSlots = Math.max(0, MAX_IMAGE_COUNT - items.length);
+    const accepted = incoming.slice(0, freeSlots);
+
+    if (incoming.length > freeSlots) {
+      nextErrors.push(`Можно загрузить не более ${MAX_IMAGE_COUNT} изображений`);
+    }
+
+    const validFiles = [];
+    for (const file of accepted) {
+      const error = validateImageFile(file);
+      if (error) {
+        nextErrors.push(error);
+      } else {
+        validFiles.push(file);
+      }
+    }
+
+    if (nextErrors.length > 0) {
+      setFieldErrors((prev) => ({ ...prev, files: nextErrors[0] }));
+    }
+
+    const fresh = validFiles.map((f) => ({
       id: `${f.name}-${f.size}-${Math.random().toString(36).slice(2, 7)}`,
       file: f,
       url: URL.createObjectURL(f),
@@ -38,7 +85,7 @@ function UploadPage() {
       size: f.size,
     }));
     setItems((prev) => [...prev, ...fresh]);
-    if (fresh.length) {
+    if (fresh.length && nextErrors.length === 0) {
       clearFieldError("files");
     }
   };
@@ -73,9 +120,21 @@ function UploadPage() {
     }
     if (!vehicle.year.trim()) {
       e.year = "Введите год";
+    } else {
+      const year = parseYear(vehicle.year);
+      if (!year) {
+        e.year = "Введите год в формате 4 цифр";
+      } else if (year < MIN_CAR_YEAR || year > MAX_CAR_YEAR) {
+        e.year = `Год должен быть от ${MIN_CAR_YEAR} до ${MAX_CAR_YEAR}`;
+      }
     }
     if (items.length === 0) {
       e.files = "Выберите изображение/я";
+    } else if (items.length > MAX_IMAGE_COUNT) {
+      e.files = `Можно загрузить не более ${MAX_IMAGE_COUNT} изображений`;
+    } else {
+      const invalid = items.map((it) => validateImageFile(it.file)).find(Boolean);
+      if (invalid) e.files = invalid;
     }
     return e;
   };
@@ -200,6 +259,8 @@ function UploadPage() {
             <label className="form-label" htmlFor="up-year">Год *</label>
             <input
               id="up-year"
+              type="text"
+              inputMode="numeric"
               className={"input" + (fieldErrors.year ? " input-error" : "")}
               placeholder="2018"
               value={vehicle.year}

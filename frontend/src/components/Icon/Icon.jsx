@@ -233,6 +233,13 @@ const ICONS = {
       <circle cx="19" cy="12" r="1.5" fill="currentColor" />
     </>
   ),
+  menu: (
+    <>
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <line x1="4" y1="18" x2="20" y2="18" />
+    </>
+  ),
   building: (
     <>
       <rect x="3" y="3" width="18" height="18" rx="2" />
