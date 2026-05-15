@@ -161,6 +161,24 @@ export function normalizeUser(raw) {
       : o.name != null
         ? String(o.name)
         : "";
+  const first_name =
+    o.first_name != null
+      ? String(o.first_name)
+      : o.firstName != null
+        ? String(o.firstName)
+        : "";
+  const last_name =
+    o.last_name != null
+      ? String(o.last_name)
+      : o.lastName != null
+        ? String(o.lastName)
+        : "";
+  const display_name =
+    o.display_name != null
+      ? String(o.display_name)
+      : o.displayName != null
+        ? String(o.displayName)
+        : "";
   const avatar_url =
     o.avatar_url != null
       ? String(o.avatar_url)
@@ -170,10 +188,17 @@ export function normalizeUser(raw) {
 
   const roleRaw = o.role ?? o.Role;
   let role = ROLES.USER;
-  if (typeof roleRaw === "string" && ALLOWED.has(roleRaw.toUpperCase())) {
-    role = /** @type {typeof ROLES[keyof typeof ROLES]} */ (
-      roleRaw.toUpperCase()
-    );
+  if (typeof roleRaw === "string") {
+    const normalizedRole = roleRaw.trim().toLowerCase();
+    const mappedRole =
+      normalizedRole === "car_service" || normalizedRole === "service"
+        ? ROLES.SERVICE
+        : normalizedRole === "admin"
+          ? ROLES.ADMIN
+          : ROLES.USER;
+    if (ALLOWED.has(mappedRole)) {
+      role = mappedRole;
+    }
   }
 
   const hasIdentity = Boolean(id || email || username);
@@ -183,6 +208,9 @@ export function normalizeUser(raw) {
     id,
     email,
     username,
+    first_name,
+    last_name,
+    display_name,
     avatar_url,
     role,
   };

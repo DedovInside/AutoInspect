@@ -26,6 +26,9 @@ type User struct {
 	ID            uuid.UUID  `json:"id" db:"id"`
 	Username      string     `json:"username" db:"username"`
 	Email         string     `json:"email" db:"email"`
+	FirstName     *string    `json:"first_name,omitempty" db:"first_name"`
+	LastName      *string    `json:"last_name,omitempty" db:"last_name"`
+	DisplayName   *string    `json:"display_name,omitempty" db:"display_name"`
 	AvatarURL     *string    `json:"avatar_url,omitempty" db:"avatar_url"`
 	PasswordHash  string     `json:"-" db:"password_hash"`
 	Role          Role       `json:"role" db:"role"`

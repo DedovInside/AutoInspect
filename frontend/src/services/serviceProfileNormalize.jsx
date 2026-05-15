@@ -133,9 +133,14 @@ export function normalizeServiceProfile(raw) {
     }
     return {
       name: "",
+      city: "",
       phone: "",
+      email: "",
       address: "",
+      website_url: "",
+      contact_info: "",
       description: "",
+      is_active: true,
       services: [],
     };
   }
@@ -183,18 +188,23 @@ export function normalizeServiceProfile(raw) {
 
   return {
     name: coerceString(o.name ?? o.title ?? o.organization_name ?? o.organizationName, ""),
+    city: coerceString(o.city, ""),
     phone: coerceString(
       o.phone ?? o.contact_phone ?? o.phone_number ?? o.contactPhone ?? o.contact_phone_number,
       ""
     ),
+    email: coerceString(o.email ?? o.contact_email ?? o.contactEmail, ""),
     address: coerceString(
       o.address ?? o.location ?? o.full_address ?? o.fullAddress,
       ""
     ),
+    website_url: coerceString(o.website_url ?? o.websiteUrl, ""),
+    contact_info: coerceString(o.contact_info ?? o.contactInfo, ""),
     description: coerceString(
       o.description ?? o.about ?? o.notes ?? o.summary,
       ""
     ),
+    is_active: o.is_active === undefined ? true : Boolean(o.is_active),
     services,
   };
 }
@@ -222,18 +232,23 @@ export function normalizeServiceProfilePayload(profile) {
 
   return {
     name: coerceString(p.name ?? p.title, "").slice(0, 500),
+    city: coerceString(p.city, "").slice(0, 120),
     phone: coerceString(
       p.phone ?? p.contact_phone ?? p.phone_number,
       ""
     ).slice(0, 80),
+    email: coerceString(p.email ?? p.contact_email, "").slice(0, 255),
     address: coerceString(
       p.address ?? p.location,
       ""
     ).slice(0, 500),
+    website_url: coerceString(p.website_url ?? p.websiteUrl, "").slice(0, 500),
+    contact_info: coerceString(p.contact_info ?? p.contactInfo, "").slice(0, 2000),
     description: coerceString(
       p.description ?? p.about ?? p.notes ?? p.summary,
       ""
     ).slice(0, 2000),
+    is_active: p.is_active === undefined ? true : Boolean(p.is_active),
     services: servicesSrc.filter((s) => s.type),
   };
 }
@@ -252,12 +267,17 @@ export function mergeServiceProfileResponse(clientSent, serverRaw) {
 
   return normalizeServiceProfile({
     name: coerceString(patch.name, "") || base.name,
+    city: coerceString(patch.city, "") || base.city,
     phone: coerceString(patch.phone, "") || base.phone,
+    email: coerceString(patch.email, "") || base.email,
     address: coerceString(patch.address, "") || base.address,
+    website_url: coerceString(patch.website_url, "") || base.website_url,
+    contact_info: coerceString(patch.contact_info, "") || base.contact_info,
     description:
       patch.description.trim() !== ""
         ? patch.description
         : base.description,
+    is_active: patch.is_active !== undefined ? patch.is_active : base.is_active,
     services: pickLevels,
   });
 }

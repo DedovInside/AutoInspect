@@ -1,15 +1,24 @@
 import "./HistoryPage.css";
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { getAnalysisHistory } from "../../services/analyses";
+import { getAnalysisHistory, getAnalysisImageURL } from "../../services/analyses";
 import Icon from "../../components/Icon/Icon";
 
-function severityBadgeClass(s) {
-  if (s === "Сложный") return "badge badge-severity-heavy";
-  if (s === "Средний") return "badge badge-severity-medium";
-  if (s === "Лёгкий") return "badge badge-severity-light";
-  if (s === "Без повреждений") return "badge badge-severity-clear";
+function statusBadgeClass(status) {
+  if (status === "done") return "badge badge-severity-clear";
+  if (status === "failed") return "badge badge-severity-heavy";
   return "badge badge-muted";
+}
+
+function analysisStatusLabel(status) {
+  const map = {
+    pending: "Ожидает обработки",
+    queued: "В очереди",
+    processing: "В обработке",
+    done: "Завершён",
+    failed: "Ошибка",
+  };
+  return map[status] || "Статус неизвестен";
 }
 
 function formatDate(iso) {
@@ -29,21 +38,52 @@ function formatDate(iso) {
 function HistoryPage() {
   const navigate = useNavigate();
   const [history, setHistory] = useState([]);
+  const [thumbnails, setThumbnails] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
+    const ac = new AbortController();
+
     (async () => {
       try {
         const data = await getAnalysisHistory();
-        if (mounted) setHistory(data);
+        if (!mounted) return;
+        setHistory(data);
+
+        const completedWithImages = data.filter(
+          (item) => item.id && item.status === "done" && item.image_count > 0
+        );
+
+        const thumbnailResults = await Promise.allSettled(
+          completedWithImages.map(async (item) => {
+            const payload = await getAnalysisImageURL(item.id, 0, {
+              signal: ac.signal,
+            });
+            return [item.id, payload?.url || ""];
+          })
+        );
+
+        if (!mounted) return;
+
+        const nextThumbnails = {};
+        thumbnailResults.forEach((result) => {
+          if (result.status !== "fulfilled") return;
+          const [itemID, url] = result.value;
+          if (itemID && url) nextThumbnails[itemID] = url;
+        });
+        setThumbnails(nextThumbnails);
       } catch (e) {
         console.error(e);
       } finally {
         if (mounted) setLoading(false);
       }
     })();
-    return () => { mounted = false; };
+
+    return () => {
+      mounted = false;
+      ac.abort();
+    };
   }, []);
 
   return (
@@ -92,14 +132,18 @@ function HistoryPage() {
               tabIndex={0}
             >
               <div className="history-thumb" aria-hidden="true">
-                <Icon name="fileImage" size={18} />
+                {thumbnails[it.id] ? (
+                  <img src={thumbnails[it.id]} alt="" />
+                ) : (
+                  <Icon name="fileImage" size={18} />
+                )}
               </div>
               <div className="history-info">
-                <div className="brand">{it.brand}</div>
+                <div className="brand">{it.vehicle_label || it.brand}</div>
                 <div className="date">{formatDate(it.created_at)}</div>
               </div>
-              <span className={severityBadgeClass(it.overall_severity)}>
-                {it.overall_severity}
+              <span className={statusBadgeClass(it.status)}>
+                {analysisStatusLabel(it.status)}
               </span>
               <span className="arrow"><Icon name="arrowRight" size={16} /></span>
             </div>

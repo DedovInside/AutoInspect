@@ -112,6 +112,17 @@ export function normalizeMLModel(raw) {
     accuracy = Number.isFinite(n) ? n : null;
   }
 
+  const yearFrom = coerceString(o.year_from ?? o.yearFrom, "");
+  const yearTo = coerceString(o.year_to ?? o.yearTo, "");
+  const years =
+    coerceString(
+      o.years ?? o.year ?? o.model_year ?? o.modelYear,
+      ""
+    ) ||
+    (yearFrom && yearTo
+      ? `${yearFrom}-${yearTo}`
+      : yearFrom || yearTo);
+
   return {
     id: coerceString(o.id ?? o.model_id ?? o.modelId, ""),
     brand: coerceString(o.brand ?? o.make, ""),
@@ -120,8 +131,8 @@ export function normalizeMLModel(raw) {
       o.generation ?? o.gen ?? o.series ?? o.generation_code,
       ""
     ),
-    years: coerceString(o.years ?? o.year ?? o.model_year ?? o.modelYear, ""),
-    version: coerceString(o.version ?? o.version_tag ?? o.tag, ""),
+    years,
+    version: coerceString(o.version ?? o.model_version ?? o.modelVersion ?? o.version_tag ?? o.tag, ""),
     file: coerceString(
       o.file ?? o.file_name ?? o.fileName ?? o.weights_path ?? o.path,
       ""
@@ -138,7 +149,12 @@ export function normalizeMLModel(raw) {
       o.created_at ?? o.createdAt ?? o.updated_at ?? o.updatedAt,
       ""
     ),
-    status: normalizeMLModelStatus(o.status ?? o.lifecycle ?? o.state),
+    status: normalizeMLModelStatus(
+      o.status ??
+        o.lifecycle ??
+        o.state ??
+        (o.is_active === true ? "active" : o.is_active === false ? "inactive" : undefined)
+    ),
   };
 }
 
@@ -182,13 +198,20 @@ export function normalizeMLUploadPayload(payload) {
       : p.parts_catalog instanceof File || p.partsCatalog instanceof File
         ? /** @type {File} */ (p.parts_catalog ?? p.partsCatalog)
         : null;
+  const partsConfigFile =
+    p.partsConfigFile instanceof File
+      ? p.partsConfigFile
+      : p.parts_config instanceof File || p.partsConfig instanceof File
+        ? /** @type {File} */ (p.parts_config ?? p.partsConfig)
+        : null;
 
   if (
     !(modelFile instanceof File) ||
-    !(partsCatalogFile instanceof File)
+    !(partsCatalogFile instanceof File) ||
+    !(partsConfigFile instanceof File)
   ) {
     adminDevLog("ml.upload.invalid_files", {});
-    throw new Error("Укажите файл модели и каталог деталей (.json)");
+    throw new Error("Укажите файл модели, конфигурацию инференса и каталог деталей");
   }
 
   return {
@@ -196,7 +219,10 @@ export function normalizeMLUploadPayload(payload) {
     model,
     generation,
     years,
+    version: coerceString(p.version, "").slice(0, 50) || "v1",
+    isUniversal: Boolean(p.isUniversal ?? p.is_universal),
     modelFile,
+    partsConfigFile,
     partsCatalogFile,
   };
 }
@@ -209,24 +235,35 @@ export function normalizeMLUploadPayload(payload) {
 export function buildMLModelUploadFormData(payload) {
   const p = normalizeMLUploadPayload(payload);
   const form = new FormData();
-  form.append("brand", p.brand);
+  form.append("make", p.brand);
   form.append("model", p.model);
   form.append("generation", p.generation);
-  form.append("years", p.years);
+  form.append("year_from", p.years);
+  form.append("version", p.version);
+  form.append("is_universal", String(p.isUniversal));
 
   try {
-    form.append("model_file", p.modelFile, p.modelFile.name);
+    form.append("parts_model_file", p.modelFile, p.modelFile.name);
   } catch {
-    form.append("model_file", p.modelFile);
+    form.append("parts_model_file", p.modelFile);
   }
   try {
     form.append(
-      "parts_catalog",
+      "parts_config_file",
+      p.partsConfigFile,
+      p.partsConfigFile.name
+    );
+  } catch {
+    form.append("parts_config_file", p.partsConfigFile);
+  }
+  try {
+    form.append(
+      "parts_catalog_file",
       p.partsCatalogFile,
       p.partsCatalogFile.name
     );
   } catch {
-    form.append("parts_catalog", p.partsCatalogFile);
+    form.append("parts_catalog_file", p.partsCatalogFile);
   }
 
   return form;
@@ -480,6 +517,10 @@ export function mergeTrainingRequestAdmin(prev, srv) {
       coerceString(b.description, "").trim() !== ""
         ? b.description
         : a.description,
+    admin_comment:
+      coerceString(b.admin_comment, "").trim() !== ""
+        ? b.admin_comment
+        : a.admin_comment,
     status:
       b.status !== undefined && b.status !== null && coerceString(String(b.status), "") !== ""
         ? b.status

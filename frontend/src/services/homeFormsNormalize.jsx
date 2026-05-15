@@ -29,6 +29,9 @@ export function unwrapRecordEnvelope(raw) {
   if ("service_registration" in o && typeof o.service_registration === "object") {
     return o.service_registration;
   }
+  if ("application" in o && typeof o.application === "object") {
+    return o.application;
+  }
   if ("training_request" in o && typeof o.training_request === "object") {
     return o.training_request;
   }
@@ -104,6 +107,7 @@ export function normalizeServiceRegistration(raw) {
       contact_phone: "",
       contact_email: "",
       description: "",
+      admin_comment: "",
       submitted_at: "",
       status: "pending",
       rejection_reason: "",
@@ -115,7 +119,7 @@ export function normalizeServiceRegistration(raw) {
 
   const id = coerceString(o.id ?? o.registration_id ?? o.registrationId, "");
   const organization = coerceString(
-    o.organization ?? o.company_name ?? o.companyName ?? o.name ?? o.title,
+    o.organization ?? o.organization_name ?? o.organizationName ?? o.company_name ?? o.companyName ?? o.name ?? o.title,
     ""
   );
   const city = coerceString(o.city ?? o.town, "");
@@ -211,18 +215,18 @@ export function normalizeServiceRegistrationPayload(form) {
 }
 
 /**
- * Serialize for POST `/v1/service-registrations`.
+ * Serialize for POST `/v1/car-service-applications`.
  *
  * @param {unknown} form
  */
 export function serviceRegistrationPayloadToApiBody(form) {
   const p = normalizeServiceRegistrationPayload(form);
   return {
-    organization: p.organization,
+    organization_name: p.organization,
     city: p.city || undefined,
     address: p.address,
-    contact_phone: p.phone,
-    description: p.description || undefined,
+    phone: p.phone || undefined,
+    description: p.description || "",
   };
 }
 
@@ -284,6 +288,13 @@ export function coerceTrainingYear(raw) {
   return "";
 }
 
+function formatTrainingYears(yearFrom, yearTo) {
+  const from = coerceTrainingYear(yearFrom);
+  const to = coerceTrainingYear(yearTo);
+  if (from && to && from !== to) return `${from}-${to}`;
+  return from || to;
+}
+
 /**
  * @param {unknown} raw
  */
@@ -302,6 +313,7 @@ export function normalizeTrainingRequest(raw) {
       year: "",
       years: "",
       description: "",
+      admin_comment: "",
       submitted_at: "",
       status: "pending",
       submitted_by: "",
@@ -319,7 +331,9 @@ export function normalizeTrainingRequest(raw) {
     ""
   );
 
-  const year = coerceTrainingYear(o.year ?? o.years ?? o.model_year);
+  const yearFrom = coerceTrainingYear(o.year_from ?? o.yearFrom ?? o.year ?? o.model_year);
+  const yearTo = coerceTrainingYear(o.year_to ?? o.yearTo);
+  const year = formatTrainingYears(yearFrom || o.years, yearTo);
   const submitted_at = coerceString(
     o.submitted_at ?? o.submittedAt ?? o.created_at ?? o.createdAt,
     ""
@@ -327,6 +341,10 @@ export function normalizeTrainingRequest(raw) {
   const status = normalizeTrainingRequestStatus(o.status ?? o.state);
   const description = coerceString(
     o.description ?? o.notes ?? o.reason,
+    ""
+  );
+  const admin_comment = coerceString(
+    o.admin_comment ?? o.adminComment ?? o.admin_notes ?? o.adminNotes,
     ""
   );
   const submitted_by = coerceString(
@@ -340,8 +358,11 @@ export function normalizeTrainingRequest(raw) {
     model,
     generation,
     year,
+    year_from: yearFrom,
+    year_to: yearTo,
     years: year,
     description,
+    admin_comment,
     submitted_at,
     status,
     submitted_by,
@@ -363,7 +384,11 @@ export function normalizeTrainingRequestPayload(form) {
     0,
     80
   );
-  const year = coerceTrainingYear(f.year ?? f.years ?? f.model_year);
+  const year_from = coerceTrainingYear(
+    f.year_from ?? f.yearFrom ?? f.year ?? f.years ?? f.model_year
+  );
+  const year_to = coerceTrainingYear(f.year_to ?? f.yearTo);
+  const year = formatTrainingYears(year_from, year_to);
   const description = coerceString(f.description ?? f.notes, "").slice(
     0,
     2000
@@ -374,19 +399,22 @@ export function normalizeTrainingRequestPayload(form) {
     model,
     generation,
     year,
+    year_from,
+    year_to,
     description,
   };
 }
 
-/** POST `/v1/training-requests` */
+/** POST `/v1/model-training-requests` */
 export function trainingRequestPayloadToApiBody(form) {
   const p = normalizeTrainingRequestPayload(form);
   return {
-    brand: p.brand,
+    make: p.brand,
     model: p.model,
     generation: p.generation,
-    year: p.year,
-    description: p.description || undefined,
+    year_from: Number(p.year_from) || 0,
+    year_to: Number(p.year_to) || 0,
+    description: p.description || "",
   };
 }
 
@@ -409,6 +437,8 @@ export function mergeTrainingRequestResponse(sentForm, serverRaw) {
     generation: srv.generation || sent.generation,
     year: y,
     years: y,
+    year_from: srv.year_from || sent.year_from,
+    year_to: srv.year_to || sent.year_to,
     description:
       coerceString(srv.description, "").trim() !== ""
         ? srv.description

@@ -173,7 +173,7 @@ function enqueueSubmit(fn) {
 }
 
 /**
- * POST /v1/training-requests
+ * POST /v1/model-training-requests
  * @param {unknown} payload
  * @param {{ signal?: AbortSignal, timeoutMs?: number }} [options]
  */
@@ -214,7 +214,7 @@ export async function submitTrainingRequest(payload, options = {}) {
     try {
       const body = trainingRequestPayloadToApiBody(cleaned);
       /** @type {unknown} */
-      const raw = await apiClient.post("/v1/training-requests", body, {
+      const raw = await apiClient.post("/v1/model-training-requests", body, {
         signal: combined,
         auth: true,
       });
@@ -240,7 +240,7 @@ export async function submitTrainingRequest(payload, options = {}) {
 }
 
 /**
- * GET /v1/admin/training-requests?status=
+ * GET /v1/admin/model-training-requests?status=
  * @param {{ status?: string, signal?: AbortSignal, timeoutMs?: number }} [options]
  */
 export async function listTrainingRequests(options = {}) {
@@ -265,7 +265,7 @@ export async function listTrainingRequests(options = {}) {
 
   try {
     /** @type {unknown} */
-    const raw = await apiClient.get("/v1/admin/training-requests", {
+    const raw = await apiClient.get("/v1/admin/model-training-requests", {
       signal: combined,
       auth: true,
       query: { status: status ?? "" },
@@ -273,6 +273,40 @@ export async function listTrainingRequests(options = {}) {
     return normalizeAdminTrainingRequestList(raw);
   } catch (e) {
     rethrowAbortOrWrapAdminError(e);
+  } finally {
+    clear();
+  }
+}
+
+/**
+ * GET /v1/model-training-requests?offset=&limit=
+ * @param {{ signal?: AbortSignal, timeoutMs?: number }} [options]
+ */
+export async function listMyTrainingRequests(options = {}) {
+  const { signal: userSignal, timeoutMs = 25_000 } = options ?? {};
+
+  if (shouldUseTrainingRequestMocks()) {
+    await delay(120);
+    return trainingRequests.map((r) => normalizeTrainingRequest(r));
+  }
+
+  const { signal: timeoutSig, clear } = abortAfter(timeoutMs);
+  const combined = combineAbortSignals(userSignal, timeoutSig);
+
+  try {
+    /** @type {unknown} */
+    const raw = await apiClient.get("/v1/model-training-requests", {
+      signal: combined,
+      auth: true,
+      query: { limit: 20, offset: 0 },
+    });
+    return normalizeTrainingRequestList(raw);
+  } catch (e) {
+    const n = normalizeApiError(e);
+    if (n.code === "aborted") {
+      throw e instanceof Error ? e : new Error(n.message || "Запрос отменён");
+    }
+    throw new Error(n.message || "Не удалось загрузить заявки на обучение");
   } finally {
     clear();
   }
@@ -299,7 +333,12 @@ async function updateTrainingRequestStatusImpl(id, status, options, actionSignal
     assertTrainingFromMatchesUi(snap, options.from);
     assertTrainingTransitionAllowed(snap.status, canon);
     trainingRequests = trainingRequests.map((r) =>
-      r.id === sid ? mergeTrainingRequestAdmin(r, { status: canon }) : r
+      r.id === sid
+        ? mergeTrainingRequestAdmin(r, {
+            status: canon,
+            admin_comment: options.admin_comment ?? options.adminComment ?? "",
+          })
+        : r
     );
     return trainingRequests.find((r) => r.id === sid);
   }
@@ -321,8 +360,11 @@ async function updateTrainingRequestStatusImpl(id, status, options, actionSignal
   try {
     /** @type {unknown} */
     const raw = await apiClient.patch(
-      `/v1/admin/training-requests/${encodeURIComponent(sid)}`,
-      { status: canon },
+      `/v1/admin/model-training-requests/${encodeURIComponent(sid)}/status`,
+      {
+        status: canon,
+        admin_comment: options.admin_comment ?? options.adminComment ?? "",
+      },
       { signal: combined, auth: true }
     );
     return mergeTrainingRequestAdmin(
@@ -339,7 +381,7 @@ async function updateTrainingRequestStatusImpl(id, status, options, actionSignal
 }
 
 /**
- * PATCH /v1/admin/training-requests/:id
+ * PATCH /v1/admin/model-training-requests/:id/status
  * @param {string} id
  * @param {string} status
  * @param {{ snapshot?: unknown, from?: string, signal?: AbortSignal, timeoutMs?: number }} [options]

@@ -52,7 +52,7 @@ func (s *AuthService) handleExistingYandexIdentity(
 		return nil, domain.ErrUnauthorized
 	}
 
-	if err := updateUserAvatarFromYandex(ctx, usersTx, user, profile); err != nil {
+	if err := updateUserFromYandexProfile(ctx, usersTx, user, profile); err != nil {
 		return nil, err
 	}
 
@@ -79,7 +79,7 @@ func (s *AuthService) getOrCreateYandexUserByEmail(
 		if !user.IsActive {
 			return nil, domain.ErrUnauthorized
 		}
-		if err := updateUserAvatarFromYandex(ctx, usersTx, user, profile); err != nil {
+		if err := updateUserFromYandexProfile(ctx, usersTx, user, profile); err != nil {
 			return nil, err
 		}
 		return user, nil
@@ -100,6 +100,9 @@ func (s *AuthService) getOrCreateYandexUserByEmail(
 		ID:            uuid.New(),
 		Username:      username,
 		Email:         strings.ToLower(profile.DefaultEmail),
+		FirstName:     profile.FirstNamePtr(),
+		LastName:      profile.LastNamePtr(),
+		DisplayName:   profile.DisplayNamePtr(),
 		AvatarURL:     profile.AvatarURL(),
 		PasswordHash:  "",
 		Role:          domain.RoleUser,
@@ -130,14 +133,23 @@ func (s *AuthService) ensureYandexOAuthIdentity(ctx context.Context,
 	return identitiesTx.Create(ctx, identity)
 }
 
-func updateUserAvatarFromYandex(ctx context.Context,
+func updateUserFromYandexProfile(ctx context.Context,
 	usersTx repository.UserRepository, user *domain.User, profile *YandexProfile) error {
 	avatarURL := profile.AvatarURL()
-	if stringPtrEqual(user.AvatarURL, avatarURL) {
+	firstName := profile.FirstNamePtr()
+	lastName := profile.LastNamePtr()
+	displayName := profile.DisplayNamePtr()
+	if stringPtrEqual(user.AvatarURL, avatarURL) &&
+		stringPtrEqual(user.FirstName, firstName) &&
+		stringPtrEqual(user.LastName, lastName) &&
+		stringPtrEqual(user.DisplayName, displayName) {
 		return nil
 	}
 
 	user.AvatarURL = avatarURL
+	user.FirstName = firstName
+	user.LastName = lastName
+	user.DisplayName = displayName
 	return usersTx.Update(ctx, user)
 }
 

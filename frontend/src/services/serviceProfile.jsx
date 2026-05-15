@@ -1,7 +1,7 @@
 /**
  * Domain: autoservice profile (SERVICE role).
  *
- * Primary path: GET/PUT `/v1/services/me` + normalization.
+ * Primary path: GET/PATCH `/v1/car-service/profile` + normalization.
  *
  * Predictable persistence:
  * - `VITE_SERVICE_PROFILE_LOCAL_STORAGE`:
@@ -203,7 +203,7 @@ async function fetchRealProfileCombined(options = {}) {
 
   try {
     /** @type {unknown} */
-    const raw = await apiClient.get("/v1/services/me", {
+    const raw = await apiClient.get("/v1/car-service/profile", {
       signal: combined,
       auth: true,
     });
@@ -223,7 +223,7 @@ async function fetchRealProfileCombined(options = {}) {
 }
 
 /**
- * GET /v1/services/me
+ * GET /v1/car-service/profile
  * @param {{ signal?: AbortSignal, timeoutMs?: number }} [options]
  */
 export async function getMyServiceProfile(options = {}) {
@@ -294,7 +294,7 @@ function enqueueSave(fn) {
 }
 
 /**
- * PUT /v1/services/me — serialized overlapping writes.
+ * PATCH /v1/car-service/profile — serialized overlapping writes.
  *
  * @param {unknown} profile
  * @param {{ signal?: AbortSignal, timeoutMs?: number }} [options]
@@ -322,9 +322,9 @@ export async function saveMyServiceProfile(profile, options = {}) {
 
     try {
       /** @type {unknown} */
-      const raw = await apiClient.put(
-        "/v1/services/me",
-        payloadNormalized,
+      const raw = await apiClient.patch(
+        "/v1/car-service/profile",
+        serviceProfilePayloadToApiBody(payloadNormalized),
         { signal: combined, auth: true }
       );
 
@@ -353,4 +353,123 @@ export async function saveMyServiceProfile(profile, options = {}) {
       clear();
     }
   });
+}
+
+function serviceProfilePayloadToApiBody(profile) {
+  return {
+    organization_name: profile.name,
+    city: profile.city || profile.address?.split(",")[0]?.trim() || "Не указан",
+    address: profile.address,
+    phone: profile.phone || undefined,
+    email: profile.email || undefined,
+    website_url: profile.website_url || undefined,
+    contact_info: profile.contact_info || undefined,
+    description: profile.description || undefined,
+    is_active: profile.is_active !== false,
+  };
+}
+
+export async function listServiceProfileImages(options = {}) {
+  const { signal: userSignal, timeoutMs = 30_000 } = options ?? {};
+  const { signal: timeoutSig, clear } = abortAfter(timeoutMs);
+  const combined = combineAbortSignals(userSignal, timeoutSig);
+  try {
+    const raw = await apiClient.get("/v1/car-service/profile/images", {
+      signal: combined,
+      auth: true,
+    });
+    return Array.isArray(raw?.items) ? raw.items : [];
+  } finally {
+    clear();
+  }
+}
+
+export async function uploadServiceProfileImage(file, { isPrimary = false, signal, timeoutMs = 120_000 } = {}) {
+  const { signal: timeoutSig, clear } = abortAfter(timeoutMs);
+  const combined = combineAbortSignals(signal, timeoutSig);
+  const form = new FormData();
+  form.append("image", file);
+  form.append("is_primary", String(isPrimary));
+  try {
+    return await apiClient.post("/v1/car-service/profile/images", form, {
+      signal: combined,
+      auth: true,
+    });
+  } finally {
+    clear();
+  }
+}
+
+export async function setPrimaryServiceProfileImage(id, options = {}) {
+  const { signal: userSignal, timeoutMs = 30_000 } = options ?? {};
+  const { signal: timeoutSig, clear } = abortAfter(timeoutMs);
+  const combined = combineAbortSignals(userSignal, timeoutSig);
+  try {
+    return await apiClient.patch(
+      `/v1/car-service/profile/images/${encodeURIComponent(String(id))}/primary`,
+      {},
+      { signal: combined, auth: true }
+    );
+  } finally {
+    clear();
+  }
+}
+
+export async function deleteServiceProfileImage(id, options = {}) {
+  const { signal: userSignal, timeoutMs = 30_000 } = options ?? {};
+  const { signal: timeoutSig, clear } = abortAfter(timeoutMs);
+  const combined = combineAbortSignals(userSignal, timeoutSig);
+  try {
+    return await apiClient.delete(
+      `/v1/car-service/profile/images/${encodeURIComponent(String(id))}`,
+      { signal: combined, auth: true }
+    );
+  } finally {
+    clear();
+  }
+}
+
+export async function listSpecializationOptions(options = {}) {
+  const { signal: userSignal, timeoutMs = 30_000 } = options ?? {};
+  const { signal: timeoutSig, clear } = abortAfter(timeoutMs);
+  const combined = combineAbortSignals(userSignal, timeoutSig);
+  try {
+    return await apiClient.get("/v1/car-service/profile/specialization-options", {
+      signal: combined,
+      auth: true,
+    });
+  } finally {
+    clear();
+  }
+}
+
+export async function listSpecializations(options = {}) {
+  const { signal: userSignal, timeoutMs = 30_000 } = options ?? {};
+  const { signal: timeoutSig, clear } = abortAfter(timeoutMs);
+  const combined = combineAbortSignals(userSignal, timeoutSig);
+  try {
+    const raw = await apiClient.get("/v1/car-service/profile/specializations", {
+      signal: combined,
+      auth: true,
+    });
+    return Array.isArray(raw?.items) ? raw.items : [];
+  } finally {
+    clear();
+  }
+}
+
+export async function replaceSpecializations(items, options = {}) {
+  const { signal: userSignal, timeoutMs = 30_000 } = options ?? {};
+  const { signal: timeoutSig, clear } = abortAfter(timeoutMs);
+  const combined = combineAbortSignals(userSignal, timeoutSig);
+  try {
+    const raw = await apiClient.put(
+      "/v1/car-service/profile/specializations",
+      { items },
+      { signal: combined, auth: true }
+    );
+    return Array.isArray(raw?.items) ? raw.items : [];
+  } finally {
+    clear();
+  }
 }

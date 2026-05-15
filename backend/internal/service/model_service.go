@@ -125,6 +125,22 @@ func (s *ModelService) ListModels(ctx context.Context, limit, offset int) ([]*do
 	return s.modelRepo.ListModels(ctx, limit, offset)
 }
 
+func (s *ModelService) ListActiveSpecializedModels(ctx context.Context) ([]*domain.CarModel, error) {
+	models, err := s.ListModels(ctx, 100, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]*domain.CarModel, 0, len(models))
+	for _, model := range models {
+		if model == nil || model.IsUniversal || !model.IsActive {
+			continue
+		}
+		items = append(items, model)
+	}
+	return items, nil
+}
+
 func (s *ModelService) DeactivateModel(ctx context.Context, id uuid.UUID) error {
 	if id == uuid.Nil {
 		return domain.ErrInvalidInput

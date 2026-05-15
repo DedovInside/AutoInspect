@@ -4,8 +4,26 @@ import { Link } from 'react-router-dom';
 import Icon from "../../components/Icon/Icon";
 import { useAuth } from "../../auth/AuthContext";
 import { normalizeApiError } from "../../services/apiFoundation";
+import { listAvailableSpecializedMLModels } from "../../services/mlModels";
 import { submitServiceRegistration } from "../../services/serviceRegistrations";
 import { submitTrainingRequest } from "../../services/trainingRequests";
+
+const initialServiceForm = {
+  organization: "",
+  city: "",
+  address: "",
+  phone: "",
+  description: "",
+};
+
+const initialTrainingForm = {
+  brand: "",
+  model: "",
+  generation: "",
+  year_from: "",
+  year_to: "",
+  description: "",
+};
 
 function HomePage() {
   const { role } = useAuth();
@@ -22,26 +40,38 @@ function HomePage() {
   const [serviceSubmitting, setServiceSubmitting] = useState(false);
   const [trainingSubmitting, setTrainingSubmitting] = useState(false);
 
-  const [serviceForm, setServiceForm] = useState({
-    organization: "",
-    address: "",
-    phone: "",
-    description: "",
-  });
+  const [serviceForm, setServiceForm] = useState(initialServiceForm);
 
-  const [trainingForm, setTrainingForm] = useState({
-    brand: "",
-    model: "",
-    generation: "",
-    year: "",
-    description: "",
-  });
+  const [trainingForm, setTrainingForm] = useState(initialTrainingForm);
+  const [availableModels, setAvailableModels] = useState([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsLoadError, setModelsLoadError] = useState("");
 
   const [serviceErrors, setServiceErrors] = useState({});
   const [trainingErrors, setTrainingErrors] = useState({});
 
   useEffect(() => {
+    const modelsAc = new AbortController();
+    setModelsLoading(true);
+    setModelsLoadError("");
+
+    listAvailableSpecializedMLModels({ signal: modelsAc.signal })
+      .then((items) => setAvailableModels(Array.isArray(items) ? items : []))
+      .catch((err) => {
+        const n = normalizeApiError(err);
+        if (n.code !== "aborted") {
+          setAvailableModels([]);
+          setModelsLoadError("Не удалось загрузить список доступных моделей");
+        }
+      })
+      .finally(() => {
+        if (!modelsAc.signal.aborted) {
+          setModelsLoading(false);
+        }
+      });
+
     return () => {
+      modelsAc.abort();
       serviceAcRef.current?.abort();
       trainingAcRef.current?.abort();
     };
@@ -52,11 +82,17 @@ function HomePage() {
     if (!serviceForm.organization.trim()) {
       e.organization = "Введите название автосервиса";
     }
+    if (!serviceForm.city.trim()) {
+      e.city = "Введите город";
+    }
     if (!serviceForm.address.trim()) {
       e.address = "Введите адрес";
     }
     if (!serviceForm.phone.trim()) {
       e.phone = "Введите номер телефона";
+    }
+    if (!serviceForm.description.trim()) {
+      e.description = "Введите описание";
     }
     return e;
   };
@@ -72,8 +108,25 @@ function HomePage() {
     if (!trainingForm.generation.trim()) {
       e.generation = "Введите поколение";
     }
-    if (!trainingForm.year.trim()) {
-      e.year = "Введите год";
+    if (!trainingForm.year_from.trim()) {
+      e.year_from = "Введите год начала выпуска";
+    }
+    if (!trainingForm.year_to.trim()) {
+      e.year_to = "Введите год окончания выпуска";
+    }
+    const yearFrom = Number(trainingForm.year_from);
+    const yearTo = Number(trainingForm.year_to);
+    if (
+      trainingForm.year_from.trim() &&
+      trainingForm.year_to.trim() &&
+      Number.isFinite(yearFrom) &&
+      Number.isFinite(yearTo) &&
+      yearTo < yearFrom
+    ) {
+      e.year_to = "Год окончания не может быть раньше года начала";
+    }
+    if (!trainingForm.description.trim()) {
+      e.description = "Введите описание потребности";
     }
     return e;
   };
@@ -116,6 +169,8 @@ function HomePage() {
       await submitServiceRegistration(serviceForm, { signal: ac.signal });
       if (seq !== serviceSubmitGenRef.current) return;
       setServiceFormSent(true);
+      setServiceForm(initialServiceForm);
+      setServiceErrors({});
     } catch (err) {
       if (seq !== serviceSubmitGenRef.current) return;
       const n = normalizeApiError(err);
@@ -148,6 +203,8 @@ function HomePage() {
       await submitTrainingRequest(trainingForm, { signal: ac.signal });
       if (seq !== trainingSubmitGenRef.current) return;
       setTrainingFormSent(true);
+      setTrainingForm(initialTrainingForm);
+      setTrainingErrors({});
     } catch (err) {
       if (seq !== trainingSubmitGenRef.current) return;
       const n = normalizeApiError(err);
@@ -217,11 +274,27 @@ function HomePage() {
                 )}
               </div>
               <div className="form-row">
+                <label className="form-label" htmlFor="svc-city">Город *</label>
+                <input
+                  id="svc-city"
+                  className={"input" + (serviceErrors.city ? " input-error" : "")}
+                  placeholder="Москва"
+                  value={serviceForm.city}
+                  onChange={(e) => {
+                    setServiceForm({ ...serviceForm, city: e.target.value });
+                    clearServiceError("city");
+                  }}
+                />
+                {serviceErrors.city && (
+                  <div className="field-error">{serviceErrors.city}</div>
+                )}
+              </div>
+              <div className="form-row">
                 <label className="form-label" htmlFor="svc-address">Адрес *</label>
                 <input
                   id="svc-address"
                   className={"input" + (serviceErrors.address ? " input-error" : "")}
-                  placeholder="г. Москва, ул. Ленина, 10"
+                  placeholder="ул. Ленина, 10"
                   value={serviceForm.address}
                   onChange={(e) => {
                     setServiceForm({ ...serviceForm, address: e.target.value });
@@ -250,14 +323,20 @@ function HomePage() {
                 )}
               </div>
               <div className="form-row">
-                <label className="form-label" htmlFor="svc-desc">Описание</label>
+                <label className="form-label" htmlFor="svc-desc">Описание *</label>
                 <textarea
                   id="svc-desc"
-                  className="textarea"
+                  className={"textarea" + (serviceErrors.description ? " input-error" : "")}
                   placeholder="Кратко расскажите о сервисе"
                   value={serviceForm.description}
-                  onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })}
+                  onChange={(e) => {
+                    setServiceForm({ ...serviceForm, description: e.target.value });
+                    clearServiceError("description");
+                  }}
                 />
+                {serviceErrors.description && (
+                  <div className="field-error">{serviceErrors.description}</div>
+                )}
               </div>
               <button
                 type="submit"
@@ -340,31 +419,53 @@ function HomePage() {
                   )}
                 </div>
                 <div className="form-row">
-                  <label className="form-label" htmlFor="tr-year">Год *</label>
+                  <label className="form-label" htmlFor="tr-year-from">Год начала выпуска *</label>
                   <input
-                    id="tr-year"
-                    className={"input" + (trainingErrors.year ? " input-error" : "")}
+                    id="tr-year-from"
+                    className={"input" + (trainingErrors.year_from ? " input-error" : "")}
                     placeholder="2018"
-                    value={trainingForm.year}
+                    value={trainingForm.year_from}
                     onChange={(e) => {
-                      setTrainingForm({ ...trainingForm, year: e.target.value });
-                      clearTrainingError("year");
+                      setTrainingForm({ ...trainingForm, year_from: e.target.value });
+                      clearTrainingError("year_from");
                     }}
                   />
-                  {trainingErrors.year && (
-                    <div className="field-error">{trainingErrors.year}</div>
+                  {trainingErrors.year_from && (
+                    <div className="field-error">{trainingErrors.year_from}</div>
+                  )}
+                </div>
+                <div className="form-row">
+                  <label className="form-label" htmlFor="tr-year-to">Год окончания выпуска *</label>
+                  <input
+                    id="tr-year-to"
+                    className={"input" + (trainingErrors.year_to ? " input-error" : "")}
+                    placeholder="2024"
+                    value={trainingForm.year_to}
+                    onChange={(e) => {
+                      setTrainingForm({ ...trainingForm, year_to: e.target.value });
+                      clearTrainingError("year_to");
+                    }}
+                  />
+                  {trainingErrors.year_to && (
+                    <div className="field-error">{trainingErrors.year_to}</div>
                   )}
                 </div>
               </div>
               <div className="form-row">
-                <label className="form-label" htmlFor="tr-desc">Описание потребности</label>
+                <label className="form-label" htmlFor="tr-desc">Описание потребности *</label>
                 <textarea
                   id="tr-desc"
-                  className="textarea"
+                  className={"textarea" + (trainingErrors.description ? " input-error" : "")}
                   placeholder="Поясните, почему нужна модель для этой марки"
                   value={trainingForm.description}
-                  onChange={(e) => setTrainingForm({ ...trainingForm, description: e.target.value })}
+                  onChange={(e) => {
+                    setTrainingForm({ ...trainingForm, description: e.target.value });
+                    clearTrainingError("description");
+                  }}
                 />
+                {trainingErrors.description && (
+                  <div className="field-error">{trainingErrors.description}</div>
+                )}
               </div>
               <button
                 type="submit"
@@ -374,11 +475,62 @@ function HomePage() {
                 Отправить заявку
               </button>
             </form>
+
+            <AvailableModelsPanel
+              models={availableModels}
+              loading={modelsLoading}
+              error={modelsLoadError}
+            />
           </div>
         </div>
       </section>
     </div>
   );
+}
+
+function AvailableModelsPanel({ models, loading, error }) {
+  return (
+    <div className="available-models-panel">
+      <div className="available-models-head">
+        <div>
+          <h4>Уже доступные специализированные модели</h4>
+          <p>
+            Если нужного автомобиля нет в списке, при анализе будет использована общая модель.
+          </p>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="available-models-note">Загружаем список моделей...</div>
+      ) : error ? (
+        <div className="available-models-note available-models-note--danger">{error}</div>
+      ) : models.length === 0 ? (
+        <div className="available-models-empty">
+          Специализированных моделей пока нет. Для всех автомобилей используется общая модель.
+        </div>
+      ) : (
+        <div className="available-models-list">
+          {models.map((model) => (
+            <div className="available-model-row" key={model.id}>
+              <div className="available-model-title">
+                {[model.brand, model.model, model.generation].filter(Boolean).join(" ")}
+              </div>
+              <div className="available-model-meta">
+                {formatModelYears(model.years)}
+                {model.version ? <span>Версия {model.version}</span> : null}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatModelYears(years) {
+  const value = String(years ?? "").trim();
+  if (!value) return <span>Годы выпуска не указаны</span>;
+  return <span>{value}</span>;
 }
 
 export default HomePage;

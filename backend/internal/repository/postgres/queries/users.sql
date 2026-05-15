@@ -1,15 +1,18 @@
 -- name: CreateUser :exec
-INSERT INTO users (id, username, email, avatar_url, password_hash, role,
+INSERT INTO users (id, username, email, first_name, last_name, display_name, avatar_url, password_hash, role,
                    email_verified, is_active,
                    created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6,
-        $7, $8,
-        $9, $10);
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
+        $10, $11,
+        $12, $13);
 
 -- name: GetUserByID :one
 SELECT id,
        username,
        email,
+       first_name,
+       last_name,
+       display_name,
        avatar_url,
        password_hash,
        role,
@@ -25,6 +28,9 @@ WHERE id = $1 LIMIT 1;
 SELECT id,
        username,
        email,
+       first_name,
+       last_name,
+       display_name,
        avatar_url,
        password_hash,
        role,
@@ -40,18 +46,21 @@ WHERE email = $1 LIMIT 1;
 UPDATE users
 SET username       = $1,
     email          = $2,
-    avatar_url     = $3,
-    password_hash  = $4,
-    role           = $5,
-    email_verified = $6,
-    is_active      = $7
-WHERE id = $8;
+    first_name     = $3,
+    last_name      = $4,
+    display_name   = $5,
+    avatar_url     = $6,
+    password_hash  = $7,
+    role           = $8,
+    email_verified = $9,
+    is_active      = $10
+WHERE id = $11;
 
 -- name: DeleteUser :execrows
 DELETE FROM users WHERE id = $1;
 
 -- name: ListUsers :many
-SELECT id, username, email, avatar_url, password_hash, role,
+SELECT id, username, email, first_name, last_name, display_name, avatar_url, password_hash, role,
        email_verified, is_active,
        created_at, updated_at, last_login
 FROM users

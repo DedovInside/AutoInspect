@@ -3,12 +3,16 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   getAnalysis,
+  getAnalysisImageURL,
+  getMatchingCarServices,
   isFailedTerminalAnalysisStatus,
   isSuccessTerminalAnalysisStatus,
 } from "../../services/analyses";
 import { normalizeApiError } from "../../services/apiFoundation";
 import { createRepairRequest } from "../../services/repairRequests";
 import Icon from "../../components/Icon/Icon";
+import { useAuth } from "../../auth/AuthContext";
+import DamageOverlayImage from "../../components/DamageOverlayImage/DamageOverlayImage";
 
 function severityBadgeClass(s) {
   if (s === "Сложный") return "badge badge-severity-heavy";
@@ -16,6 +20,17 @@ function severityBadgeClass(s) {
   if (s === "Лёгкий") return "badge badge-severity-light";
   if (s === "Без повреждений") return "badge badge-severity-clear";
   return "badge badge-muted";
+}
+
+function analysisStatusLabel(status) {
+  const map = {
+    pending: "Ожидает обработки",
+    queued: "В очереди",
+    processing: "В обработке",
+    done: "Завершён",
+    failed: "Ошибка анализа",
+  };
+  return map[status] || "Статус неизвестен";
 }
 
 function formatDate(iso) {
@@ -76,17 +91,134 @@ function ResultErrorBanner({ message, onBack }) {
   );
 }
 
+function resultImages(result) {
+  return Array.isArray(result?.results) ? result.results : [];
+}
+
+function ServiceGalleryModal({ service, index, setIndex, onClose }) {
+  const images = Array.isArray(service?.images) ? service.images : [];
+  const current = images[index] || images[0] || null;
+  const hasMany = images.length > 1;
+  const hasContacts =
+    Boolean(service?.city) ||
+    Boolean(service?.address && service.address !== "—") ||
+    Boolean(service?.phone && service.phone !== "—") ||
+    Boolean(service?.email);
+
+  const shift = (delta) => {
+    if (!hasMany) return;
+    setIndex((prev) => (prev + delta + images.length) % images.length);
+  };
+
+  return (
+    <div className="service-gallery-overlay" role="dialog" aria-modal="true">
+      <div className="service-gallery-modal">
+        <div className="service-gallery-header">
+          <div>
+            <div className="service-gallery-title">{service.name}</div>
+            <div className="service-gallery-subtitle">
+              Фото {index + 1} из {images.length}
+            </div>
+          </div>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Закрыть">
+            <Icon name="x" size={16} />
+          </button>
+        </div>
+
+        <div className="service-gallery-body">
+          {current && hasMany ? (
+            <button
+              type="button"
+              className="service-gallery-arrow service-gallery-arrow-left"
+              onClick={() => shift(-1)}
+              aria-label="Предыдущее фото"
+            >
+              <Icon name="arrowLeft" size={18} />
+            </button>
+          ) : null}
+
+          {current ? (
+            <img src={current.url} alt={current.original_filename || service.name} />
+          ) : (
+            <div className="service-gallery-placeholder">
+              <Icon name="building" size={26} />
+              <span>Фотографии автосервиса не загружены</span>
+            </div>
+          )}
+
+          {current && hasMany ? (
+            <button
+              type="button"
+              className="service-gallery-arrow service-gallery-arrow-right"
+              onClick={() => shift(1)}
+              aria-label="Следующее фото"
+            >
+              <Icon name="arrowRight" size={18} />
+            </button>
+          ) : null}
+        </div>
+
+        <div className="service-gallery-details">
+          {service?.description ? (
+            <div className="service-gallery-info-block">
+              <div className="service-gallery-info-label">Описание</div>
+              <div className="service-gallery-description">{service.description}</div>
+            </div>
+          ) : (
+            <div className="service-gallery-empty-note">Описание автосервиса не заполнено</div>
+          )}
+
+          {hasContacts ? (
+            <div className="service-gallery-info-grid">
+              {service.city ? (
+                <div>
+                  <div className="service-gallery-info-label">Город</div>
+                  <div className="service-gallery-info-value">{service.city}</div>
+                </div>
+              ) : null}
+              {service.address && service.address !== "—" ? (
+                <div>
+                  <div className="service-gallery-info-label">Адрес</div>
+                  <div className="service-gallery-info-value">{service.address}</div>
+                </div>
+              ) : null}
+              {service.phone && service.phone !== "—" ? (
+                <div>
+                  <div className="service-gallery-info-label">Телефон</div>
+                  <div className="service-gallery-info-value">{service.phone}</div>
+                </div>
+              ) : null}
+              {service.email ? (
+                <div>
+                  <div className="service-gallery-info-label">Email</div>
+                  <div className="service-gallery-info-value">{service.email}</div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ResultPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { role } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [analysis, setAnalysis] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [selectedServiceId, setSelectedServiceId] = useState(null);
+  const [matchedServices, setMatchedServices] = useState([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
+  const [imageURLs, setImageURLs] = useState([]);
   const [toast, setToast] = useState("");
   const [repairSubmitting, setRepairSubmitting] = useState(false);
   const [repairError, setRepairError] = useState("");
+  const [galleryService, setGalleryService] = useState(null);
+  const [galleryIndex, setGalleryIndex] = useState(0);
   const repairCreateLockRef = useRef(false);
   const repairCreateMountedRef = useRef(true);
 
@@ -171,6 +303,55 @@ function ResultPage() {
   }, [id]);
 
   useEffect(() => {
+    if (!analysis || !isSuccessTerminalAnalysisStatus(analysis.status)) return undefined;
+
+    let cancelled = false;
+    const ac = new AbortController();
+    setServicesLoading(true);
+
+    const imageResults = resultImages(analysis.result);
+    const imageCount = Math.max(
+      Number(analysis.image_count) || 0,
+      imageResults.length
+    );
+
+    Promise.allSettled([
+      getMatchingCarServices(analysis.id || id, { signal: ac.signal }),
+      Promise.allSettled(
+        Array.from({ length: imageCount }, (_, index) =>
+          getAnalysisImageURL(analysis.id || id, index, { signal: ac.signal })
+        )
+      ),
+    ])
+      .then(([servicesResult, imagesResult]) => {
+        if (cancelled) return;
+        if (servicesResult.status === "fulfilled") {
+          setMatchedServices(servicesResult.value);
+        }
+        if (imagesResult.status === "fulfilled") {
+          setImageURLs(
+            imagesResult.value.map((item) =>
+              item.status === "fulfilled" && item.value && typeof item.value === "object"
+                ? item.value.url || ""
+                : ""
+            )
+          );
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setMatchedServices([]);
+      })
+      .finally(() => {
+        if (!cancelled) setServicesLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+  }, [analysis, id]);
+
+  useEffect(() => {
     repairCreateMountedRef.current = true;
     return () => {
       repairCreateMountedRef.current = false;
@@ -189,7 +370,11 @@ function ResultPage() {
   if (!analysis) return null;
 
   const damages = Array.isArray(analysis.damages) ? analysis.damages : [];
-  const services = Array.isArray(analysis.services) ? analysis.services : [];
+  const services = matchedServices.length > 0
+    ? matchedServices
+    : Array.isArray(analysis.services)
+      ? analysis.services
+      : [];
 
   const damageSummaryText =
     damages.length === 0
@@ -197,6 +382,7 @@ function ResultPage() {
       : damages.map((d) => d.part).filter(Boolean).join(", ");
 
   const handleCreateRepair = async () => {
+    if (role === "SERVICE") return;
     if (repairCreateLockRef.current || repairSubmitting) return;
 
     let effectiveServiceId = selectedServiceId;
@@ -222,8 +408,12 @@ function ResultPage() {
           damage_summary: damageSummaryText,
           service: selectedService
             ? {
+                id: selectedService.id,
                 name: selectedService.name,
+                organization_name: selectedService.name,
+                city: selectedService.city,
                 phone: selectedService.phone,
+                email: selectedService.email,
                 address: selectedService.address,
               }
             : undefined,
@@ -252,6 +442,15 @@ function ResultPage() {
     }
   };
 
+  const openServiceGallery = (service, event) => {
+    event?.stopPropagation?.();
+    if (!service) return;
+    const images = Array.isArray(service.images) ? service.images : [];
+    const primaryIndex = images.findIndex((image) => image.is_primary);
+    setGalleryIndex(primaryIndex >= 0 ? primaryIndex : 0);
+    setGalleryService(service);
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -269,24 +468,54 @@ function ResultPage() {
       </div>
 
       <div className="result-meta">
-        <span className="row"><Icon name="car" size={14} /> {analysis.brand}</span>
+        <span className="row"><Icon name="car" size={14} /> {analysis.vehicle_label || analysis.brand}</span>
         <span className="sep">·</span>
         <span className="row"><Icon name="calendar" size={14} /> {formatDate(analysis.created_at)}</span>
         <span className="sep">·</span>
-        <span className={severityBadgeClass(analysis.overall_severity)}>
-          {analysis.overall_severity}
+        <span className={severityBadgeClass(
+          analysis.status === "done"
+            ? "Без повреждений"
+            : analysis.status === "failed"
+              ? "Сложный"
+              : ""
+        )}>
+          {analysisStatusLabel(analysis.status)}
         </span>
       </div>
 
       {/* Визуальный результат: в демо изображение не показываем */}
       <section className="result-section">
-        <div className="result-image-frame">
-          <div className="result-image-placeholder">
-            <span className="ph-icon" aria-hidden="true">
-              <Icon name="fileImage" size={20} />
-            </span>
-            <span>Изображение результата в демо не отображается</span>
-          </div>
+        <div className="result-images-list">
+          {imageURLs.length > 0 ? (
+            imageURLs.map((url, index) => (
+              <div className="result-image-frame" key={`${index}:${url || "empty"}`}>
+                {url ? (
+                  <DamageOverlayImage
+                    src={url}
+                    imageResult={resultImages(analysis.result)[index]}
+                    alt={`Загруженное изображение автомобиля ${index + 1}`}
+                    className="result-damage-overlay"
+                  />
+                ) : (
+                  <div className="result-image-placeholder">
+                    <span className="ph-icon" aria-hidden="true">
+                      <Icon name="fileImage" size={20} />
+                    </span>
+                    <span>Изображение результата недоступно</span>
+                  </div>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="result-image-frame">
+              <div className="result-image-placeholder">
+                <span className="ph-icon" aria-hidden="true">
+                  <Icon name="fileImage" size={20} />
+                </span>
+                <span>Изображение результата недоступно</span>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -322,7 +551,9 @@ function ResultPage() {
 
         <div className="result-section-body">
           {services.length === 0 ? (
-            <p className="muted">Подходящие сервисы не найдены</p>
+            <p className="muted">
+              {servicesLoading ? "Подбираем автосервисы..." : "Подходящие сервисы не найдены"}
+            </p>
           ) : (
             <>
               <div className="services-list">
@@ -334,27 +565,56 @@ function ResultPage() {
                     role="button"
                     tabIndex={0}
                   >
+                    <div className="service-card-photo" aria-label="Фото автосервиса">
+                      {Array.isArray(s.images) && s.images.length > 0 ? (
+                        <img src={s.images[0].url} alt={s.name} />
+                      ) : (
+                        <span className="service-card-photo-placeholder">
+                          <Icon name="building" size={20} />
+                          <span>Фото нет</span>
+                        </span>
+                      )}
+                    </div>
                     <div className="service-card-head">
                       <h4>{s.name}</h4>
                     </div>
                     {s.description && <div className="service-card-desc">{s.description}</div>}
                     <div className="service-card-meta">
-                      <div className="row"><Icon name="phone" size={13} /> {s.phone}</div>
-                      <div className="row"><Icon name="mapPin" size={13} /> {s.address}</div>
+                      {s.city ? (
+                        <div className="row"><Icon name="mapPin" size={13} /> {s.city}</div>
+                      ) : null}
+                      <div className="row"><Icon name="mapPin" size={13} /> {s.address || "Адрес не указан"}</div>
+                      {s.phone && s.phone !== "—" ? (
+                        <div className="row"><Icon name="phone" size={13} /> {s.phone}</div>
+                      ) : null}
+                      {s.email ? (
+                        <div className="row"><Icon name="mail" size={13} /> {s.email}</div>
+                      ) : null}
+                    </div>
+                    <div className="service-card-actions">
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={(event) => openServiceGallery(s, event)}
+                      >
+                        Подробнее
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
 
               <div className="result-actions">
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={handleCreateRepair}
-                  disabled={services.length === 0 || repairSubmitting}
-                >
-                  Создать заявку на ремонт
-                </button>
+                {role !== "SERVICE" ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleCreateRepair}
+                    disabled={services.length === 0 || repairSubmitting}
+                  >
+                    Создать заявку на ремонт
+                  </button>
+                ) : null}
                 {repairError ? (
                   <div className="alert alert-danger mt-2" role="alert">
                     {repairError}
@@ -376,6 +636,15 @@ function ResultPage() {
           <Icon name="checkCircle" size={14} /> {toast}
         </div>
       )}
+
+      {galleryService ? (
+        <ServiceGalleryModal
+          service={galleryService}
+          index={galleryIndex}
+          setIndex={setGalleryIndex}
+          onClose={() => setGalleryService(null)}
+        />
+      ) : null}
     </div>
   );
 }

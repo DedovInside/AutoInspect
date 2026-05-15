@@ -292,7 +292,7 @@ async function mockRejectRepairRequest(id, { reason }) {
 }
 
 /**
- * GET /v1/repair-requests/me?status=&cursor=&limit=
+ * GET /v1/repair-requests?status=&offset=&limit=
  * @param {{ status?: string, cursor?: string, limit?: number, signal?: AbortSignal, timeoutMs?: number }} [options]
  * @returns {Promise<RepairRow[]>}
  */
@@ -313,10 +313,10 @@ export async function listMyRepairRequests(options = {}) {
   try {
     repairDevLog("list.me.start", { status: status || "all" });
     /** @type {unknown} */
-    const raw = await apiClient.get("/v1/repair-requests/me", {
+    const raw = await apiClient.get("/v1/repair-requests", {
       signal: combined,
       auth: true,
-      query: { status: status || "", cursor: cursor || "", limit: limit ?? "" },
+      query: { status: status || "", offset: cursor || "", limit: limit ?? "" },
     });
     const { items } = normalizeListResponseShape(raw, "me");
     repairDevLog("list.me.done", { count: items.length, mock: false });
@@ -330,7 +330,7 @@ export async function listMyRepairRequests(options = {}) {
 }
 
 /**
- * GET /v1/repair-requests/incoming?...
+ * GET /v1/car-service/repair-requests?...
  * @param {{ status?: string, cursor?: string, limit?: number, signal?: AbortSignal, timeoutMs?: number }} [options]
  * @returns {Promise<RepairRow[]>}
  */
@@ -351,10 +351,10 @@ export async function listIncomingRepairRequests(options = {}) {
   try {
     repairDevLog("list.incoming.start", { status: status || "all" });
     /** @type {unknown} */
-    const raw = await apiClient.get("/v1/repair-requests/incoming", {
+    const raw = await apiClient.get("/v1/car-service/repair-requests", {
       signal: combined,
       auth: true,
-      query: { status: status || "", cursor: cursor || "", limit: limit ?? "" },
+      query: { status: status || "", offset: cursor || "", limit: limit ?? "" },
     });
     const { items } = normalizeListResponseShape(raw, "incoming");
     repairDevLog("list.incoming.done", { count: items.length, mock: false });
@@ -410,7 +410,14 @@ async function createRepairRequestCore(payload, options = {}) {
       hasAnalysis: !!n.analysis_id,
       hasService: !!n.service_id,
     });
-    const apiBody = { analysis_id: n.analysis_id, service_id: n.service_id };
+    const apiBody = {
+      analysis_job_id: n.analysis_id,
+      car_service_profile_id: n.service_id,
+      customer_name: n.customer_name,
+      customer_phone: n.customer_phone,
+      customer_email: n.customer_email,
+      customer_comment: n.customer_comment,
+    };
 
     /** @type {unknown} */
     let raw = await apiClient.post("/v1/repair-requests", apiBody, {
@@ -526,9 +533,9 @@ export async function acceptRepairRequest(id, options = {}) {
     try {
       repairDevLog("accept.start", { mock: false });
       /** @type {unknown} */
-      const raw = await apiClient.post(
-        `/v1/repair-requests/${encodeURIComponent(sid)}/accept`,
-        {},
+      const raw = await apiClient.patch(
+        `/v1/car-service/repair-requests/${encodeURIComponent(sid)}/accept`,
+        buildAcceptRepairBody(options),
         { signal: combined, auth: true }
       );
 
@@ -588,9 +595,9 @@ export async function rejectRepairRequest(id, options = {}) {
     try {
       repairDevLog("reject.start", { mock: false });
       /** @type {unknown} */
-      const raw = await apiClient.post(
-        `/v1/repair-requests/${encodeURIComponent(sid)}/reject`,
-        { reason },
+      const raw = await apiClient.patch(
+        `/v1/car-service/repair-requests/${encodeURIComponent(sid)}/reject`,
+        { service_comment: reason || "Заявка отклонена автосервисом" },
         { signal: combined, auth: true }
       );
 
@@ -628,4 +635,52 @@ function coerceString(v, fb) {
   if (v == null || v === "") return fb;
   const s = String(v).trim();
   return s || fb;
+}
+
+export async function getIncomingRepairRequestDetails(id, options = {}) {
+  const sid = String(id ?? "");
+  const { signal: userSignal, timeoutMs = 30_000 } = options ?? {};
+  const { signal: timeoutSig, clear } = abortAfter(timeoutMs);
+  const combined = combineAbortSignals(userSignal, timeoutSig);
+
+  try {
+    return await apiClient.get(
+      `/v1/car-service/repair-requests/${encodeURIComponent(sid)}`,
+      { signal: combined, auth: true }
+    );
+  } finally {
+    clear();
+  }
+}
+
+export async function cancelRepairRequest(id, options = {}) {
+  const sid = String(id ?? "");
+  if (!sid) return { status: "cancelled" };
+
+  const { signal: userSignal, timeoutMs = 20_000 } = options ?? {};
+  const { signal: timeoutSig, clear } = abortAfter(timeoutMs);
+  const combined = combineAbortSignals(userSignal, timeoutSig);
+
+  try {
+    return await apiClient.patch(
+      `/v1/repair-requests/${encodeURIComponent(sid)}/cancel`,
+      {},
+      { signal: combined, auth: true }
+    );
+  } finally {
+    clear();
+  }
+}
+
+function buildAcceptRepairBody(options = {}) {
+  const min = Number(options.estimated_price_min ?? options.estimatedPriceMin ?? 0);
+  const max = Number(options.estimated_price_max ?? options.estimatedPriceMax ?? min);
+  return {
+    service_comment: options.service_comment ?? options.comment ?? "",
+    estimated_price_min: Number.isFinite(min) && min >= 0 ? min : 0,
+    estimated_price_max: Number.isFinite(max) && max >= 0 ? max : 0,
+    service_estimate: Array.isArray(options.service_estimate)
+      ? options.service_estimate
+      : [],
+  };
 }

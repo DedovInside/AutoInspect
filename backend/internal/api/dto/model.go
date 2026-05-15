@@ -38,6 +38,17 @@ type CarModelResponse struct {
 	CreatedAt         time.Time `json:"created_at"`
 }
 
+type PublicCarModelResponse struct {
+	ID           uuid.UUID `json:"id"`
+	Make         string    `json:"make"`
+	Model        string    `json:"model"`
+	Generation   string    `json:"generation"`
+	YearFrom     int       `json:"year_from"`
+	YearTo       int       `json:"year_to,omitempty"`
+	ModelVersion string    `json:"model_version"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
 type UploadModelArtifactsResponse struct {
 	Model CarModelResponse `json:"model"`
 }
@@ -47,6 +58,11 @@ type ListModelsResponse struct {
 	Limit  int                `json:"limit"`
 	Offset int                `json:"offset"`
 	Meta   ListMeta           `json:"meta"`
+}
+
+type PublicListModelsResponse struct {
+	Items []PublicCarModelResponse `json:"items"`
+	Meta  ListMeta                 `json:"meta"`
 }
 
 func ToCarModelResponse(model *domain.CarModel) CarModelResponse {
@@ -70,6 +86,22 @@ func ToCarModelResponse(model *domain.CarModel) CarModelResponse {
 	}
 }
 
+func ToPublicCarModelResponse(model *domain.CarModel) PublicCarModelResponse {
+	if model == nil {
+		return PublicCarModelResponse{}
+	}
+	return PublicCarModelResponse{
+		ID:           model.ID,
+		Make:         model.Make,
+		Model:        model.Model,
+		Generation:   model.Generation,
+		YearFrom:     model.YearFrom,
+		YearTo:       model.YearTo,
+		ModelVersion: model.ModelVersion,
+		CreatedAt:    model.CreatedAt,
+	}
+}
+
 func ToCarModelResponseList(models []*domain.CarModel) []CarModelResponse {
 	out := make([]CarModelResponse, 0, len(models))
 	for _, model := range models {
@@ -77,6 +109,17 @@ func ToCarModelResponseList(models []*domain.CarModel) []CarModelResponse {
 			continue
 		}
 		out = append(out, ToCarModelResponse(model))
+	}
+	return out
+}
+
+func ToPublicCarModelResponseList(models []*domain.CarModel) []PublicCarModelResponse {
+	out := make([]PublicCarModelResponse, 0, len(models))
+	for _, model := range models {
+		if model == nil || model.IsUniversal || !model.IsActive {
+			continue
+		}
+		out = append(out, ToPublicCarModelResponse(model))
 	}
 	return out
 }
@@ -99,5 +142,15 @@ func NewModelListResponse(items []CarModelResponse, limit, offset int) ListModel
 		Limit:  limit,
 		Offset: offset,
 		Meta:   meta,
+	}
+}
+
+func NewPublicModelListResponse(items []PublicCarModelResponse) PublicListModelsResponse {
+	return PublicListModelsResponse{
+		Items: items,
+		Meta: ListMeta{
+			Count:   len(items),
+			HasNext: false,
+		},
 	}
 }

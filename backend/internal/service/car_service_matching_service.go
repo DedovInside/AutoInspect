@@ -72,7 +72,7 @@ func (s *CarServiceMatchingService) FindMatchingCarServices(ctx context.Context,
 		if match.RequiredCount > 0 {
 			match.Score = float64(match.MatchCount) / float64(match.RequiredCount)
 		}
-		if err := s.attachPrimaryImage(ctx, match); err != nil {
+		if err := s.attachImages(ctx, match); err != nil {
 			return nil, err
 		}
 	}
@@ -80,7 +80,7 @@ func (s *CarServiceMatchingService) FindMatchingCarServices(ctx context.Context,
 	return s.carServiceMatchesWithImageURLs(ctx, matches)
 }
 
-func (s *CarServiceMatchingService) attachPrimaryImage(ctx context.Context, match *domain.CarServiceMatch) error {
+func (s *CarServiceMatchingService) attachImages(ctx context.Context, match *domain.CarServiceMatch) error {
 	if match == nil || match.Profile == nil || s.imageRepo == nil {
 		return nil
 	}
@@ -94,9 +94,24 @@ func (s *CarServiceMatchingService) attachPrimaryImage(ctx context.Context, matc
 		return nil
 	}
 
-	match.PrimaryImage = images[0]
+	match.Images = images
+	match.PrimaryImage = primaryCarServiceImage(images)
 
 	return nil
+}
+
+func primaryCarServiceImage(images []*domain.CarServiceImage) *domain.CarServiceImage {
+	if len(images) == 0 {
+		return nil
+	}
+
+	for _, image := range images {
+		if image != nil && image.IsPrimary {
+			return image
+		}
+	}
+
+	return images[0]
 }
 
 func matchCriteriaFromAnalysisJob(job *domain.AnalysisJob) ([]domain.CarServiceMatchCriterion, error) {
@@ -204,7 +219,7 @@ func (s *CarServiceMatchingService) carServiceMatchesWithImageURLs(ctx context.C
 func (s *CarServiceMatchingService) carServiceMatchWithImageURL(ctx context.Context,
 	match *domain.CarServiceMatch) (*domain.CarServiceMatchWithImageURL, error) {
 	item := &domain.CarServiceMatchWithImageURL{Match: match}
-	if match == nil || match.PrimaryImage == nil {
+	if match == nil || len(match.Images) == 0 {
 		return item, nil
 	}
 
@@ -212,19 +227,33 @@ func (s *CarServiceMatchingService) carServiceMatchWithImageURL(ctx context.Cont
 		return nil, domain.ErrInternal
 	}
 
-	expiresAt := time.Now().Add(s.s3Cfg.PresignedURLTTL)
-	url, err := s.fileRepo.GetPresignedURL(
-		ctx,
-		s.s3Cfg.BucketUploads,
-		match.PrimaryImage.S3Key,
-		s.s3Cfg.PresignedURLTTL,
-	)
-	if err != nil {
-		return nil, err
-	}
+	for _, image := range match.Images {
+		if image == nil {
+			continue
+		}
 
-	item.PrimaryImageURL = url
-	item.PrimaryImageExpiresAt = &expiresAt
+		expiresAt := time.Now().Add(s.s3Cfg.PresignedURLTTL)
+		url, err := s.fileRepo.GetPresignedURL(
+			ctx,
+			s.s3Cfg.BucketUploads,
+			image.S3Key,
+			s.s3Cfg.PresignedURLTTL,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		item.ImageURLs = append(item.ImageURLs, domain.CarServiceImageURL{
+			Image:     image,
+			URL:       url,
+			ExpiresAt: expiresAt,
+		})
+
+		if match.PrimaryImage != nil && image.ID == match.PrimaryImage.ID {
+			item.PrimaryImageURL = url
+			item.PrimaryImageExpiresAt = &expiresAt
+		}
+	}
 
 	return item, nil
 }

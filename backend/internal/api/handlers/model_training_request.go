@@ -89,7 +89,7 @@ func (h *ModelTrainingRequestHandler) AdminUpdateStatus(c *gin.Context) {
 		return
 	}
 
-	err = h.service.UpdateStatus(c.Request.Context(), &domain.UpdateModelTrainingRequestStatusInput{
+	request, err := h.service.UpdateStatus(c.Request.Context(), &domain.UpdateModelTrainingRequestStatusInput{
 		ID:             requestID,
 		Status:         req.Status,
 		AdminComment:   req.AdminComment,
@@ -101,7 +101,9 @@ func (h *ModelTrainingRequestHandler) AdminUpdateStatus(c *gin.Context) {
 		return
 	}
 
-	writeJSON(c, http.StatusOK, gin.H{"status": "ok"})
+	writeJSON(c, http.StatusOK, dto.CreateModelTrainingRequestResponse{
+		Request: dto.ToModelTrainingRequestResponse(request),
+	})
 }
 
 func handleModelTrainingRequestError(c *gin.Context, err error) {

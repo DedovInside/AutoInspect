@@ -460,3 +460,7 @@ pyrightconfig.json
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/go,python,node,jetbrains,visualstudiocode
+
+# Production deploy secrets
+deployments/secrets/
+deployments/.env.prod

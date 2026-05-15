@@ -12,18 +12,21 @@ import (
 )
 
 const createUser = `-- name: CreateUser :exec
-INSERT INTO users (id, username, email, avatar_url, password_hash, role,
+INSERT INTO users (id, username, email, first_name, last_name, display_name, avatar_url, password_hash, role,
                    email_verified, is_active,
                    created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6,
-        $7, $8,
-        $9, $10)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
+        $10, $11,
+        $12, $13)
 `
 
 type CreateUserParams struct {
 	ID            pgtype.UUID
 	Username      string
 	Email         string
+	FirstName     *string
+	LastName      *string
+	DisplayName   *string
 	AvatarUrl     *string
 	PasswordHash  string
 	Role          string
@@ -38,6 +41,9 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 		arg.ID,
 		arg.Username,
 		arg.Email,
+		arg.FirstName,
+		arg.LastName,
+		arg.DisplayName,
 		arg.AvatarUrl,
 		arg.PasswordHash,
 		arg.Role,
@@ -65,6 +71,9 @@ const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id,
        username,
        email,
+       first_name,
+       last_name,
+       display_name,
        avatar_url,
        password_hash,
        role,
@@ -84,6 +93,9 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.ID,
 		&i.Username,
 		&i.Email,
+		&i.FirstName,
+		&i.LastName,
+		&i.DisplayName,
 		&i.AvatarUrl,
 		&i.PasswordHash,
 		&i.Role,
@@ -100,6 +112,9 @@ const getUserByID = `-- name: GetUserByID :one
 SELECT id,
        username,
        email,
+       first_name,
+       last_name,
+       display_name,
        avatar_url,
        password_hash,
        role,
@@ -119,6 +134,9 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 		&i.ID,
 		&i.Username,
 		&i.Email,
+		&i.FirstName,
+		&i.LastName,
+		&i.DisplayName,
 		&i.AvatarUrl,
 		&i.PasswordHash,
 		&i.Role,
@@ -132,7 +150,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, username, email, avatar_url, password_hash, role,
+SELECT id, username, email, first_name, last_name, display_name, avatar_url, password_hash, role,
        email_verified, is_active,
        created_at, updated_at, last_login
 FROM users
@@ -158,6 +176,9 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 			&i.ID,
 			&i.Username,
 			&i.Email,
+			&i.FirstName,
+			&i.LastName,
+			&i.DisplayName,
 			&i.AvatarUrl,
 			&i.PasswordHash,
 			&i.Role,
@@ -193,17 +214,23 @@ const updateUser = `-- name: UpdateUser :execrows
 UPDATE users
 SET username       = $1,
     email          = $2,
-    avatar_url     = $3,
-    password_hash  = $4,
-    role           = $5,
-    email_verified = $6,
-    is_active      = $7
-WHERE id = $8
+    first_name     = $3,
+    last_name      = $4,
+    display_name   = $5,
+    avatar_url     = $6,
+    password_hash  = $7,
+    role           = $8,
+    email_verified = $9,
+    is_active      = $10
+WHERE id = $11
 `
 
 type UpdateUserParams struct {
 	Username      string
 	Email         string
+	FirstName     *string
+	LastName      *string
+	DisplayName   *string
 	AvatarUrl     *string
 	PasswordHash  string
 	Role          string
@@ -216,6 +243,9 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (int64, 
 	result, err := q.db.Exec(ctx, updateUser,
 		arg.Username,
 		arg.Email,
+		arg.FirstName,
+		arg.LastName,
+		arg.DisplayName,
 		arg.AvatarUrl,
 		arg.PasswordHash,
 		arg.Role,

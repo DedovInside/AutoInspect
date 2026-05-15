@@ -32,6 +32,14 @@ function shouldUseMockAdminMLModels() {
   return import.meta.env.DEV;
 }
 
+function makeIdempotencyKey(prefix) {
+  const random =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `${prefix}-${random}`;
+}
+
 /** @param {AbortSignal[] | (AbortSignal | undefined)[]} signals */
 function combineAbortSignals(...signals) {
   const valid = signals.filter((s) => s != null);
@@ -91,7 +99,7 @@ function dedupeMutation(key, fn) {
 }
 
 /**
- * GET /v1/admin/ml-models
+ * GET /v1/admin/models
  * @param {{ signal?: AbortSignal, timeoutMs?: number }} [options]
  */
 export async function listMLModels(options = {}) {
@@ -108,7 +116,7 @@ export async function listMLModels(options = {}) {
 
   try {
     /** @type {unknown} */
-    const raw = await apiClient.get("/v1/admin/ml-models", {
+    const raw = await apiClient.get("/v1/admin/models", {
       signal: combined,
       auth: true,
     });
@@ -121,7 +129,37 @@ export async function listMLModels(options = {}) {
 }
 
 /**
- * POST /v1/admin/ml-models (multipart)
+ * GET /v1/models/specialized
+ * @param {{ signal?: AbortSignal, timeoutMs?: number }} [options]
+ */
+export async function listAvailableSpecializedMLModels(options = {}) {
+  const { signal: userSignal, timeoutMs = 25_000 } = options ?? {};
+
+  if (shouldUseMockAdminMLModels()) {
+    await delay(120);
+    return models
+      .map((m) => normalizeMLModel(m))
+      .filter((m) => m.status === "active");
+  }
+
+  const { signal: timeoutSig, clear } = abortAfter(timeoutMs);
+  const combined = combineAbortSignals(userSignal, timeoutSig);
+
+  try {
+    const raw = await apiClient.get("/v1/models/specialized", {
+      signal: combined,
+      auth: true,
+    });
+    return normalizeMLModelList(raw).filter((m) => m.status === "active");
+  } catch (e) {
+    rethrowAbortOrWrapAdminError(e);
+  } finally {
+    clear();
+  }
+}
+
+/**
+ * POST /v1/admin/models (multipart)
  * @param {unknown} payload
  * @param {{ signal?: AbortSignal, timeoutMs?: number }} [options]
  */
@@ -158,9 +196,12 @@ export async function uploadMLModel(payload, options = {}) {
 
     try {
       /** @type {unknown} */
-      const raw = await apiClient.post("/v1/admin/ml-models", form, {
+      const raw = await apiClient.post("/v1/admin/models", form, {
         signal: combined,
         auth: true,
+        headers: {
+          "Idempotency-Key": options.idempotencyKey || makeIdempotencyKey("model-upload"),
+        },
       });
       const basis = normalizeMLModel({
         brand: clean.brand,
@@ -181,45 +222,7 @@ export async function uploadMLModel(payload, options = {}) {
 }
 
 /**
- * POST /v1/admin/ml-models/:id/activate
- * @param {string} id
- * @param {{ signal?: AbortSignal, timeoutMs?: number, snapshot?: unknown }} [options]
- */
-export async function activateMLModel(id, options = {}) {
-  const sid = String(id ?? "");
-  const snapshot = models.find((m) => m.id === sid) ?? options.snapshot;
-
-  return dedupeMutation(`ml:activate:${sid}`, async () => {
-    if (shouldUseMockAdminMLModels()) {
-      await delay(120);
-      models = models.map((m) =>
-        m.id === sid ? normalizeMLModel({ ...m, status: "active" }) : m
-      );
-      return models.find((m) => m.id === sid);
-    }
-
-    const { signal: userSignal, timeoutMs = 25_000 } = options ?? {};
-    const { signal: timeoutSig, clear } = abortAfter(timeoutMs);
-    const combined = combineAbortSignals(userSignal, timeoutSig);
-
-    try {
-      /** @type {unknown} */
-      const raw = await apiClient.post(
-        `/v1/admin/ml-models/${encodeURIComponent(sid)}/activate`,
-        {},
-        { signal: combined, auth: true }
-      );
-      return mergeMLModel(snapshot ?? normalizeMLModel({ id: sid }), raw ?? {});
-    } catch (e) {
-      rethrowAbortOrWrapAdminError(e);
-    } finally {
-      clear();
-    }
-  });
-}
-
-/**
- * POST /v1/admin/ml-models/:id/deactivate
+ * PATCH /v1/admin/models/:id/deactivate
  * @param {string} id
  * @param {{ signal?: AbortSignal, timeoutMs?: number, snapshot?: unknown }} [options]
  */
@@ -244,8 +247,8 @@ export async function deactivateMLModel(id, options = {}) {
 
     try {
       /** @type {unknown} */
-      const raw = await apiClient.post(
-        `/v1/admin/ml-models/${encodeURIComponent(sid)}/deactivate`,
+      const raw = await apiClient.patch(
+        `/v1/admin/models/${encodeURIComponent(sid)}/deactivate`,
         {},
         { signal: combined, auth: true }
       );

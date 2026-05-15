@@ -30,6 +30,10 @@ type YandexProfile struct {
 	ID              string `json:"id"`
 	Login           string `json:"login"`
 	DefaultEmail    string `json:"default_email"`
+	FirstName       string `json:"first_name"`
+	LastName        string `json:"last_name"`
+	DisplayName     string `json:"display_name"`
+	RealName        string `json:"real_name"`
 	DefaultAvatarID string `json:"default_avatar_id"`
 	IsAvatarEmpty   bool   `json:"is_avatar_empty"`
 }
@@ -65,6 +69,57 @@ func (p *YandexProfile) AvatarURL() *string {
 
 	url := fmt.Sprintf(yandexAvatarURL, p.DefaultAvatarID)
 	return &url
+}
+
+func (p *YandexProfile) DisplayNamePtr() *string {
+	if p == nil {
+		return nil
+	}
+
+	displayName := strings.Join(nonEmptyStrings(p.FirstName, p.LastName), " ")
+	if displayName == "" {
+		displayName = strings.TrimSpace(p.DisplayName)
+	}
+	if displayName == "" {
+		displayName = strings.TrimSpace(p.RealName)
+	}
+	if displayName == "" {
+		return nil
+	}
+
+	return &displayName
+}
+
+func (p *YandexProfile) FirstNamePtr() *string {
+	if p == nil {
+		return nil
+	}
+	return stringPtrFromTrimmed(p.FirstName)
+}
+
+func (p *YandexProfile) LastNamePtr() *string {
+	if p == nil {
+		return nil
+	}
+	return stringPtrFromTrimmed(p.LastName)
+}
+
+func nonEmptyStrings(values ...string) []string {
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
+}
+
+func stringPtrFromTrimmed(value string) *string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
 }
 
 func (c *YandexOAuthClient) AuthCodeURL(state string) string {

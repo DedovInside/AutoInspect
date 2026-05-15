@@ -21,9 +21,11 @@ func NewGinRouter(
 	repairRequestHandler *handlers.RepairRequestHandler,
 	tokenManager *service.TokenManager,
 	cache service.SessionCache,
+	corsAllowedOrigins []string,
 ) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Recovery())
+	router.Use(middleware.CORS(corsAllowedOrigins))
 
 	router.GET("/health", func(c *gin.Context) {
 		c.String(http.StatusOK, "ok")
@@ -52,6 +54,10 @@ func NewGinRouter(
 	modelTrainingRequestsGroup.Use(middleware.Auth(tokenManager, cache))
 	modelTrainingRequestsGroup.POST("", modelTrainingRequestHandler.Create)
 	modelTrainingRequestsGroup.GET("", modelTrainingRequestHandler.ListMine)
+
+	modelsGroup := router.Group("/v1/models")
+	modelsGroup.Use(middleware.Auth(tokenManager, cache))
+	modelsGroup.GET("/specialized", modelHandler.ListAvailableSpecialized)
 
 	carServiceApplicationsGroup := router.Group("/v1/car-service-applications")
 	carServiceApplicationsGroup.Use(middleware.Auth(tokenManager, cache))

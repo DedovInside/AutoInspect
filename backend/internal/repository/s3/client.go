@@ -33,30 +33,31 @@ func New(ctx context.Context, cfg *config.S3Config) (*Client, error) {
 		return nil, fmt.Errorf("load aws sdk config: %w", err)
 	}
 
-	var s3ClientOpts func(*s3.Options)
-	if cfg.Endpoint != "" || cfg.UsePathStyle {
-		s3ClientOpts = func(o *s3.Options) {
-			if cfg.Endpoint != "" {
-				o.BaseEndpoint = aws.String(cfg.Endpoint)
-			}
-			o.UsePathStyle = cfg.UsePathStyle
-		}
-	}
+	s3ClientOpts := clientOptions(cfg.Endpoint, cfg.UsePathStyle)
 
-	var s3Client *s3.Client
-	if s3ClientOpts != nil {
-		s3Client = s3.NewFromConfig(awsCfg, s3ClientOpts)
-	} else {
-		s3Client = s3.NewFromConfig(awsCfg)
-	}
+	s3Client := s3.NewFromConfig(awsCfg, s3ClientOpts)
 
 	presignClient := s3.NewPresignClient(s3Client)
+	if cfg.PublicEndpoint != "" {
+		presignClient = s3.NewPresignClient(
+			s3.NewFromConfig(awsCfg, clientOptions(cfg.PublicEndpoint, cfg.UsePathStyle)),
+		)
+	}
 
 	return &Client{
 		client:        s3Client,
 		presignClient: presignClient,
 		cfg:           cfg,
 	}, nil
+}
+
+func clientOptions(endpoint string, usePathStyle bool) func(*s3.Options) {
+	return func(o *s3.Options) {
+		if endpoint != "" {
+			o.BaseEndpoint = aws.String(endpoint)
+		}
+		o.UsePathStyle = usePathStyle
+	}
 }
 
 func (c *Client) HealthCheck(ctx context.Context) error {

@@ -16,12 +16,13 @@ type Config struct {
 }
 
 type HTTPConfig struct {
-	Host             string        `env:"HTTP_HOST" env-default:"0.0.0.0"`
-	Port             string        `env:"HTTP_PORT" env-default:"8080"`
-	ReadTimeout      time.Duration `env:"HTTP_READ_TIMEOUT" env-default:"10s"`
-	WriteTimeout     time.Duration `env:"HTTP_WRITE_TIMEOUT" env-default:"10s"`
-	ShutdownTimeout  time.Duration `env:"HTTP_SHUTDOWN_TIMEOUT" env-default:"30s"`
-	WSAllowedOrigins []string      `env:"WS_ALLOWED_ORIGINS" env-default:"http://localhost:5173,http://localhost:3000,http://localhost:8080"`
+	Host               string        `env:"HTTP_HOST" env-default:"0.0.0.0"`
+	Port               string        `env:"HTTP_PORT" env-default:"8080"`
+	ReadTimeout        time.Duration `env:"HTTP_READ_TIMEOUT" env-default:"10s"`
+	WriteTimeout       time.Duration `env:"HTTP_WRITE_TIMEOUT" env-default:"10s"`
+	ShutdownTimeout    time.Duration `env:"HTTP_SHUTDOWN_TIMEOUT" env-default:"30s"`
+	CORSAllowedOrigins []string      `env:"CORS_ALLOWED_ORIGINS" env-default:"http://localhost:5173,http://localhost:3000,http://localhost:8080"`
+	WSAllowedOrigins   []string      `env:"WS_ALLOWED_ORIGINS" env-default:"http://localhost:5173,http://localhost:3000,http://localhost:8080"`
 }
 
 type DatabaseConfig struct {
@@ -62,12 +63,13 @@ type AuthConfig struct {
 }
 
 type S3Config struct {
-	Endpoint     string `env:"S3_ENDPOINT" env-default:"http://localhost:9000"`
-	AccessKey    string `env:"S3_ACCESS_KEY" env-default:"minioadmin"`
-	SecretKey    string `env:"S3_SECRET_KEY" env-default:"minioadmin"`
-	Region       string `env:"S3_REGION" env-default:"us-east-1"`
-	UseSSL       bool   `env:"S3_USE_SSL" env-default:"false"`
-	UsePathStyle bool   `env:"S3_USE_PATH_STYLE" env-default:"true"`
+	Endpoint       string `env:"S3_ENDPOINT" env-default:"http://localhost:9000"`
+	PublicEndpoint string `env:"S3_PUBLIC_ENDPOINT" env-default:""`
+	AccessKey      string `env:"S3_ACCESS_KEY" env-default:"minioadmin"`
+	SecretKey      string `env:"S3_SECRET_KEY" env-default:"minioadmin"`
+	Region         string `env:"S3_REGION" env-default:"us-east-1"`
+	UseSSL         bool   `env:"S3_USE_SSL" env-default:"false"`
+	UsePathStyle   bool   `env:"S3_USE_PATH_STYLE" env-default:"true"`
 
 	BucketUploads string `env:"S3_BUCKET_UPLOADS" env-default:"autoinspect-uploads"`
 	BucketModels  string `env:"S3_BUCKET_MODELS" env-default:"autoinspect-models"`

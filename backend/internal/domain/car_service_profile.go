@@ -55,6 +55,7 @@ type CarServiceMatchCriterion struct {
 type CarServiceMatch struct {
 	Profile       *CarServiceProfile
 	PrimaryImage  *CarServiceImage
+	Images        []*CarServiceImage
 	MatchCount    int
 	RequiredCount int
 	Score         float64
@@ -64,4 +65,11 @@ type CarServiceMatchWithImageURL struct {
 	Match                 *CarServiceMatch
 	PrimaryImageURL       string
 	PrimaryImageExpiresAt *time.Time
+	ImageURLs             []CarServiceImageURL
+}
+
+type CarServiceImageURL struct {
+	Image     *CarServiceImage
+	URL       string
+	ExpiresAt time.Time
 }

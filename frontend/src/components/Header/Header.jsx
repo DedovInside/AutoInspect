@@ -10,7 +10,14 @@ function Header() {
   const navigate = useNavigate();
   const { user, role, isAuthenticated, logout } = useAuth();
 
-  const displayName = user?.username || "Пользователь";
+  const displayName =
+    user?.display_name ||
+    user?.displayName ||
+    [user?.first_name || user?.firstName, user?.last_name || user?.lastName]
+      .filter(Boolean)
+      .join(" ") ||
+    user?.username ||
+    "Пользователь";
   const email = user?.email || "user@autoinspect.ru";
   const avatarURL = user?.avatar_url || user?.avatarUrl || "";
 

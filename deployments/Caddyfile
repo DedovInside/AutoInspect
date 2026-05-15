@@ -1,0 +1,7 @@
+{$AUTOINSPECT_API_DOMAIN:autoinspect-api.duckdns.org} {
+    reverse_proxy api:8080
+}
+
+{$AUTOINSPECT_MINIO_DOMAIN:autoinspect-minio.duckdns.org} {
+    reverse_proxy minio:9000
+}

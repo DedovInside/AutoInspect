@@ -93,6 +93,17 @@ func (h *ModelHandler) List(c *gin.Context) {
 	writeJSON(c, http.StatusOK, dto.NewModelListResponse(items, query.Limit, query.Offset))
 }
 
+func (h *ModelHandler) ListAvailableSpecialized(c *gin.Context) {
+	models, err := h.service.ListActiveSpecializedModels(c.Request.Context())
+	if err != nil {
+		handleModelError(c, err)
+		return
+	}
+
+	items := dto.ToPublicCarModelResponseList(models)
+	writeJSON(c, http.StatusOK, dto.NewPublicModelListResponse(items))
+}
+
 func (h *ModelHandler) Deactivate(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
