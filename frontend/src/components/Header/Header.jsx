@@ -9,6 +9,7 @@ import logo from "../../assets/logo.jpeg";
 function Header() {
   const navigate = useNavigate();
   const { user, role, isAuthenticated, logout } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const displayName =
     user?.display_name ||
@@ -35,7 +36,18 @@ function Header() {
 
   const token = isAuthenticated;
 
+  const navItems = token
+    ? [
+        { to: "/upload", label: "Анализ" },
+        { to: "/history", label: "История" },
+        { to: "/repair-requests", label: "Заявки" },
+        ...(role === "SERVICE" ? [{ to: "/service-profile", label: "Профиль сервиса" }] : []),
+        ...(role === "ADMIN" ? [{ to: "/admin", label: "Админ панель" }] : []),
+      ]
+    : [];
+
   const handleLogout = async () => {
+    setMobileMenuOpen(false);
     await logout();
     navigate("/auth");
   };
@@ -50,61 +62,78 @@ function Header() {
 
         {token && (
           <nav className="header-nav" aria-label="Главная навигация">
-            <NavLink to="/upload" className={({ isActive }) => "header-nav-link" + (isActive ? " active" : "")}>
-              Анализ
-            </NavLink>
-            <NavLink to="/history" className={({ isActive }) => "header-nav-link" + (isActive ? " active" : "")}>
-              История
-            </NavLink>
-            <NavLink to="/repair-requests" className={({ isActive }) => "header-nav-link" + (isActive ? " active" : "")}>
-              Заявки
-            </NavLink>
-            {role === "SERVICE" && (
-              <NavLink to="/service-profile" className={({ isActive }) => "header-nav-link" + (isActive ? " active" : "")}>
-                Профиль сервиса
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) => "header-nav-link" + (isActive ? " active" : "")}
+              >
+                {item.label}
               </NavLink>
-            )}
-            {role === "ADMIN" && (
-              <NavLink to="/admin" className={({ isActive }) => "header-nav-link" + (isActive ? " active" : "")}>
-                Админ панель
-              </NavLink>
-            )}
+            ))}
           </nav>
         )}
 
         <div className="header-actions">
           {token ? (
-            <div className="profile-menu">
-              <button type="button" className="profile-trigger" aria-label="Профиль пользователя">
-                <span className="avatar" aria-hidden="true">
-                  {showAvatarImage ? (
-                    <img
-                      src={avatarURL}
-                      alt={displayName}
-                      onError={() => setAvatarBroken(true)}
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    initials
-                  )}
-                </span>
-                <span className="name">{displayName}</span>
-                <Icon name="chevronDown" size={14} />
-              </button>
-
-              <div className="profile-dropdown" role="menu">
-                <div className="profile-dropdown-header">
-                  <div className="profile-dropdown-name">{displayName}</div>
-                  <div className="profile-dropdown-email">{email}</div>
-                  {role && (
-                    <div className="profile-dropdown-role">{getRoleLabel(role)}</div>
-                  )}
-                </div>
-                <button type="button" className="profile-dropdown-item danger" onClick={handleLogout}>
-                  <Icon name="logout" size={14} /> Выйти
+            <>
+              <div className="mobile-nav-menu">
+                <button
+                  type="button"
+                  className="mobile-nav-trigger"
+                  aria-label={mobileMenuOpen ? "Закрыть меню" : "Открыть меню"}
+                  aria-expanded={mobileMenuOpen}
+                  onClick={() => setMobileMenuOpen((open) => !open)}
+                >
+                  <Icon name={mobileMenuOpen ? "x" : "menu"} size={18} />
                 </button>
+
+                <div className={`mobile-nav-dropdown${mobileMenuOpen ? " open" : ""}`} role="menu">
+                  {navItems.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      className={({ isActive }) => "mobile-nav-link" + (isActive ? " active" : "")}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </div>
               </div>
-            </div>
+
+              <div className="profile-menu">
+                <button type="button" className="profile-trigger" aria-label="Профиль пользователя">
+                  <span className="avatar" aria-hidden="true">
+                    {showAvatarImage ? (
+                      <img
+                        src={avatarURL}
+                        alt={displayName}
+                        onError={() => setAvatarBroken(true)}
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      initials
+                    )}
+                  </span>
+                  <span className="name">{displayName}</span>
+                  <Icon name="chevronDown" size={14} />
+                </button>
+
+                <div className="profile-dropdown" role="menu">
+                  <div className="profile-dropdown-header">
+                    <div className="profile-dropdown-name">{displayName}</div>
+                    <div className="profile-dropdown-email">{email}</div>
+                    {role && (
+                      <div className="profile-dropdown-role">{getRoleLabel(role)}</div>
+                    )}
+                  </div>
+                  <button type="button" className="profile-dropdown-item danger" onClick={handleLogout}>
+                    <Icon name="logout" size={14} /> Выйти
+                  </button>
+                </div>
+              </div>
+            </>
           ) : (
             <Link to="/auth" className="btn btn-primary btn-sm">Войти</Link>
           )}
