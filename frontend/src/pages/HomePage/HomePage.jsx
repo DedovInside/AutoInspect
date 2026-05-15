@@ -25,6 +25,30 @@ const initialTrainingForm = {
   description: "",
 };
 
+const MIN_CAR_YEAR = 1900;
+const MAX_CAR_YEAR = new Date().getFullYear() + 1;
+const MIN_PHONE_DIGITS = 7;
+
+function parseYear(value) {
+  const trimmed = String(value ?? "").trim();
+  if (!/^\d{4}$/.test(trimmed)) return null;
+  const year = Number(trimmed);
+  return Number.isInteger(year) ? year : null;
+}
+
+function yearRangeError(value, label) {
+  const year = parseYear(value);
+  if (!year) return `${label} должен быть указан в формате 4 цифр`;
+  if (year < MIN_CAR_YEAR || year > MAX_CAR_YEAR) {
+    return `${label} должен быть от ${MIN_CAR_YEAR} до ${MAX_CAR_YEAR}`;
+  }
+  return "";
+}
+
+function phoneDigits(value) {
+  return String(value ?? "").replace(/\D/g, "");
+}
+
 function HomePage() {
   const { role } = useAuth();
   const [serviceFormSent, setServiceFormSent] = useState(false);
@@ -90,6 +114,8 @@ function HomePage() {
     }
     if (!serviceForm.phone.trim()) {
       e.phone = "Введите номер телефона";
+    } else if (phoneDigits(serviceForm.phone).length < MIN_PHONE_DIGITS) {
+      e.phone = "Введите корректный номер телефона";
     }
     if (!serviceForm.description.trim()) {
       e.description = "Введите описание";
@@ -110,17 +136,21 @@ function HomePage() {
     }
     if (!trainingForm.year_from.trim()) {
       e.year_from = "Введите год начала выпуска";
+    } else {
+      const err = yearRangeError(trainingForm.year_from, "Год начала выпуска");
+      if (err) e.year_from = err;
     }
     if (!trainingForm.year_to.trim()) {
       e.year_to = "Введите год окончания выпуска";
+    } else {
+      const err = yearRangeError(trainingForm.year_to, "Год окончания выпуска");
+      if (err) e.year_to = err;
     }
-    const yearFrom = Number(trainingForm.year_from);
-    const yearTo = Number(trainingForm.year_to);
+    const yearFrom = parseYear(trainingForm.year_from);
+    const yearTo = parseYear(trainingForm.year_to);
     if (
-      trainingForm.year_from.trim() &&
-      trainingForm.year_to.trim() &&
-      Number.isFinite(yearFrom) &&
-      Number.isFinite(yearTo) &&
+      yearFrom &&
+      yearTo &&
       yearTo < yearFrom
     ) {
       e.year_to = "Год окончания не может быть раньше года начала";
@@ -422,6 +452,8 @@ function HomePage() {
                   <label className="form-label" htmlFor="tr-year-from">Год начала выпуска *</label>
                   <input
                     id="tr-year-from"
+                    type="text"
+                    inputMode="numeric"
                     className={"input" + (trainingErrors.year_from ? " input-error" : "")}
                     placeholder="2018"
                     value={trainingForm.year_from}
@@ -438,6 +470,8 @@ function HomePage() {
                   <label className="form-label" htmlFor="tr-year-to">Год окончания выпуска *</label>
                   <input
                     id="tr-year-to"
+                    type="text"
+                    inputMode="numeric"
                     className={"input" + (trainingErrors.year_to ? " input-error" : "")}
                     placeholder="2024"
                     value={trainingForm.year_to}
