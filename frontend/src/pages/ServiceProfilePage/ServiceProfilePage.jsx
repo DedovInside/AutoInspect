@@ -15,6 +15,8 @@ import {
   deleteServiceProfileImage,
 } from "../../services/serviceProfile";
 
+const ANY_PART_CATEGORY_CODE = "*";
+
 function ServiceProfilePage() {
   const saveGenRef = useRef(0);
   const submitAcRef = useRef(null);
@@ -120,6 +122,9 @@ function ServiceProfilePage() {
         item.part_category_code === partCategoryCode
     );
 
+  const hasAnyPartSpecialization = (damageTypeCode) =>
+    hasSpecialization(damageTypeCode, ANY_PART_CATEGORY_CODE);
+
   const toggleSpecialization = (damageTypeCode, partCategoryCode) => {
     setSpecializations((prev) => {
       const exists = prev.some(
@@ -136,8 +141,26 @@ function ServiceProfilePage() {
             )
         );
       }
+
+      if (partCategoryCode === ANY_PART_CATEGORY_CODE) {
+        return [
+          ...prev.filter((item) => item.damage_type_code !== damageTypeCode),
+          {
+            id: `${damageTypeCode}:${partCategoryCode}`,
+            damage_type_code: damageTypeCode,
+            part_category_code: partCategoryCode,
+          },
+        ];
+      }
+
       return [
-        ...prev,
+        ...prev.filter(
+          (item) =>
+            !(
+              item.damage_type_code === damageTypeCode &&
+              item.part_category_code === ANY_PART_CATEGORY_CODE
+            )
+        ),
         {
           id: `${damageTypeCode}:${partCategoryCode}`,
           damage_type_code: damageTypeCode,
@@ -430,11 +453,19 @@ function ServiceProfilePage() {
                 <div className="level-pills">
                   {specializationOptions.part_categories.map((part) => {
                     const checked = hasSpecialization(damage.code, part.code);
+                    const disabled =
+                      part.code !== ANY_PART_CATEGORY_CODE &&
+                      hasAnyPartSpecialization(damage.code);
                     return (
                       <button
                         key={part.code}
                         type="button"
-                        className={"level-pill" + (checked ? " active" : "")}
+                        className={
+                          "level-pill" +
+                          (checked ? " active" : "") +
+                          (disabled ? " disabled" : "")
+                        }
+                        disabled={disabled}
                         onClick={() => toggleSpecialization(damage.code, part.code)}
                       >
                         {part.name_ru}
