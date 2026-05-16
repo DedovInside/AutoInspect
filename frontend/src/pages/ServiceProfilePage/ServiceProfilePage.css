@@ -103,6 +103,14 @@
   border-color: var(--brand-600);
   color: #fff;
 }
+.level-pill.disabled,
+.level-pill:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.level-pill:disabled:hover {
+  color: var(--slate-600);
+}
 
 .section-divider {
   font-size: 13px;
