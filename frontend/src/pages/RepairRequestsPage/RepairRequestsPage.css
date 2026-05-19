@@ -296,6 +296,12 @@
   gap: 8px;
 }
 
+.repair-contact-block-neutral {
+  background: var(--surface-muted);
+  border-color: var(--border);
+  color: var(--slate-700);
+}
+
 .repair-rejected-block {
   margin-top: 10px;
   padding: 10px 12px;
@@ -328,6 +334,28 @@
   font-size: 13px;
   line-height: 1.35;
   word-break: break-word;
+}
+
+.repair-contact-line {
+  font-size: 13px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.repair-contact-comment {
+  display: grid;
+  gap: 3px;
+  margin-top: 2px;
+  color: var(--slate-700);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.repair-contact-comment span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--slate-500);
 }
 
 .repair-status-pill {
