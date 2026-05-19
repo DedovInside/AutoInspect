@@ -11,11 +11,44 @@
   margin-bottom: 8px;
 }
 
-.home-intro p {
+.home-intro-description {
   color: var(--text-muted);
   font-size: 14px;
   max-width: 640px;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+}
+
+.home-intro-info {
+  margin-bottom: 24px;
+  max-width: 720px;
+}
+
+.home-intro-info h3 {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.home-intro-info h4 {
+  font-size: 14px;
+  margin-top: 18px;
+  margin-bottom: 10px;
+}
+
+.home-intro-info p {
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.home-intro-info ul {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-muted);
+}
+
+.home-intro-info li {
+  margin-bottom: 8px;
+  line-height: 1.5;
 }
 
 .home-forms-header {
