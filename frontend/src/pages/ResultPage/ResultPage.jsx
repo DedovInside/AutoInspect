@@ -67,6 +67,45 @@ function ResultLoading() {
 
 const ANALYSIS_POLL_MS = 3000;
 const ANALYSIS_MAX_WAIT_MS = 15 * 60 * 1000;
+const MIN_CONTACT_PHONE_DIGITS = 7;
+
+const initialRepairContactForm = {
+  name: "",
+  phone: "",
+  email: "",
+  comment: "",
+};
+
+function contactPhoneDigits(value) {
+  return String(value ?? "").replace(/\D/g, "");
+}
+
+function isValidContactEmail(value) {
+  const email = String(value ?? "").trim();
+  if (!email) return true;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function validateRepairContactForm(form) {
+  const errors = {};
+  const hasPhone = contactPhoneDigits(form.phone).length > 0;
+  const hasEmail = String(form.email ?? "").trim() !== "";
+
+  if (!hasPhone && !hasEmail) {
+    errors.contact = "Укажите телефон или email для связи";
+  }
+  if (hasPhone && contactPhoneDigits(form.phone).length < MIN_CONTACT_PHONE_DIGITS) {
+    errors.phone = "Введите корректный номер телефона";
+  }
+  if (hasEmail && !isValidContactEmail(form.email)) {
+    errors.email = "Введите корректный email";
+  }
+  if (String(form.comment ?? "").length > 2000) {
+    errors.comment = "Комментарий не должен превышать 2000 символов";
+  }
+
+  return errors;
+}
 
 function ResultErrorBanner({ message, onBack }) {
   return (
@@ -202,6 +241,104 @@ function ServiceGalleryModal({ service, index, setIndex, onClose }) {
   );
 }
 
+function RepairContactModal({
+  service,
+  form,
+  errors,
+  submitting,
+  onChange,
+  onClose,
+  onSubmit,
+}) {
+  return (
+    <div className="repair-contact-overlay" role="dialog" aria-modal="true">
+      <div className="repair-contact-modal">
+        <div className="repair-contact-modal-header">
+          <div>
+            <h3>Заявка на ремонт</h3>
+            <p>
+              {service?.name
+                ? `Автосервис: ${service.name}`
+                : "Укажите контакты, чтобы автосервис мог связаться с вами."}
+            </p>
+          </div>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Закрыть">
+            <Icon name="x" size={16} />
+          </button>
+        </div>
+
+        <form className="repair-contact-form" onSubmit={onSubmit} noValidate>
+          {errors.contact ? (
+            <div className="alert alert-danger" role="alert">
+              {errors.contact}
+            </div>
+          ) : null}
+
+          <div className="form-row">
+            <label className="form-label" htmlFor="repair-customer-name">Имя</label>
+            <input
+              id="repair-customer-name"
+              className="input"
+              value={form.name}
+              onChange={(event) => onChange("name", event.target.value)}
+              placeholder="Как к вам обращаться"
+            />
+          </div>
+
+          <div className="repair-contact-grid">
+            <div className="form-row">
+              <label className="form-label" htmlFor="repair-customer-phone">Телефон</label>
+              <input
+                id="repair-customer-phone"
+                type="tel"
+                className={"input" + (errors.phone ? " input-error" : "")}
+                value={form.phone}
+                onChange={(event) => onChange("phone", event.target.value)}
+                placeholder="+7 (___) ___-__-__"
+              />
+              {errors.phone ? <div className="field-error">{errors.phone}</div> : null}
+            </div>
+
+            <div className="form-row">
+              <label className="form-label" htmlFor="repair-customer-email">Email</label>
+              <input
+                id="repair-customer-email"
+                type="email"
+                className={"input" + (errors.email ? " input-error" : "")}
+                value={form.email}
+                onChange={(event) => onChange("email", event.target.value)}
+                placeholder="name@example.com"
+              />
+              {errors.email ? <div className="field-error">{errors.email}</div> : null}
+            </div>
+          </div>
+
+          <div className="form-row">
+            <label className="form-label" htmlFor="repair-customer-comment">Комментарий</label>
+            <textarea
+              id="repair-customer-comment"
+              className={"textarea" + (errors.comment ? " input-error" : "")}
+              value={form.comment}
+              onChange={(event) => onChange("comment", event.target.value)}
+              placeholder="Например, когда удобно связаться или приехать на осмотр"
+            />
+            {errors.comment ? <div className="field-error">{errors.comment}</div> : null}
+          </div>
+
+          <div className="repair-contact-actions">
+            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={submitting}>
+              Отмена
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={submitting}>
+              Отправить заявку
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function ResultPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -217,6 +354,9 @@ function ResultPage() {
   const [toast, setToast] = useState("");
   const [repairSubmitting, setRepairSubmitting] = useState(false);
   const [repairError, setRepairError] = useState("");
+  const [repairContactOpen, setRepairContactOpen] = useState(false);
+  const [repairContactForm, setRepairContactForm] = useState(initialRepairContactForm);
+  const [repairContactErrors, setRepairContactErrors] = useState({});
   const [galleryService, setGalleryService] = useState(null);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const repairCreateLockRef = useRef(false);
@@ -381,7 +521,36 @@ function ResultPage() {
       ? "—"
       : damages.map((d) => d.part).filter(Boolean).join(", ");
 
-  const handleCreateRepair = async () => {
+  const selectedService =
+    services.find((s) => s.id === selectedServiceId) ||
+    services[0] ||
+    null;
+
+  const openRepairContactModal = () => {
+    if (role === "SERVICE") return;
+    if (services.length === 0) return;
+
+    if (!selectedServiceId && services[0]?.id) {
+      setSelectedServiceId(services[0].id);
+    }
+    setRepairError("");
+    setRepairContactErrors({});
+    setRepairContactOpen(true);
+  };
+
+  const updateRepairContactField = (field, value) => {
+    setRepairContactForm((prev) => ({ ...prev, [field]: value }));
+    setRepairContactErrors((prev) => {
+      if (!prev[field] && !prev.contact) return prev;
+      const next = { ...prev };
+      delete next[field];
+      delete next.contact;
+      return next;
+    });
+  };
+
+  const handleCreateRepair = async (event) => {
+    event?.preventDefault?.();
     if (role === "SERVICE") return;
     if (repairCreateLockRef.current || repairSubmitting) return;
 
@@ -392,11 +561,15 @@ function ResultPage() {
     }
     if (!effectiveServiceId || services.length === 0) return;
 
+    const contactErrors = validateRepairContactForm(repairContactForm);
+    setRepairContactErrors(contactErrors);
+    if (Object.keys(contactErrors).length > 0) return;
+
     repairCreateLockRef.current = true;
     setRepairSubmitting(true);
     setRepairError("");
 
-    const selectedService =
+    const effectiveService =
       services.find((s) => s.id === effectiveServiceId) || null;
 
     try {
@@ -406,15 +579,19 @@ function ResultPage() {
           service_id: effectiveServiceId,
           car_brand: analysis.brand,
           damage_summary: damageSummaryText,
-          service: selectedService
+          customer_name: repairContactForm.name,
+          customer_phone: repairContactForm.phone,
+          customer_email: repairContactForm.email,
+          customer_comment: repairContactForm.comment,
+          service: effectiveService
             ? {
-                id: selectedService.id,
-                name: selectedService.name,
-                organization_name: selectedService.name,
-                city: selectedService.city,
-                phone: selectedService.phone,
-                email: selectedService.email,
-                address: selectedService.address,
+                id: effectiveService.id,
+                name: effectiveService.name,
+                organization_name: effectiveService.name,
+                city: effectiveService.city,
+                phone: effectiveService.phone,
+                email: effectiveService.email,
+                address: effectiveService.address,
               }
             : undefined,
         },
@@ -423,6 +600,9 @@ function ResultPage() {
 
       if (!repairCreateMountedRef.current) return;
 
+      setRepairContactOpen(false);
+      setRepairContactForm(initialRepairContactForm);
+      setRepairContactErrors({});
       setToast("Заявка на ремонт отправлена");
       setTimeout(() => {
         setToast("");
@@ -609,7 +789,7 @@ function ResultPage() {
                   <button
                     type="button"
                     className="btn btn-primary"
-                    onClick={handleCreateRepair}
+                    onClick={openRepairContactModal}
                     disabled={services.length === 0 || repairSubmitting}
                   >
                     Создать заявку на ремонт
@@ -643,6 +823,21 @@ function ResultPage() {
           index={galleryIndex}
           setIndex={setGalleryIndex}
           onClose={() => setGalleryService(null)}
+        />
+      ) : null}
+
+      {repairContactOpen ? (
+        <RepairContactModal
+          service={selectedService}
+          form={repairContactForm}
+          errors={repairContactErrors}
+          submitting={repairSubmitting}
+          onChange={updateRepairContactField}
+          onClose={() => {
+            if (repairSubmitting) return;
+            setRepairContactOpen(false);
+          }}
+          onSubmit={handleCreateRepair}
         />
       ) : null}
     </div>

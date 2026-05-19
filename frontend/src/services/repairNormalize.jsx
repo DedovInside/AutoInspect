@@ -112,8 +112,16 @@ export function normalizeRepairUserContact(raw) {
     o.email ?? o.contact_email ?? o.contactEmail,
     ""
   );
-  if (!email) return null;
-  return { email };
+  const phone = coerceString(
+    o.phone ?? o.contact_phone ?? o.contactPhone ?? o.customer_phone ?? o.customerPhone,
+    ""
+  );
+  const name = coerceString(
+    o.name ?? o.full_name ?? o.fullName ?? o.customer_name ?? o.customerName,
+    ""
+  );
+  if (!email && !phone && !name) return null;
+  return { email, phone, name };
 }
 
 /**
@@ -207,6 +215,8 @@ export function normalizeRepairRequest(raw, ctx = {}) {
   const user =
     normalizeRepairUserContact(o.user ?? o.client ?? o.customer) ??
     normalizeRepairUserContact({
+      name: o.customer_name,
+      phone: o.customer_phone,
       email: o.customer_email,
     }) ??
     null;
