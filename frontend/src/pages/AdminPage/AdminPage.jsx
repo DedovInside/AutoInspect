@@ -16,6 +16,9 @@ import {
   updateTrainingRequestStatus,
 } from "../../services/trainingRequests";
 
+const MODEL_YEAR_MIN = 1900;
+const MODEL_YEAR_MAX = 2100;
+
 function statusBadge(status) {
   const map = {
     active: { className: "badge badge-success", label: "Активна" },
@@ -78,7 +81,8 @@ function UploadModelModal({ onClose, onUploaded }) {
     brand: "",
     model: "",
     generation: "",
-    years: "",
+    year_from: "",
+    year_to: "",
     version: "v1",
     modelFile: null,
     partsConfigFile: null,
@@ -92,6 +96,22 @@ function UploadModelModal({ onClose, onUploaded }) {
     uploadAbortRef.current = new AbortController();
     return () => uploadAbortRef.current?.abort();
   }, []);
+
+  const parseModelYear = (value) => {
+    const trimmed = String(value ?? "").trim();
+    if (!/^\d{4}$/.test(trimmed)) return null;
+    const year = Number(trimmed);
+    return Number.isInteger(year) ? year : null;
+  };
+
+  const modelYearError = (value, label) => {
+    const year = parseModelYear(value);
+    if (!year) return `${label} должен быть указан в формате 4 цифр`;
+    if (year < MODEL_YEAR_MIN || year > MODEL_YEAR_MAX) {
+      return `${label} должен быть от ${MODEL_YEAR_MIN} до ${MODEL_YEAR_MAX}`;
+    }
+    return "";
+  };
 
   const clearError = (field) => {
     setErrors((prev) => {
@@ -107,7 +127,23 @@ function UploadModelModal({ onClose, onUploaded }) {
     if (!form.brand.trim()) e.brand = "Введите марку";
     if (!form.model.trim()) e.model = "Введите модель";
     if (!form.generation.trim()) e.generation = "Введите поколение";
-    if (!form.years.trim()) e.years = "Введите год";
+    if (!form.year_from.trim()) {
+      e.year_from = "Введите год начала выпуска";
+    } else {
+      const err = modelYearError(form.year_from, "Год начала выпуска");
+      if (err) e.year_from = err;
+    }
+    if (!form.year_to.trim()) {
+      e.year_to = "Введите год окончания выпуска";
+    } else {
+      const err = modelYearError(form.year_to, "Год окончания выпуска");
+      if (err) e.year_to = err;
+    }
+    const yearFrom = parseModelYear(form.year_from);
+    const yearTo = parseModelYear(form.year_to);
+    if (yearFrom && yearTo && yearTo < yearFrom) {
+      e.year_to = "Год окончания не может быть раньше года начала";
+    }
     if (!form.version.trim()) e.version = "Введите версию";
     if (!form.modelFile) e.modelFile = "Загрузите файл модели";
     if (!form.partsConfigFile) e.partsConfigFile = "Загрузите конфигурацию инференса";
@@ -128,7 +164,8 @@ function UploadModelModal({ onClose, onUploaded }) {
           brand: form.brand.trim(),
           model: form.model.trim(),
           generation: form.generation.trim(),
-          years: form.years.trim(),
+          year_from: form.year_from.trim(),
+          year_to: form.year_to.trim(),
           version: form.version.trim(),
           modelFile: form.modelFile,
           partsConfigFile: form.partsConfigFile,
@@ -221,19 +258,36 @@ function UploadModelModal({ onClose, onUploaded }) {
                 {errors.generation && <div className="field-error">{errors.generation}</div>}
               </div>
               <div className="form-row">
-                <label className="form-label" htmlFor="um-years">Год *</label>
+                <label className="form-label" htmlFor="um-year-from">Год начала выпуска *</label>
                 <input
-                  id="um-years"
-                  className={"input" + (errors.years ? " input-error" : "")}
+                  id="um-year-from"
+                  className={"input" + (errors.year_from ? " input-error" : "")}
                   placeholder="2018"
-                  value={form.years}
+                  inputMode="numeric"
+                  value={form.year_from}
                   onChange={(ev) => {
-                    setForm((f) => ({ ...f, years: ev.target.value }));
-                    clearError("years");
+                    setForm((f) => ({ ...f, year_from: ev.target.value }));
+                    clearError("year_from");
                   }}
                 />
-                {errors.years && <div className="field-error">{errors.years}</div>}
+                {errors.year_from && <div className="field-error">{errors.year_from}</div>}
               </div>
+            </div>
+
+            <div className="form-row">
+              <label className="form-label" htmlFor="um-year-to">Год окончания выпуска *</label>
+              <input
+                id="um-year-to"
+                className={"input" + (errors.year_to ? " input-error" : "")}
+                placeholder="2024"
+                inputMode="numeric"
+                value={form.year_to}
+                onChange={(ev) => {
+                  setForm((f) => ({ ...f, year_to: ev.target.value }));
+                  clearError("year_to");
+                }}
+              />
+              {errors.year_to && <div className="field-error">{errors.year_to}</div>}
             </div>
 
             <div className="form-row-inline">

@@ -175,6 +175,8 @@ export async function uploadMLModel(payload, options = {}) {
         brand: clean.brand,
         model: clean.model,
         generation: clean.generation,
+        year_from: clean.year_from,
+        year_to: clean.year_to,
         years: clean.years,
         version: "",
         file: clean.modelFile.name || "model.pt",
@@ -207,6 +209,8 @@ export async function uploadMLModel(payload, options = {}) {
         brand: clean.brand,
         model: clean.model,
         generation: clean.generation,
+        year_from: clean.year_from,
+        year_to: clean.year_to,
         years: clean.years,
         status: "active",
       });

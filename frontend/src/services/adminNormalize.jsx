@@ -184,7 +184,11 @@ export function normalizeMLUploadPayload(payload) {
   const brand = coerceString(p.brand, "").slice(0, 160);
   const model = coerceString(p.model, "").slice(0, 160);
   const generation = coerceString(p.generation, "").slice(0, 120);
-  const years = coerceString(p.years ?? p.year, "").slice(0, 48);
+  const yearFrom = coerceString(p.year_from ?? p.yearFrom ?? p.years ?? p.year, "").slice(0, 4);
+  const yearTo = coerceString(p.year_to ?? p.yearTo ?? "", "").slice(0, 4);
+  const years = yearFrom && yearTo && yearFrom !== yearTo
+    ? `${yearFrom}-${yearTo}`
+    : yearFrom || yearTo;
 
   const modelFile =
     p.modelFile instanceof File
@@ -218,6 +222,8 @@ export function normalizeMLUploadPayload(payload) {
     brand,
     model,
     generation,
+    year_from: yearFrom,
+    year_to: yearTo,
     years,
     version: coerceString(p.version, "").slice(0, 50) || "v1",
     isUniversal: Boolean(p.isUniversal ?? p.is_universal),
@@ -238,7 +244,10 @@ export function buildMLModelUploadFormData(payload) {
   form.append("make", p.brand);
   form.append("model", p.model);
   form.append("generation", p.generation);
-  form.append("year_from", p.years);
+  form.append("year_from", p.year_from);
+  if (p.year_to) {
+    form.append("year_to", p.year_to);
+  }
   form.append("version", p.version);
   form.append("is_universal", String(p.isUniversal));
 
