@@ -15,7 +15,7 @@ ML-часть **AutoInspect** - это набор моделей компьют�
 
 ---
 
-## Статус модулей
+## Модули
 
 | Модуль | Назначение                                                  | Статус |
 |---|-------------------------------------------------------------|---|
@@ -23,7 +23,7 @@ ML-часть **AutoInspect** - это набор моделей компьют�
 | Damage Segmentation | Сегментация повреждений автомобиля                          | `READY` |
 | View Model | Вспомогательная классификация ракурса / tooling для датасета | `READY / AUXILIARY` |
 | ML Inference Service | Объединение Parts + Damages в JSON для backend              | `READY` |
-| Specialized Parts Segmentation | Сегментация деталей под конкретное авто / домен / автопарк  | `IN PROGRESS` |
+| Specialized Parts Segmentation | Сегментация деталей под конкретное авто / домен / автопарк  | `READY` |
 
 ---
 
@@ -184,6 +184,18 @@ View Model -> Part Segmentation -> Damage Segmentation
 - страховой партнер;
 - специфичные условия съемки.
 
+### Обучение и артефакты
+
+- Гайд по обучению specialized модели с использованием pretrained-весов general: https://www.kaggle.com/code/brshtskmit/guide-train-specialized-parts-segmentation
+- Пример обучения specialized-s из general-s: https://www.kaggle.com/code/brshtskmit/train-specialized-s-from-general-s-896
+- Пример обучения specialized-m из general-m: https://www.kaggle.com/code/brshtskmit/train-specialized-m-from-general-m-896
+
+### Датасет и апробация
+
+Пайплайн адаптации тестировался на VW Polo 5:
+
+- Датасет: https://huggingface.co/datasets/mitbersh/specialized-parts-yolo
+
 ---
 
 ## Хранение артефактов
@@ -245,9 +257,8 @@ Comet используется для хранения эксперименто�
 - [x] Batch inference
 - [x] Docker-образ inference-сервиса
 - [x] Интеграция с backend
+- [x] Specialized Segmentation
 
 ### In Progress
 
-- [ ] Specialized Segmentation
-
----
+- [ ] —
