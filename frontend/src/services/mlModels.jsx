@@ -150,7 +150,7 @@ export async function listAvailableSpecializedMLModels(options = {}) {
       signal: combined,
       auth: true,
     });
-    return normalizeMLModelList(raw).filter((m) => m.status === "active");
+    return normalizeMLModelList(raw);
   } catch (e) {
     rethrowAbortOrWrapAdminError(e);
   } finally {
