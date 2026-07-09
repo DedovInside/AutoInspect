@@ -130,6 +130,46 @@ function repairSummaryRows(summary) {
     .filter(Boolean);
 }
 
+function IncomingCustomerContact({ request }) {
+  const user = request?.user || {};
+  const name = user.name || request?.customer_name || "";
+  const phone = user.phone || request?.customer_phone || "";
+  const email = user.email || request?.customer_email || "";
+  const comment = request?.customer_comment || "";
+
+  if (!name && !phone && !email && !comment) return null;
+
+  return (
+    <div className="repair-contact-block repair-contact-block-neutral">
+      <Icon name="user" size={16} />
+      <div className="service-user-contact-lines">
+        <div className="repair-contact-intro">Контакты клиента</div>
+        {name ? (
+          <div className="repair-contact-line">
+            Имя: <b>{name}</b>
+          </div>
+        ) : null}
+        {phone ? (
+          <div className="repair-contact-line">
+            Телефон: <b>{phone}</b>
+          </div>
+        ) : null}
+        {email ? (
+          <div className="repair-contact-email">
+            Email: <b>{email}</b>
+          </div>
+        ) : null}
+        {comment ? (
+          <div className="repair-contact-comment">
+            <span>Комментарий клиента</span>
+            {comment}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function estimateRows(estimate) {
   if (!Array.isArray(estimate)) return [];
   return estimate
@@ -1102,21 +1142,7 @@ function ServiceView({ tab, setTab, items, setItems, refetchIncoming }) {
                 <IncomingRepairDetails details={detailsById[r.id]} fallbackRequest={r} />
               )}
 
-              {r.status === "accepted" && r.user && (
-                <div className="repair-contact-block">
-                  <Icon name="checkCircle" size={16} />
-                  <div className="service-user-contact-lines">
-                    <div className="repair-contact-intro">Контакты для связи с клиентом</div>
-                    {r.user?.email ? (
-                      <div className="repair-contact-email">
-                        Email пользователя: <b>{r.user.email}</b>
-                      </div>
-                    ) : (
-                      <div className="text-sm muted">Email недоступен</div>
-                    )}
-                  </div>
-                </div>
-              )}
+              <IncomingCustomerContact request={r} />
 
               <div className="service-request-actions">
                 {r.status === "pending" ? (

@@ -52,9 +52,9 @@ VALUES
     ('dent', 'вмятина', TRUE),
     ('scratch', 'царапина', TRUE),
     ('crack', 'трещина', TRUE),
-    ('glass shatter', 'разбитое стекло', TRUE),
-    ('lamp broken', 'повреждённая фара', TRUE),
-    ('tire flat', 'спущенное колесо', TRUE)
+    ('glass-shatter', 'разбитое стекло', TRUE),
+    ('lamp-broken', 'повреждённая фара', TRUE),
+    ('tire-flat', 'спущенное колесо', TRUE)
 ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO part_categories (code, name_ru, is_pair, is_active)

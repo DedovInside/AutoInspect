@@ -464,3 +464,5 @@ pyrightconfig.json
 # Production deploy secrets
 deployments/secrets/
 deployments/.env.prod
+
+tmp-model/
