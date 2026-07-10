@@ -69,6 +69,7 @@ func run() error {
 	damageTypeRepo := postgres.NewDamageTypeRepo(db)
 	partCategoryRepo := postgres.NewPartCategoryRepo(db)
 	carServiceSpecializationRepo := postgres.NewCarServiceSpecializationRepo(db)
+	vehicleCatalogRepo := postgres.NewVehicleCatalogRepo(db)
 
 	tokenManager, err := service.NewTokenManager(
 		cfg.Auth.JWTSecret,
@@ -142,6 +143,7 @@ func run() error {
 	)
 
 	modelService := service.NewModelService(modelRepo, s3Client, &cfg.S3)
+	vehicleCatalogService := service.NewVehicleCatalogService(vehicleCatalogRepo)
 
 	modelTrainingRequestService := service.NewModelTrainingRequestService(modelTrainingRequestRepo, modelRepo)
 
@@ -177,6 +179,7 @@ func run() error {
 	carServiceApplicationHandler := handlers.NewCarServiceApplicationHandler(carServiceApplicationService)
 	carServiceProfileHandler := handlers.NewCarServiceProfileHandler(carServiceProfileService)
 	repairRequestHandler := handlers.NewRepairRequestHandler(repairRequestService)
+	vehicleCatalogHandler := handlers.NewVehicleCatalogHandler(vehicleCatalogService)
 
 	analysisHandler := handlers.NewAnalysisHandler(
 		analysisService,
@@ -199,6 +202,7 @@ func run() error {
 		carServiceApplicationHandler,
 		carServiceProfileHandler,
 		repairRequestHandler,
+		vehicleCatalogHandler,
 		tokenManager,
 		redisCacheClient,
 		cfg.HTTP.CORSAllowedOrigins,

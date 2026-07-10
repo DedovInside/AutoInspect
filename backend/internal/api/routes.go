@@ -19,6 +19,7 @@ func NewGinRouter(
 	carServiceApplicationHandler *handlers.CarServiceApplicationHandler,
 	carServiceProfileHandler *handlers.CarServiceProfileHandler,
 	repairRequestHandler *handlers.RepairRequestHandler,
+	vehicleCatalogHandler *handlers.VehicleCatalogHandler,
 	tokenManager *service.TokenManager,
 	cache service.SessionCache,
 	corsAllowedOrigins []string,
@@ -58,6 +59,12 @@ func NewGinRouter(
 	modelsGroup := router.Group("/v1/models")
 	modelsGroup.Use(middleware.Auth(tokenManager, cache))
 	modelsGroup.GET("/specialized", modelHandler.ListAvailableSpecialized)
+
+	vehicleCatalogGroup := router.Group("/v1/vehicle-catalog")
+	vehicleCatalogGroup.Use(middleware.Auth(tokenManager, cache))
+	vehicleCatalogGroup.GET("/makes", vehicleCatalogHandler.ListMakes)
+	vehicleCatalogGroup.GET("/makes/:make_id/models", vehicleCatalogHandler.ListModels)
+	vehicleCatalogGroup.GET("/models/:model_id/generations", vehicleCatalogHandler.ListGenerations)
 
 	carServiceApplicationsGroup := router.Group("/v1/car-service-applications")
 	carServiceApplicationsGroup.Use(middleware.Auth(tokenManager, cache))
@@ -105,6 +112,18 @@ func NewGinRouter(
 	adminGroup.GET("/car-service-applications", carServiceApplicationHandler.AdminList)
 	adminGroup.PATCH("/car-service-applications/:id/approve", carServiceApplicationHandler.AdminApprove)
 	adminGroup.PATCH("/car-service-applications/:id/reject", carServiceApplicationHandler.AdminReject)
+	adminGroup.GET("/vehicle-catalog/makes", vehicleCatalogHandler.AdminListMakes)
+	adminGroup.POST("/vehicle-catalog/makes", vehicleCatalogHandler.AdminCreateMake)
+	adminGroup.PATCH("/vehicle-catalog/makes/:id", vehicleCatalogHandler.AdminUpdateMake)
+	adminGroup.PATCH("/vehicle-catalog/makes/:id/active", vehicleCatalogHandler.AdminSetMakeActive)
+	adminGroup.GET("/vehicle-catalog/makes/:make_id/models", vehicleCatalogHandler.AdminListModels)
+	adminGroup.POST("/vehicle-catalog/models", vehicleCatalogHandler.AdminCreateModel)
+	adminGroup.PATCH("/vehicle-catalog/models/:id", vehicleCatalogHandler.AdminUpdateModel)
+	adminGroup.PATCH("/vehicle-catalog/models/:id/active", vehicleCatalogHandler.AdminSetModelActive)
+	adminGroup.GET("/vehicle-catalog/models/:model_id/generations", vehicleCatalogHandler.AdminListGenerations)
+	adminGroup.POST("/vehicle-catalog/generations", vehicleCatalogHandler.AdminCreateGeneration)
+	adminGroup.PATCH("/vehicle-catalog/generations/:id", vehicleCatalogHandler.AdminUpdateGeneration)
+	adminGroup.PATCH("/vehicle-catalog/generations/:id/active", vehicleCatalogHandler.AdminSetGenerationActive)
 
 	router.GET("/v1/analyses/ws", middleware.WSAuth(tokenManager, cache), analysisHandler.WSHandler)
 

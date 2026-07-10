@@ -1,0 +1,84 @@
+{
+  "makes": [
+    {
+      "name": "Volkswagen",
+      "slug": "volkswagen",
+      "models": [
+        {
+          "name": "Polo",
+          "slug": "polo",
+          "generations": [
+            { "name": "5", "slug": "5", "year_from": 2009, "year_to": 2015 },
+            { "name": "6", "slug": "6", "year_from": 2017, "year_to": 2021 }
+          ]
+        },
+        {
+          "name": "Golf",
+          "slug": "golf",
+          "generations": [
+            { "name": "5", "slug": "5", "year_from": 2003, "year_to": 2008 },
+            { "name": "6", "slug": "6", "year_from": 2008, "year_to": 2012 },
+            { "name": "7", "slug": "7", "year_from": 2012, "year_to": 2020 }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Toyota",
+      "slug": "toyota",
+      "models": [
+        {
+          "name": "Camry",
+          "slug": "camry",
+          "generations": [
+            { "name": "XV40", "slug": "xv40", "year_from": 2006, "year_to": 2011 },
+            { "name": "XV50", "slug": "xv50", "year_from": 2011, "year_to": 2018 },
+            { "name": "XV70", "slug": "xv70", "year_from": 2017, "year_to": 2024 }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Lada",
+      "slug": "lada",
+      "models": [
+        {
+          "name": "Granta",
+          "slug": "granta",
+          "generations": [
+            { "name": "I", "slug": "1", "year_from": 2011, "year_to": 2018 },
+            { "name": "I рестайлинг", "slug": "1-restyling", "year_from": 2018, "year_to": null }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Kia",
+      "slug": "kia",
+      "models": [
+        {
+          "name": "Rio",
+          "slug": "rio",
+          "generations": [
+            { "name": "III", "slug": "3", "year_from": 2011, "year_to": 2017 },
+            { "name": "IV", "slug": "4", "year_from": 2017, "year_to": 2023 }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Hyundai",
+      "slug": "hyundai",
+      "models": [
+        {
+          "name": "Solaris",
+          "slug": "solaris",
+          "generations": [
+            { "name": "I", "slug": "1", "year_from": 2010, "year_to": 2017 },
+            { "name": "II", "slug": "2", "year_from": 2017, "year_to": 2023 }
+          ]
+        }
+      ]
+    }
+  ]
+}
