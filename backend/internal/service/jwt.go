@@ -1,11 +1,17 @@
 package service
 
 import (
+	"crypto"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
@@ -20,36 +26,71 @@ type AccessClaims struct {
 }
 
 type TokenManager struct {
-	secret        []byte
+	activeKeyID   string
+	privateKey    crypto.Signer
+	publicKeys    map[string]crypto.PublicKey
 	issuer        string
 	accessTTL     time.Duration
 	refreshTTL    time.Duration
 	oauthStateTTL time.Duration
 }
 
-func NewTokenManager(secret, issuer string, accessTTL, refreshTTL, oauthStateTTL time.Duration) (*TokenManager, error) {
+type TokenManagerConfig struct {
+	ActiveKeyID   string
+	PrivateKeyPEM string
+	PublicKeyPEM  string
+	PublicKeysPEM string
+	Issuer        string
+	AccessTTL     time.Duration
+	RefreshTTL    time.Duration
+	OAuthStateTTL time.Duration
+}
 
-	if len(secret) < 16 {
-		return nil, fmt.Errorf("jwt secret is too short")
+func NewTokenManager(cfg *TokenManagerConfig) (*TokenManager, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("token manager config is required")
 	}
 
+	activeKeyID := strings.TrimSpace(cfg.ActiveKeyID)
+	if activeKeyID == "" {
+		return nil, fmt.Errorf("jwt active key id is required")
+	}
+
+	privateKey, err := parseRSAPrivateKeyPEM(cfg.PrivateKeyPEM)
+	if err != nil {
+		return nil, fmt.Errorf("parse jwt private key: %w", err)
+	}
+
+	publicKeys, err := parsePublicKeysPEM(activeKeyID, cfg.PublicKeyPEM, cfg.PublicKeysPEM)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, ok := publicKeys[activeKeyID]; !ok {
+		return nil, fmt.Errorf("jwt public keys do not contain active key id %q", activeKeyID)
+	}
+
+	issuer := strings.TrimSpace(cfg.Issuer)
 	if issuer == "" {
 		issuer = "autoinspect-api"
 	}
 
-	if accessTTL <= 0 || refreshTTL <= 0 {
+	if cfg.AccessTTL <= 0 || cfg.RefreshTTL <= 0 {
 		return nil, fmt.Errorf("token ttl must be positive")
 	}
 
+	oauthStateTTL := cfg.OAuthStateTTL
 	if oauthStateTTL <= 0 {
 		oauthStateTTL = 10 * time.Minute
 	}
 
 	return &TokenManager{
-		secret:        []byte(secret),
+		activeKeyID:   activeKeyID,
+		privateKey:    privateKey,
+		publicKeys:    publicKeys,
 		issuer:        issuer,
-		accessTTL:     accessTTL,
-		refreshTTL:    refreshTTL,
+		accessTTL:     cfg.AccessTTL,
+		refreshTTL:    cfg.RefreshTTL,
 		oauthStateTTL: oauthStateTTL,
 	}, nil
 }
@@ -85,8 +126,9 @@ func (m *TokenManager) GenerateAccessToken(user *domain.User) (tokenString, jti 
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err = token.SignedString(m.secret)
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	token.Header["kid"] = m.activeKeyID
+	tokenString, err = token.SignedString(m.privateKey)
 
 	if err != nil {
 		return "", "", time.Time{}, fmt.Errorf("sign access token: %w", err)
@@ -97,10 +139,21 @@ func (m *TokenManager) GenerateAccessToken(user *domain.User) (tokenString, jti 
 
 func (m *TokenManager) ParseAccessToken(tokenString string) (*AccessClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &AccessClaims{}, func(token *jwt.Token) (any, error) {
-		if token.Method != jwt.SigningMethodHS256 {
+		if token.Method != jwt.SigningMethodRS256 {
 			return nil, domain.ErrInvalidToken
 		}
-		return m.secret, nil
+
+		kid, ok := token.Header["kid"].(string)
+		if !ok || strings.TrimSpace(kid) == "" {
+			return nil, domain.ErrInvalidToken
+		}
+
+		publicKey, ok := m.publicKeys[kid]
+		if !ok {
+			return nil, domain.ErrInvalidToken
+		}
+
+		return publicKey, nil
 	})
 
 	if err != nil {
@@ -133,4 +186,98 @@ func (m *TokenManager) GenerateOpaqueToken(size int) (string, error) {
 func HashToken(token string) string {
 	h := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(h[:])
+}
+
+func parsePublicKeysPEM(activeKeyID, publicKeyPEM, publicKeysPEM string) (map[string]crypto.PublicKey, error) {
+	publicKeys := make(map[string]crypto.PublicKey)
+
+	if strings.TrimSpace(publicKeyPEM) != "" {
+		publicKey, err := parseRSAPublicKeyPEM(publicKeyPEM)
+		if err != nil {
+			return nil, fmt.Errorf("parse jwt public key: %w", err)
+		}
+		publicKeys[activeKeyID] = publicKey
+	}
+
+	if strings.TrimSpace(publicKeysPEM) != "" {
+		decoded := make(map[string]string)
+		if err := json.Unmarshal([]byte(publicKeysPEM), &decoded); err != nil {
+			return nil, fmt.Errorf("parse JWT_PUBLIC_KEYS json: %w", err)
+		}
+		for kid, pemValue := range decoded {
+			kid = strings.TrimSpace(kid)
+			if kid == "" {
+				return nil, fmt.Errorf("JWT_PUBLIC_KEYS contains empty key id")
+			}
+
+			publicKey, err := parseRSAPublicKeyPEM(pemValue)
+			if err != nil {
+				return nil, fmt.Errorf("parse jwt public key %q: %w", kid, err)
+			}
+			publicKeys[kid] = publicKey
+		}
+	}
+
+	if len(publicKeys) == 0 {
+		return nil, fmt.Errorf("at least one jwt public key is required")
+	}
+
+	return publicKeys, nil
+}
+
+func parseRSAPrivateKeyPEM(value string) (*rsa.PrivateKey, error) {
+	block, err := decodePEMBlock(value)
+	if err != nil {
+		return nil, err
+	}
+
+	switch block.Type {
+	case "RSA PRIVATE KEY":
+		return x509.ParsePKCS1PrivateKey(block.Bytes)
+	case "PRIVATE KEY":
+		key, parseErr := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		privateKey, ok := key.(*rsa.PrivateKey)
+		if !ok {
+			return nil, fmt.Errorf("private key is not RSA")
+		}
+		return privateKey, nil
+	default:
+		return nil, fmt.Errorf("unsupported private key PEM type %q", block.Type)
+	}
+}
+
+func parseRSAPublicKeyPEM(value string) (*rsa.PublicKey, error) {
+	block, err := decodePEMBlock(value)
+	if err != nil {
+		return nil, err
+	}
+
+	switch block.Type {
+	case "RSA PUBLIC KEY":
+		return x509.ParsePKCS1PublicKey(block.Bytes)
+	case "PUBLIC KEY":
+		key, parseErr := x509.ParsePKIXPublicKey(block.Bytes)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		publicKey, ok := key.(*rsa.PublicKey)
+		if !ok {
+			return nil, fmt.Errorf("public key is not RSA")
+		}
+		return publicKey, nil
+	default:
+		return nil, fmt.Errorf("unsupported public key PEM type %q", block.Type)
+	}
+}
+
+func decodePEMBlock(value string) (*pem.Block, error) {
+	normalized := strings.ReplaceAll(strings.TrimSpace(value), `\n`, "\n")
+	block, _ := pem.Decode([]byte(normalized))
+	if block == nil {
+		return nil, fmt.Errorf("invalid PEM")
+	}
+	return block, nil
 }

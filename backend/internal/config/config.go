@@ -47,7 +47,10 @@ type RedisConfig struct {
 }
 
 type AuthConfig struct {
-	JWTSecret       string        `env:"JWT_SECRET"`
+	JWTActiveKeyID  string        `env:"JWT_ACTIVE_KEY_ID" env-default:"local-dev"`
+	JWTPrivateKey   string        `env:"JWT_PRIVATE_KEY"`
+	JWTPublicKey    string        `env:"JWT_PUBLIC_KEY"`
+	JWTPublicKeys   string        `env:"JWT_PUBLIC_KEYS"`
 	JWTIssuer       string        `env:"JWT_ISSUER" env-default:"autoinspect-api"`
 	AccessTokenTTL  time.Duration `env:"ACCESS_TOKEN_TTL" env-default:"15m"`
 	RefreshTokenTTL time.Duration `env:"REFRESH_TOKEN_TTL" env-default:"168h"`

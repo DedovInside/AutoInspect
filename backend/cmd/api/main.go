@@ -71,13 +71,16 @@ func run() error {
 	carServiceSpecializationRepo := postgres.NewCarServiceSpecializationRepo(db)
 	vehicleCatalogRepo := postgres.NewVehicleCatalogRepo(db)
 
-	tokenManager, err := service.NewTokenManager(
-		cfg.Auth.JWTSecret,
-		cfg.Auth.JWTIssuer,
-		cfg.Auth.AccessTokenTTL,
-		cfg.Auth.RefreshTokenTTL,
-		cfg.Auth.OAuthStateTTL,
-	)
+	tokenManager, err := service.NewTokenManager(&service.TokenManagerConfig{
+		ActiveKeyID:   cfg.Auth.JWTActiveKeyID,
+		PrivateKeyPEM: cfg.Auth.JWTPrivateKey,
+		PublicKeyPEM:  cfg.Auth.JWTPublicKey,
+		PublicKeysPEM: cfg.Auth.JWTPublicKeys,
+		Issuer:        cfg.Auth.JWTIssuer,
+		AccessTTL:     cfg.Auth.AccessTokenTTL,
+		RefreshTTL:    cfg.Auth.RefreshTokenTTL,
+		OAuthStateTTL: cfg.Auth.OAuthStateTTL,
+	})
 
 	if err != nil {
 		return fmt.Errorf("init token manager: %w", err)
