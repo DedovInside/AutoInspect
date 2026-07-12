@@ -26,6 +26,9 @@ type Querier interface {
 	CreateOAuthIdentity(ctx context.Context, arg CreateOAuthIdentityParams) error
 	CreateRepairRequest(ctx context.Context, arg CreateRepairRequestParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) error
+	CreateVehicleGeneration(ctx context.Context, arg CreateVehicleGenerationParams) error
+	CreateVehicleMake(ctx context.Context, arg CreateVehicleMakeParams) error
+	CreateVehicleModel(ctx context.Context, arg CreateVehicleModelParams) error
 	DeactivateCarModel(ctx context.Context, id pgtype.UUID) error
 	DeleteCarServiceImage(ctx context.Context, id pgtype.UUID) (int64, error)
 	DeleteCarServiceSpecializationsByProfileID(ctx context.Context, profileID pgtype.UUID) error
@@ -52,6 +55,10 @@ type Querier interface {
 	GetUniversalCarModel(ctx context.Context) (CarModel, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
+	GetVehicleGenerationByID(ctx context.Context, id pgtype.UUID) (VehicleGeneration, error)
+	GetVehicleGenerationDetailsByID(ctx context.Context, id pgtype.UUID) (GetVehicleGenerationDetailsByIDRow, error)
+	GetVehicleMakeByID(ctx context.Context, id pgtype.UUID) (VehicleMake, error)
+	GetVehicleModelByID(ctx context.Context, id pgtype.UUID) (VehicleModel, error)
 	ListActiveDamageTypes(ctx context.Context) ([]DamageType, error)
 	ListActivePartCategories(ctx context.Context) ([]PartCategory, error)
 	ListAllDamageTypes(ctx context.Context) ([]DamageType, error)
@@ -67,6 +74,12 @@ type Querier interface {
 	ListRepairRequestsByCarServiceProfileID(ctx context.Context, arg ListRepairRequestsByCarServiceProfileIDParams) ([]RepairRequest, error)
 	ListRepairRequestsByUserID(ctx context.Context, arg ListRepairRequestsByUserIDParams) ([]RepairRequest, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
+	ListVehicleGenerationsByModelID(ctx context.Context, modelID pgtype.UUID) ([]VehicleGeneration, error)
+	ListVehicleGenerationsByModelIDForAdmin(ctx context.Context, modelID pgtype.UUID) ([]VehicleGeneration, error)
+	ListVehicleMakes(ctx context.Context) ([]VehicleMake, error)
+	ListVehicleMakesForAdmin(ctx context.Context) ([]VehicleMake, error)
+	ListVehicleModelsByMakeID(ctx context.Context, makeID pgtype.UUID) ([]VehicleModel, error)
+	ListVehicleModelsByMakeIDForAdmin(ctx context.Context, makeID pgtype.UUID) ([]VehicleModel, error)
 	NextCarServiceImageSortOrder(ctx context.Context, profileID pgtype.UUID) (int32, error)
 	RejectCarServiceApplication(ctx context.Context, arg RejectCarServiceApplicationParams) (int64, error)
 	RespondPendingRepairRequestByCarServiceProfileID(ctx context.Context, arg RespondPendingRepairRequestByCarServiceProfileIDParams) (int64, error)
@@ -74,6 +87,9 @@ type Querier interface {
 	RevokeFamily(ctx context.Context, arg RevokeFamilyParams) error
 	SetCarServiceProfileActive(ctx context.Context, arg SetCarServiceProfileActiveParams) (int64, error)
 	SetPrimaryCarServiceImage(ctx context.Context, id pgtype.UUID) (int64, error)
+	SetVehicleGenerationActive(ctx context.Context, arg SetVehicleGenerationActiveParams) (int64, error)
+	SetVehicleMakeActive(ctx context.Context, arg SetVehicleMakeActiveParams) (int64, error)
+	SetVehicleModelActive(ctx context.Context, arg SetVehicleModelActiveParams) (int64, error)
 	TouchLastUsed(ctx context.Context, arg TouchLastUsedParams) (int64, error)
 	UpdateAnalysisJobResult(ctx context.Context, arg UpdateAnalysisJobResultParams) (int64, error)
 	UpdateAnalysisJobResultByCorrelationID(ctx context.Context, arg UpdateAnalysisJobResultByCorrelationIDParams) (int64, error)
@@ -84,6 +100,9 @@ type Querier interface {
 	UpdateModelTrainingRequestStatus(ctx context.Context, arg UpdateModelTrainingRequestStatusParams) (int64, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (int64, error)
 	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (int64, error)
+	UpdateVehicleGeneration(ctx context.Context, arg UpdateVehicleGenerationParams) (int64, error)
+	UpdateVehicleMake(ctx context.Context, arg UpdateVehicleMakeParams) (int64, error)
+	UpdateVehicleModel(ctx context.Context, arg UpdateVehicleModelParams) (int64, error)
 }
 
 var _ Querier = (*Queries)(nil)

@@ -213,3 +213,40 @@ type User struct {
 	UpdatedAt     pgtype.Timestamptz
 	LastLogin     pgtype.Timestamptz
 }
+
+// Справочник поколений автомобилей с диапазонами годов выпуска
+type VehicleGeneration struct {
+	ID      pgtype.UUID
+	ModelID pgtype.UUID
+	Name    string
+	// Нормализованный технический код поколения автомобиля в рамках модели
+	Slug      string
+	YearFrom  int32
+	YearTo    *int32
+	IsActive  bool
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
+// Справочник марок автомобилей для нормализованного выбора при создании анализа
+type VehicleMake struct {
+	ID   pgtype.UUID
+	Name string
+	// Нормализованный технический код марки автомобиля
+	Slug      string
+	IsActive  bool
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
+// Справочник моделей автомобилей, связанных с марками
+type VehicleModel struct {
+	ID     pgtype.UUID
+	MakeID pgtype.UUID
+	Name   string
+	// Нормализованный технический код модели автомобиля в рамках марки
+	Slug      string
+	IsActive  bool
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}

@@ -13,6 +13,7 @@ type Config struct {
 	Auth     AuthConfig
 	S3       S3Config
 	Kafka    KafkaConfig
+	Observe  ObservabilityConfig
 }
 
 type HTTPConfig struct {
@@ -47,7 +48,10 @@ type RedisConfig struct {
 }
 
 type AuthConfig struct {
-	JWTSecret       string        `env:"JWT_SECRET"`
+	JWTActiveKeyID  string        `env:"JWT_ACTIVE_KEY_ID" env-default:"local-dev"`
+	JWTPrivateKey   string        `env:"JWT_PRIVATE_KEY"`
+	JWTPublicKey    string        `env:"JWT_PUBLIC_KEY"`
+	JWTPublicKeys   string        `env:"JWT_PUBLIC_KEYS"`
 	JWTIssuer       string        `env:"JWT_ISSUER" env-default:"autoinspect-api"`
 	AccessTokenTTL  time.Duration `env:"ACCESS_TOKEN_TTL" env-default:"15m"`
 	RefreshTokenTTL time.Duration `env:"REFRESH_TOKEN_TTL" env-default:"168h"`
@@ -99,4 +103,11 @@ type KafkaConfig struct {
 	SecurityProtocol string `env:"KAFKA_SECURITY_PROTOCOL" env-default:"PLAINTEXT"`
 	SASLUsername     string `env:"KAFKA_SASL_USERNAME" env-default:""`
 	SASLPassword     string `env:"KAFKA_SASL_PASSWORD" env-default:""`
+}
+
+type ObservabilityConfig struct {
+	ServiceName       string `env:"SERVICE_NAME" env-default:"autoinspect-api"`
+	WorkerServiceName string `env:"WORKER_SERVICE_NAME" env-default:"autoinspect-worker"`
+	WorkerHTTPHost    string `env:"WORKER_OBSERVABILITY_HOST" env-default:"0.0.0.0"`
+	WorkerHTTPPort    string `env:"WORKER_OBSERVABILITY_PORT" env-default:"8082"`
 }

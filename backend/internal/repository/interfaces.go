@@ -42,6 +42,28 @@ type CarModelRepository interface {
 	DeactivateModel(ctx context.Context, id uuid.UUID) error
 }
 
+type VehicleCatalogRepository interface {
+	ListMakes(ctx context.Context) ([]*domain.VehicleMake, error)
+	ListMakesForAdmin(ctx context.Context) ([]*domain.VehicleMake, error)
+	GetMakeByID(ctx context.Context, id uuid.UUID) (*domain.VehicleMake, error)
+	CreateMake(ctx context.Context, vehicleMake *domain.VehicleMake) error
+	UpdateMake(ctx context.Context, input domain.UpdateVehicleMakeInput) error
+	SetMakeActive(ctx context.Context, input domain.SetVehicleMakeActiveInput) error
+	ListModelsByMakeID(ctx context.Context, makeID uuid.UUID) ([]*domain.VehicleModel, error)
+	ListModelsByMakeIDForAdmin(ctx context.Context, makeID uuid.UUID) ([]*domain.VehicleModel, error)
+	GetModelByID(ctx context.Context, id uuid.UUID) (*domain.VehicleModel, error)
+	CreateModel(ctx context.Context, model *domain.VehicleModel) error
+	UpdateModel(ctx context.Context, input domain.UpdateVehicleModelInput) error
+	SetModelActive(ctx context.Context, input domain.SetVehicleModelActiveInput) error
+	ListGenerationsByModelID(ctx context.Context, modelID uuid.UUID) ([]*domain.VehicleGeneration, error)
+	ListGenerationsByModelIDForAdmin(ctx context.Context, modelID uuid.UUID) ([]*domain.VehicleGeneration, error)
+	GetGenerationByID(ctx context.Context, id uuid.UUID) (*domain.VehicleGeneration, error)
+	GetGenerationDetailsByID(ctx context.Context, generationID uuid.UUID) (*domain.VehicleGenerationDetails, error)
+	CreateGeneration(ctx context.Context, generation *domain.VehicleGeneration) error
+	UpdateGeneration(ctx context.Context, input *domain.UpdateVehicleGenerationInput) error
+	SetGenerationActive(ctx context.Context, input domain.SetVehicleGenerationActiveInput) error
+}
+
 type ModelTrainingRequestRepository interface {
 	Create(ctx context.Context, request *domain.ModelTrainingRequest) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.ModelTrainingRequest, error)

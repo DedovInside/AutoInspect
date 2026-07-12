@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,6 +16,7 @@ import (
 	rediscache "github.com/DedovInside/AutoInspect/backend/internal/cache/redis"
 	"github.com/DedovInside/AutoInspect/backend/internal/config"
 	"github.com/DedovInside/AutoInspect/backend/internal/notify"
+	"github.com/DedovInside/AutoInspect/backend/internal/observability"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository/postgres"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository/s3"
 	"github.com/DedovInside/AutoInspect/backend/internal/service"
@@ -86,8 +89,14 @@ func run() error {
 		&cfg.Kafka,
 	)
 
+	stopObservability := startWorkerObservabilityServer(cfg, db, redisCacheClient, s3Client)
+	defer stopObservability()
+
 	handler := func(ctx context.Context, msg broker.Message) error {
-		return analysisService.HandleAnalysisResult(ctx, msg)
+		startedAt := time.Now()
+		err := analysisService.HandleAnalysisResult(ctx, msg)
+		observability.ObserveKafkaConsumed(msg.Topic, err, startedAt)
+		return err
 	}
 
 	log.Printf("worker started, listening on topic: %s", cfg.Kafka.TopicAnalysisResult)
@@ -129,4 +138,47 @@ func run() error {
 
 	log.Println("worker shutting down...")
 	return nil
+}
+
+func startWorkerObservabilityServer(
+	cfg *config.Config,
+	db *postgres.DB,
+	redisClient *rediscache.Client,
+	s3Client *s3.Client,
+) func() {
+	healthChecker := observability.NewHealthChecker(cfg.Observe.WorkerServiceName, map[string]observability.DependencyCheck{
+		"postgres": db.Ping,
+		"redis":    redisClient.Ping,
+		"s3":       s3Client.HealthCheck,
+		"kafka": func(ctx context.Context) error {
+			return observability.CheckKafkaBrokers(ctx, cfg.Kafka.Brokers)
+		},
+	})
+
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", observability.MetricsHandlerHTTP())
+	mux.HandleFunc("/health", healthChecker.SummaryHTTP)
+	mux.HandleFunc("/health/live", healthChecker.LiveHTTP)
+	mux.HandleFunc("/health/ready", healthChecker.ReadyHTTP)
+
+	server := &http.Server{
+		Addr:              fmt.Sprintf("%s:%s", cfg.Observe.WorkerHTTPHost, cfg.Observe.WorkerHTTPPort),
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	go func() {
+		log.Printf("worker observability listening on %s", server.Addr)
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Printf("worker observability server failed: %v", err)
+		}
+	}()
+
+	return func() {
+		ctx, cancel := context.WithTimeout(context.Background(), cfg.HTTP.ShutdownTimeout)
+		defer cancel()
+		if err := server.Shutdown(ctx); err != nil {
+			log.Printf("warning: worker observability shutdown failed: %v", err)
+		}
+	}
 }

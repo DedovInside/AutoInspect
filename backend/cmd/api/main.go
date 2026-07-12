@@ -19,6 +19,7 @@ import (
 	rediscache "github.com/DedovInside/AutoInspect/backend/internal/cache/redis"
 	"github.com/DedovInside/AutoInspect/backend/internal/config"
 	"github.com/DedovInside/AutoInspect/backend/internal/notify"
+	"github.com/DedovInside/AutoInspect/backend/internal/observability"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository/postgres"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository/s3"
 	"github.com/DedovInside/AutoInspect/backend/internal/service"
@@ -69,14 +70,18 @@ func run() error {
 	damageTypeRepo := postgres.NewDamageTypeRepo(db)
 	partCategoryRepo := postgres.NewPartCategoryRepo(db)
 	carServiceSpecializationRepo := postgres.NewCarServiceSpecializationRepo(db)
+	vehicleCatalogRepo := postgres.NewVehicleCatalogRepo(db)
 
-	tokenManager, err := service.NewTokenManager(
-		cfg.Auth.JWTSecret,
-		cfg.Auth.JWTIssuer,
-		cfg.Auth.AccessTokenTTL,
-		cfg.Auth.RefreshTokenTTL,
-		cfg.Auth.OAuthStateTTL,
-	)
+	tokenManager, err := service.NewTokenManager(&service.TokenManagerConfig{
+		ActiveKeyID:   cfg.Auth.JWTActiveKeyID,
+		PrivateKeyPEM: cfg.Auth.JWTPrivateKey,
+		PublicKeyPEM:  cfg.Auth.JWTPublicKey,
+		PublicKeysPEM: cfg.Auth.JWTPublicKeys,
+		Issuer:        cfg.Auth.JWTIssuer,
+		AccessTTL:     cfg.Auth.AccessTokenTTL,
+		RefreshTTL:    cfg.Auth.RefreshTokenTTL,
+		OAuthStateTTL: cfg.Auth.OAuthStateTTL,
+	})
 
 	if err != nil {
 		return fmt.Errorf("init token manager: %w", err)
@@ -142,6 +147,7 @@ func run() error {
 	)
 
 	modelService := service.NewModelService(modelRepo, s3Client, &cfg.S3)
+	vehicleCatalogService := service.NewVehicleCatalogService(vehicleCatalogRepo)
 
 	modelTrainingRequestService := service.NewModelTrainingRequestService(modelTrainingRequestRepo, modelRepo)
 
@@ -177,6 +183,7 @@ func run() error {
 	carServiceApplicationHandler := handlers.NewCarServiceApplicationHandler(carServiceApplicationService)
 	carServiceProfileHandler := handlers.NewCarServiceProfileHandler(carServiceProfileService)
 	repairRequestHandler := handlers.NewRepairRequestHandler(repairRequestService)
+	vehicleCatalogHandler := handlers.NewVehicleCatalogHandler(vehicleCatalogService)
 
 	analysisHandler := handlers.NewAnalysisHandler(
 		analysisService,
@@ -199,8 +206,10 @@ func run() error {
 		carServiceApplicationHandler,
 		carServiceProfileHandler,
 		repairRequestHandler,
+		vehicleCatalogHandler,
 		tokenManager,
 		redisCacheClient,
+		newAPIHealthChecker(cfg, db, redisCacheClient, s3Client),
 		cfg.HTTP.CORSAllowedOrigins,
 	)
 
@@ -212,6 +221,22 @@ func run() error {
 	}()
 
 	return serveHTTP(server, cfg.HTTP.ShutdownTimeout)
+}
+
+func newAPIHealthChecker(
+	cfg *config.Config,
+	db *postgres.DB,
+	redisClient *rediscache.Client,
+	s3Client *s3.Client,
+) *observability.HealthChecker {
+	return observability.NewHealthChecker(cfg.Observe.ServiceName, map[string]observability.DependencyCheck{
+		"postgres": db.Ping,
+		"redis":    redisClient.Ping,
+		"s3":       s3Client.HealthCheck,
+		"kafka": func(ctx context.Context) error {
+			return observability.CheckKafkaBrokers(ctx, cfg.Kafka.Brokers)
+		},
+	})
 }
 
 func startRedisSubscriber(redisNotifier *notify.RedisNotifier, broadcastMgr *broadcast.Manager) func() {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/DedovInside/AutoInspect/backend/internal/config"
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
+	"github.com/DedovInside/AutoInspect/backend/internal/observability"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository"
 	"github.com/google/uuid"
 )
@@ -123,6 +124,7 @@ func (s *RepairRequestService) Create(
 		return nil, err
 	}
 
+	observability.RepairRequestsTotal.WithLabelValues("created").Inc()
 	return request, nil
 }
 
@@ -189,7 +191,11 @@ func (s *RepairRequestService) CancelMine(
 		return domain.ErrInvalidInput
 	}
 
-	return s.requestRepo.CancelPendingByUserID(ctx, requestID, userID)
+	if err := s.requestRepo.CancelPendingByUserID(ctx, requestID, userID); err != nil {
+		return err
+	}
+	observability.RepairRequestsTotal.WithLabelValues("canceled").Inc()
+	return nil
 }
 
 func (s *RepairRequestService) ListIncoming(
@@ -290,6 +296,7 @@ func (s *RepairRequestService) AcceptIncoming(
 		return nil, err
 	}
 
+	observability.RepairRequestsTotal.WithLabelValues("accepted").Inc()
 	return s.requestRepo.GetByIDAndCarServiceProfileID(ctx, request.ID, profile.ID)
 }
 
@@ -315,6 +322,7 @@ func (s *RepairRequestService) RejectIncoming(
 		return nil, err
 	}
 
+	observability.RepairRequestsTotal.WithLabelValues("rejected").Inc()
 	return s.requestRepo.GetByIDAndCarServiceProfileID(ctx, request.ID, profile.ID)
 }
 

@@ -154,7 +154,7 @@ RAW/Supervisely версия: [mitbersh/car-parts-segmentation-raw](https://hugg
 
 ### Train / validation / test split
 
-Для разбиения использовался [greedy splitter](dataset/export_and_split.py).  
+Для разбиения использовался [greedy splitter](dataset/export_and_split.py).
 Он сохраняет баланс по ракурсам автомобиля (`car_view`) и старается равномерно распределить между `train`, `val` и `test`:
 
 - классы деталей;

@@ -15,6 +15,20 @@ import {
   listTrainingRequests,
   updateTrainingRequestStatus,
 } from "../../services/trainingRequests";
+import {
+  listAdminVehicleMakes,
+  createAdminVehicleMake,
+  updateAdminVehicleMake,
+  setAdminVehicleMakeActive,
+  listAdminVehicleModels,
+  createAdminVehicleModel,
+  updateAdminVehicleModel,
+  setAdminVehicleModelActive,
+  listAdminVehicleGenerations,
+  createAdminVehicleGeneration,
+  updateAdminVehicleGeneration,
+  setAdminVehicleGenerationActive,
+} from "../../services/adminVehicleCatalog";
 
 const MODEL_YEAR_MIN = 1900;
 const MODEL_YEAR_MAX = 2100;
@@ -593,6 +607,514 @@ function TrainingRequestStatusModal({ request, status, onClose, onConfirm }) {
   );
 }
 
+function vehicleCatalogStatusBadge(isActive) {
+  return statusBadge(isActive ? "active" : "inactive");
+}
+
+function formatGenerationYears(generation) {
+  if (!generation) return "—";
+  const from = generation.year_from ?? generation.yearFrom;
+  const to = generation.year_to ?? generation.yearTo;
+  if (from && to) return `${from}-${to}`;
+  if (from) return `с ${from}`;
+  return "—";
+}
+
+function VehicleCatalogModal({ type, mode, item, parentName, onClose, onConfirm }) {
+  const isGeneration = type === "generation";
+  const labels = {
+    make: {
+      title: mode === "edit" ? "Редактирование марки" : "Добавление марки",
+      name: "Название марки",
+      placeholder: "Например, Volkswagen",
+    },
+    model: {
+      title: mode === "edit" ? "Редактирование модели" : "Добавление модели",
+      name: "Название модели",
+      placeholder: "Например, Polo",
+    },
+    generation: {
+      title: mode === "edit" ? "Редактирование поколения" : "Добавление поколения",
+      name: "Название поколения",
+      placeholder: "Например, 5",
+    },
+  };
+
+  const config = labels[type] || labels.make;
+  const [name, setName] = useState(item?.name || "");
+  const [yearFrom, setYearFrom] = useState(item?.year_from ? String(item.year_from) : "");
+  const [yearTo, setYearTo] = useState(item?.year_to ? String(item.year_to) : "");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const parseYear = (value) => {
+    const clean = String(value ?? "").trim();
+    if (!/^\d{4}$/.test(clean)) return null;
+    const year = Number(clean);
+    return Number.isInteger(year) ? year : null;
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    const cleanName = name.trim();
+    if (!cleanName) {
+      setError("Введите название");
+      return;
+    }
+
+    const payload = { name: cleanName };
+    if (isGeneration) {
+      const from = parseYear(yearFrom);
+      if (!from || from < MODEL_YEAR_MIN || from > MODEL_YEAR_MAX) {
+        setError(`Год начала должен быть от ${MODEL_YEAR_MIN} до ${MODEL_YEAR_MAX}`);
+        return;
+      }
+
+      const cleanYearTo = yearTo.trim();
+      const to = cleanYearTo ? parseYear(cleanYearTo) : null;
+      if (cleanYearTo && (!to || to < MODEL_YEAR_MIN || to > MODEL_YEAR_MAX)) {
+        setError(`Год окончания должен быть от ${MODEL_YEAR_MIN} до ${MODEL_YEAR_MAX}`);
+        return;
+      }
+      if (to && to < from) {
+        setError("Год окончания не может быть раньше года начала");
+        return;
+      }
+
+      payload.year_from = from;
+      if (to) payload.year_to = to;
+    }
+
+    setSubmitting(true);
+    setError("");
+    try {
+      await onConfirm(payload);
+    } catch (err) {
+      const msg = err instanceof Error && err.message.trim() ? err.message.trim() : "Не удалось сохранить";
+      setError(msg);
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" role="dialog" aria-modal="true">
+      <div className="modal-card modal-card-sm">
+        <form onSubmit={submit} noValidate>
+          <div className="modal-header">
+            <h3>{config.title}</h3>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={onClose}
+              aria-label="Закрыть"
+              disabled={submitting}
+            >
+              <Icon name="x" size={16} />
+            </button>
+          </div>
+
+          <div className="modal-body">
+            {parentName ? (
+              <div className="reject-service-summary">
+                <div className="reject-service-summary-title">{parentName}</div>
+                <div className="text-xs muted">Родительский элемент каталога</div>
+              </div>
+            ) : null}
+
+            <div className="form-row">
+              <label className="form-label" htmlFor="vehicle-catalog-name">
+                {config.name} *
+              </label>
+              <input
+                id="vehicle-catalog-name"
+                className={"input" + (error ? " input-error" : "")}
+                placeholder={config.placeholder}
+                value={name}
+                onChange={(ev) => {
+                  setName(ev.target.value);
+                  if (error) setError("");
+                }}
+                disabled={submitting}
+                autoFocus
+              />
+            </div>
+
+            {isGeneration ? (
+              <div className="form-row-inline">
+                <div className="form-row">
+                  <label className="form-label" htmlFor="vehicle-catalog-year-from">
+                    Год начала выпуска *
+                  </label>
+                  <input
+                    id="vehicle-catalog-year-from"
+                    className={"input" + (error ? " input-error" : "")}
+                    placeholder="2009"
+                    inputMode="numeric"
+                    value={yearFrom}
+                    onChange={(ev) => {
+                      setYearFrom(ev.target.value);
+                      if (error) setError("");
+                    }}
+                    disabled={submitting}
+                  />
+                </div>
+                <div className="form-row">
+                  <label className="form-label" htmlFor="vehicle-catalog-year-to">
+                    Год окончания
+                  </label>
+                  <input
+                    id="vehicle-catalog-year-to"
+                    className={"input" + (error ? " input-error" : "")}
+                    placeholder="2015"
+                    inputMode="numeric"
+                    value={yearTo}
+                    onChange={(ev) => {
+                      setYearTo(ev.target.value);
+                      if (error) setError("");
+                    }}
+                    disabled={submitting}
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {error ? <div className="field-error">{error}</div> : null}
+          </div>
+
+          <div className="modal-footer">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} disabled={submitting}>
+              Отмена
+            </button>
+            <button type="submit" className="btn btn-primary btn-sm" disabled={submitting}>
+              Сохранить
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function VehicleCatalogColumn({
+  title,
+  subtitle,
+  items,
+  selectedID,
+  onSelect,
+  onCreate,
+  onEdit,
+  onToggleActive,
+  emptyText,
+  actionText,
+  disabled,
+}) {
+  return (
+    <section className={"vehicle-catalog-column" + (disabled ? " vehicle-catalog-column-disabled" : "")}>
+      <div className="vehicle-catalog-column-head">
+        <div>
+          <h3>{title}</h3>
+          <p>{subtitle}</p>
+        </div>
+        <button type="button" className="btn btn-primary btn-sm" onClick={onCreate} disabled={disabled}>
+          <Icon name="plus" size={14} /> {actionText}
+        </button>
+      </div>
+
+      <div className="vehicle-catalog-list">
+        {items.length === 0 ? (
+          <div className="vehicle-catalog-empty">{emptyText}</div>
+        ) : (
+          items.map((item) => {
+            const isSelected = item.id === selectedID;
+            return (
+              <div
+                role="button"
+                tabIndex={0}
+                className={"vehicle-catalog-item" + (isSelected ? " active" : "")}
+                key={item.id}
+                onClick={() => onSelect(item.id)}
+                onKeyDown={(ev) => {
+                  if (ev.key === "Enter" || ev.key === " ") {
+                    ev.preventDefault();
+                    onSelect(item.id);
+                  }
+                }}
+              >
+                <span className="vehicle-catalog-item-main">
+                  <span className="vehicle-catalog-item-title">{item.name}</span>
+                  {item.year_from ? (
+                    <span className="vehicle-catalog-item-meta">{formatGenerationYears(item)}</span>
+                  ) : (
+                    <span className="vehicle-catalog-item-meta">{item.slug}</span>
+                  )}
+                </span>
+                <span className="vehicle-catalog-item-side">
+                  {vehicleCatalogStatusBadge(item.is_active)}
+                  <span className="actions-col" onClick={(ev) => ev.stopPropagation()}>
+                    <button type="button" className="kbd-action" onClick={() => onEdit(item)}>
+                      Изменить
+                    </button>
+                    <button
+                      type="button"
+                      className={"kbd-action" + (item.is_active ? " danger" : " success")}
+                      onClick={() => onToggleActive(item)}
+                    >
+                      {item.is_active ? "Отключить" : "Включить"}
+                    </button>
+                  </span>
+                </span>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </section>
+  );
+}
+
+function VehicleCatalogTab() {
+  const [makes, setMakes] = useState([]);
+  const [models, setModels] = useState([]);
+  const [generations, setGenerations] = useState([]);
+  const [selectedMakeID, setSelectedMakeID] = useState("");
+  const [selectedModelID, setSelectedModelID] = useState("");
+  const [loading, setLoading] = useState({ makes: true, models: false, generations: false });
+  const [error, setError] = useState("");
+  const [modal, setModal] = useState(null);
+
+  const selectedMake = makes.find((item) => item.id === selectedMakeID) || null;
+  const selectedModel = models.find((item) => item.id === selectedModelID) || null;
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading((prev) => ({ ...prev, makes: true }));
+    listAdminVehicleMakes()
+      .then((items) => {
+        if (cancelled) return;
+        setMakes(items);
+        setSelectedMakeID((prev) => (items.some((item) => item.id === prev) ? prev : items[0]?.id || ""));
+        setError("");
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMakes([]);
+          setError("Не удалось загрузить марки автомобилей");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading((prev) => ({ ...prev, makes: false }));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setModels([]);
+    setGenerations([]);
+    setSelectedModelID("");
+    if (!selectedMakeID) return () => {};
+
+    setLoading((prev) => ({ ...prev, models: true }));
+    listAdminVehicleModels(selectedMakeID)
+      .then((items) => {
+        if (cancelled) return;
+        setModels(items);
+        setSelectedModelID(items[0]?.id || "");
+        setError("");
+      })
+      .catch(() => {
+        if (!cancelled) setError("Не удалось загрузить модели автомобилей");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading((prev) => ({ ...prev, models: false }));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedMakeID]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setGenerations([]);
+    if (!selectedModelID) return () => {};
+
+    setLoading((prev) => ({ ...prev, generations: true }));
+    listAdminVehicleGenerations(selectedModelID)
+      .then((items) => {
+        if (cancelled) return;
+        setGenerations(items);
+        setError("");
+      })
+      .catch(() => {
+        if (!cancelled) setError("Не удалось загрузить поколения автомобилей");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading((prev) => ({ ...prev, generations: false }));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedModelID]);
+
+  const saveMake = async (payload) => {
+    const saved =
+      modal?.mode === "edit"
+        ? await updateAdminVehicleMake(modal.item.id, payload)
+        : await createAdminVehicleMake(payload);
+    if (!saved) return;
+    setMakes((prev) =>
+      modal?.mode === "edit"
+        ? prev.map((item) => (item.id === saved.id ? saved : item))
+        : [saved, ...prev]
+    );
+    setSelectedMakeID(saved.id);
+    setModal(null);
+  };
+
+  const saveModel = async (payload) => {
+    if (!selectedMakeID) throw new Error("Сначала выберите марку");
+    const body = { ...payload, make_id: selectedMakeID };
+    const saved =
+      modal?.mode === "edit"
+        ? await updateAdminVehicleModel(modal.item.id, body)
+        : await createAdminVehicleModel(body);
+    if (!saved) return;
+    setModels((prev) =>
+      modal?.mode === "edit"
+        ? prev.map((item) => (item.id === saved.id ? saved : item))
+        : [saved, ...prev]
+    );
+    setSelectedModelID(saved.id);
+    setModal(null);
+  };
+
+  const saveGeneration = async (payload) => {
+    if (!selectedModelID) throw new Error("Сначала выберите модель");
+    const body = { ...payload, model_id: selectedModelID };
+    const saved =
+      modal?.mode === "edit"
+        ? await updateAdminVehicleGeneration(modal.item.id, body)
+        : await createAdminVehicleGeneration(body);
+    if (!saved) return;
+    setGenerations((prev) =>
+      modal?.mode === "edit"
+        ? prev.map((item) => (item.id === saved.id ? saved : item))
+        : [saved, ...prev]
+    );
+    setModal(null);
+  };
+
+  const toggleMake = async (item) => {
+    const next = !item.is_active;
+    setMakes((prev) => prev.map((row) => (row.id === item.id ? { ...row, is_active: next } : row)));
+    try {
+      await setAdminVehicleMakeActive(item.id, next);
+    } catch {
+      setMakes((prev) => prev.map((row) => (row.id === item.id ? item : row)));
+    }
+  };
+
+  const toggleModel = async (item) => {
+    const next = !item.is_active;
+    setModels((prev) => prev.map((row) => (row.id === item.id ? { ...row, is_active: next } : row)));
+    try {
+      await setAdminVehicleModelActive(item.id, next);
+    } catch {
+      setModels((prev) => prev.map((row) => (row.id === item.id ? item : row)));
+    }
+  };
+
+  const toggleGeneration = async (item) => {
+    const next = !item.is_active;
+    setGenerations((prev) => prev.map((row) => (row.id === item.id ? { ...row, is_active: next } : row)));
+    try {
+      await setAdminVehicleGenerationActive(item.id, next);
+    } catch {
+      setGenerations((prev) => prev.map((row) => (row.id === item.id ? item : row)));
+    }
+  };
+
+  const confirmByType = {
+    make: saveMake,
+    model: saveModel,
+    generation: saveGeneration,
+  };
+
+  return (
+    <>
+      <div className="admin-toolbar">
+        <span className="text-sm muted">
+          Справочник используется в форме создания анализа автомобиля
+        </span>
+      </div>
+
+      {error ? <div className="vehicle-catalog-error">{error}</div> : null}
+
+      <div className="vehicle-catalog-grid">
+        <VehicleCatalogColumn
+          title="Марки"
+          subtitle={loading.makes ? "Загрузка..." : `Всего: ${makes.length}`}
+          items={makes}
+          selectedID={selectedMakeID}
+          onSelect={setSelectedMakeID}
+          onCreate={() => setModal({ type: "make", mode: "create" })}
+          onEdit={(item) => setModal({ type: "make", mode: "edit", item })}
+          onToggleActive={toggleMake}
+          emptyText="Марки пока не добавлены"
+          actionText="Марка"
+        />
+        <VehicleCatalogColumn
+          title="Модели"
+          subtitle={selectedMake ? selectedMake.name : "Выберите марку"}
+          items={models}
+          selectedID={selectedModelID}
+          onSelect={setSelectedModelID}
+          onCreate={() => setModal({ type: "model", mode: "create" })}
+          onEdit={(item) => setModal({ type: "model", mode: "edit", item })}
+          onToggleActive={toggleModel}
+          emptyText={selectedMake ? "У марки пока нет моделей" : "Сначала выберите марку"}
+          actionText="Модель"
+          disabled={!selectedMake}
+        />
+        <VehicleCatalogColumn
+          title="Поколения"
+          subtitle={selectedModel ? selectedModel.name : "Выберите модель"}
+          items={generations}
+          selectedID=""
+          onSelect={() => {}}
+          onCreate={() => setModal({ type: "generation", mode: "create" })}
+          onEdit={(item) => setModal({ type: "generation", mode: "edit", item })}
+          onToggleActive={toggleGeneration}
+          emptyText={selectedModel ? "У модели пока нет поколений" : "Сначала выберите модель"}
+          actionText="Поколение"
+          disabled={!selectedModel}
+        />
+      </div>
+
+      {modal ? (
+        <VehicleCatalogModal
+          type={modal.type}
+          mode={modal.mode}
+          item={modal.item}
+          parentName={
+            modal.type === "model"
+              ? selectedMake?.name
+              : modal.type === "generation"
+                ? [selectedMake?.name, selectedModel?.name].filter(Boolean).join(" ")
+                : ""
+          }
+          onClose={() => setModal(null)}
+          onConfirm={confirmByType[modal.type]}
+        />
+      ) : null}
+    </>
+  );
+}
+
 function ModelsTab() {
   const [models, setModels] = useState([]);
   const [showUpload, setShowUpload] = useState(false);
@@ -965,6 +1487,9 @@ function AdminPage() {
         <button className={"tab-btn" + (tab === "models" ? " active" : "")} onClick={() => setTab("models")}>
           ML-модели
         </button>
+        <button className={"tab-btn" + (tab === "catalog" ? " active" : "")} onClick={() => setTab("catalog")}>
+          Каталог автомобилей
+        </button>
         <button className={"tab-btn" + (tab === "services" ? " active" : "")} onClick={() => setTab("services")}>
           Заявки автосервисов
         </button>
@@ -974,6 +1499,7 @@ function AdminPage() {
       </div>
 
       {tab === "models" && <ModelsTab />}
+      {tab === "catalog" && <VehicleCatalogTab />}
       {tab === "services" && <ServiceRequestsTab />}
       {tab === "training" && <TrainingRequestsTab />}
     </div>

@@ -1,4 +1,4 @@
-.PHONY: migrate-up migrate-down migrate-version migrate-steps migrate-create lint lint-fix lint-fast
+.PHONY: migrate-up migrate-down migrate-version migrate-steps migrate-create seed-vehicle-catalog lint lint-fix lint-fast
 
 include .env
 export
@@ -17,6 +17,9 @@ migrate-steps:
 
 migrate-create:
 	@echo "Enter migration name:" && read name && migrate create -ext sql -dir migrations -seq $$name
+
+seed-vehicle-catalog:
+	go run cmd/vehicle-catalog-seeder/main.go -file data/vehicle_catalog.seed.json
 
 lint:
 	golangci-lint -v run --config .golangci.yml

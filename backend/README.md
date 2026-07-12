@@ -145,10 +145,15 @@ Redis Pub/Sub -> Backend API -> WebSocket -> Frontend
 
 ```env
 DATABASE_URL=postgres://postgres:postgres@localhost:5433/autoinspect?sslmode=disable
-JWT_SECRET=change-me-at-least-16-chars
+JWT_ACTIVE_KEY_ID=local-dev
 YANDEX_CLIENT_ID=...
 YANDEX_CLIENT_SECRET=...
 ```
+
+Дополнительно для RS256 нужно задать переменные с приватным и публичным RSA-ключами. Значения ключей передаются в PEM-формате одной строкой с экранированными переносами строк.
+
+Access JWT подписываются алгоритмом RS256. Переменная приватного ключа используется только для подписи новых access-токенов, а переменная публичного ключа или JSON-набор публичных ключей используются для проверки токенов по `kid`.
+Для ротации ключей можно передать несколько публичных ключей через `JWT_PUBLIC_KEYS` в формате JSON-объекта `{"kid":"PEM"}` и переключить подпись на новый `JWT_ACTIVE_KEY_ID`.
 
 Часто используемые переменные:
 

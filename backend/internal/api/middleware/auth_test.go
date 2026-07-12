@@ -2,6 +2,10 @@ package middleware
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -146,13 +150,29 @@ func TestRequireRoleRejectsInsufficientRole(t *testing.T) {
 func testTokenManager(t *testing.T) *service.TokenManager {
 	t.Helper()
 
-	tokenManager, err := service.NewTokenManager(
-		"test-secret-with-enough-length",
-		"autoinspect-api",
-		time.Hour,
-		24*time.Hour,
-		10*time.Minute,
-	)
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
+	})
+	publicKeyBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	require.NoError(t, err)
+	publicKeyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: publicKeyBytes,
+	})
+
+	tokenManager, err := service.NewTokenManager(&service.TokenManagerConfig{
+		ActiveKeyID:   "test-key",
+		PrivateKeyPEM: string(privateKeyPEM),
+		PublicKeyPEM:  string(publicKeyPEM),
+		Issuer:        "autoinspect-api",
+		AccessTTL:     time.Hour,
+		RefreshTTL:    24 * time.Hour,
+		OAuthStateTTL: 10 * time.Minute,
+	})
 	require.NoError(t, err)
 
 	return tokenManager

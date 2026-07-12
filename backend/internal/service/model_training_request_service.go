@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
+	"github.com/DedovInside/AutoInspect/backend/internal/observability"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository"
 	"github.com/google/uuid"
 )
@@ -84,6 +85,7 @@ func (s *ModelTrainingRequestService) Create(ctx context.Context,
 		return nil, err
 	}
 
+	observability.ModelTrainingRequestsTotal.WithLabelValues("created").Inc()
 	return request, nil
 }
 
@@ -136,6 +138,7 @@ func (s *ModelTrainingRequestService) UpdateStatus(
 		return nil, err
 	}
 
+	observability.ModelTrainingRequestsTotal.WithLabelValues(string(input.Status)).Inc()
 	return s.requestRepo.GetByID(ctx, input.ID)
 }
 

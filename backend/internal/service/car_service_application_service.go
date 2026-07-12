@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
+	"github.com/DedovInside/AutoInspect/backend/internal/observability"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository/postgres"
 	"github.com/google/uuid"
@@ -85,6 +86,7 @@ func (s *CarServiceApplicationService) Create(ctx context.Context,
 		return nil, err
 	}
 
+	observability.CarServiceApplicationsTotal.WithLabelValues("created").Inc()
 	return application, nil
 }
 
@@ -151,6 +153,7 @@ func (s *CarServiceApplicationService) Approve(ctx context.Context,
 		return nil, domain.ErrInternal
 	}
 
+	observability.CarServiceApplicationsTotal.WithLabelValues("approved").Inc()
 	return result, nil
 }
 
@@ -274,6 +277,7 @@ func (s *CarServiceApplicationService) Reject(ctx context.Context,
 		return nil, err
 	}
 
+	observability.CarServiceApplicationsTotal.WithLabelValues("rejected").Inc()
 	return s.applicationRepo.GetByID(ctx, input.ID)
 }
 

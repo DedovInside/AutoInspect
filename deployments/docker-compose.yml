@@ -180,7 +180,7 @@ services:
     ports:
       - "8080:8080"
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/health/ready || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 10
@@ -204,6 +204,8 @@ services:
       KAFKA_TOPIC_ANALYSIS_RESULT: autoinspect.analysis.result
       KAFKA_TOPIC_DLQ: autoinspect.analysis.dlq
       KAFKA_CONSUMER_GROUP_ID: autoinspect-backend
+      WORKER_OBSERVABILITY_HOST: 0.0.0.0
+      WORKER_OBSERVABILITY_PORT: 8082
       S3_ENDPOINT: http://minio:9000
       S3_PUBLIC_ENDPOINT: http://localhost:9000
       S3_ACCESS_KEY: minioadmin
@@ -223,6 +225,14 @@ services:
         condition: service_completed_successfully
       migrator:
         condition: service_completed_successfully
+    ports:
+      - "8082:8082"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8082/health/ready || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
     restart: unless-stopped
 
   ml-service:
@@ -260,9 +270,42 @@ services:
       - "8081:8081"
     restart: unless-stopped
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: autoinspect-prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      api:
+        condition: service_started
+      worker:
+        condition: service_started
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: autoinspect-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3001:3000"
+    depends_on:
+      prometheus:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
   minio_data:
   kafka_data:
   ml_cache:
+  grafana_data:

@@ -100,11 +100,14 @@ func validateEnvironment(cfg *Config) error {
 }
 
 func validateAuth(cfg *Config) error {
-	if cfg.Environment == "production" && len(cfg.Auth.JWTSecret) < 32 {
-		return fmt.Errorf("JWT_SECRET must be at least 32 characters in production (current length: %d)", len(cfg.Auth.JWTSecret))
+	if strings.TrimSpace(cfg.Auth.JWTActiveKeyID) == "" {
+		return fmt.Errorf("JWT_ACTIVE_KEY_ID cannot be empty")
 	}
-	if len(cfg.Auth.JWTSecret) < 16 {
-		return fmt.Errorf("JWT_SECRET must be at least 16 characters")
+	if strings.TrimSpace(cfg.Auth.JWTPrivateKey) == "" {
+		return fmt.Errorf("JWT_PRIVATE_KEY cannot be empty")
+	}
+	if strings.TrimSpace(cfg.Auth.JWTPublicKey) == "" && strings.TrimSpace(cfg.Auth.JWTPublicKeys) == "" {
+		return fmt.Errorf("JWT_PUBLIC_KEY or JWT_PUBLIC_KEYS cannot be empty")
 	}
 	if strings.TrimSpace(cfg.Auth.JWTIssuer) == "" {
 		return fmt.Errorf("JWT_ISSUER cannot be empty")
@@ -217,7 +220,8 @@ func applySecretFiles(cfg *Config) error {
 	secretTargets := map[string]secretFileTarget{
 		"DATABASE_URL_FILE":         {target: &cfg.Database.URL, dockerSecretName: "database_url"},
 		"REDIS_PASSWORD_FILE":       {target: &cfg.Redis.Password, dockerSecretName: "redis_password"},
-		"JWT_SECRET_FILE":           {target: &cfg.Auth.JWTSecret, dockerSecretName: "jwt_secret"},
+		"JWT_PRIVATE_KEY_FILE":      {target: &cfg.Auth.JWTPrivateKey, dockerSecretName: "jwt_private_key"},
+		"JWT_PUBLIC_KEY_FILE":       {target: &cfg.Auth.JWTPublicKey, dockerSecretName: "jwt_public_key"},
 		"YANDEX_CLIENT_ID_FILE":     {target: &cfg.Auth.YandexClientID, dockerSecretName: "yandex_client_id"},
 		"YANDEX_CLIENT_SECRET_FILE": {target: &cfg.Auth.YandexClientSecret, dockerSecretName: "yandex_client_secret"},
 		"S3_ACCESS_KEY_FILE":        {target: &cfg.S3.AccessKey, dockerSecretName: "minio_root_user"},
@@ -272,8 +276,10 @@ func readDockerSecret(name string) ([]byte, error) {
 		return os.ReadFile("/run/secrets/database_url")
 	case "redis_password":
 		return os.ReadFile("/run/secrets/redis_password")
-	case "jwt_secret":
-		return os.ReadFile("/run/secrets/jwt_secret")
+	case "jwt_private_key":
+		return os.ReadFile("/run/secrets/jwt_private_key")
+	case "jwt_public_key":
+		return os.ReadFile("/run/secrets/jwt_public_key")
 	case "yandex_client_id":
 		return os.ReadFile("/run/secrets/yandex_client_id")
 	case "yandex_client_secret":
