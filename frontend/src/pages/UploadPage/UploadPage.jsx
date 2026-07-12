@@ -1,11 +1,14 @@
 import "./UploadPage.css";
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { uploadImages } from "../../services/analyses";
+import {
+  getVehicleGenerations,
+  getVehicleMakes,
+  getVehicleModels,
+} from "../../services/vehicleCatalog";
 import Icon from "../../components/Icon/Icon";
 
-const MIN_CAR_YEAR = 1900;
-const MAX_CAR_YEAR = new Date().getFullYear() + 1;
 const MAX_IMAGE_COUNT = 10;
 const MAX_IMAGE_SIZE = 100 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -19,18 +22,11 @@ function formatBytes(bytes) {
 }
 
 const initialVehicle = {
-  brand: "",
-  model: "",
-  generation: "",
+  makeID: "",
+  modelID: "",
+  generationID: "",
   year: "",
 };
-
-function parseYear(value) {
-  const trimmed = String(value ?? "").trim();
-  if (!/^\d{4}$/.test(trimmed)) return null;
-  const year = Number(trimmed);
-  return Number.isInteger(year) ? year : null;
-}
 
 function validateImageFile(file) {
   if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
@@ -48,10 +44,116 @@ function UploadPage() {
 
   const [items, setItems] = useState([]);
   const [vehicle, setVehicle] = useState(initialVehicle);
+  const [makes, setMakes] = useState([]);
+  const [models, setModels] = useState([]);
+  const [generations, setGenerations] = useState([]);
+  const [catalogLoading, setCatalogLoading] = useState({
+    makes: true,
+    models: false,
+    generations: false,
+  });
+  const [catalogError, setCatalogError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState("");
+
+  const selectedMake = useMemo(
+    () => makes.find((make) => String(make.id) === String(vehicle.makeID)) || null,
+    [makes, vehicle.makeID]
+  );
+  const selectedModel = useMemo(
+    () => models.find((model) => String(model.id) === String(vehicle.modelID)) || null,
+    [models, vehicle.modelID]
+  );
+  const selectedGeneration = useMemo(
+    () =>
+      generations.find((generation) => String(generation.id) === String(vehicle.generationID)) ||
+      null,
+    [generations, vehicle.generationID]
+  );
+  const yearOptions = selectedGeneration?.year_options ?? [];
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadMakes() {
+      try {
+        setCatalogLoading((prev) => ({ ...prev, makes: true }));
+        setCatalogError("");
+        const items = await getVehicleMakes({ signal: controller.signal });
+        setMakes(items);
+      } catch (err) {
+        if (err?.code !== "aborted") {
+          console.error(err);
+          setCatalogError("Не удалось загрузить справочник автомобилей");
+        }
+      } finally {
+        setCatalogLoading((prev) => ({ ...prev, makes: false }));
+      }
+    }
+
+    loadMakes();
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    if (!vehicle.makeID) {
+      setModels([]);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function loadModels() {
+      try {
+        setCatalogLoading((prev) => ({ ...prev, models: true }));
+        setCatalogError("");
+        const items = await getVehicleModels(vehicle.makeID, { signal: controller.signal });
+        setModels(items);
+      } catch (err) {
+        if (err?.code !== "aborted") {
+          console.error(err);
+          setCatalogError("Не удалось загрузить модели выбранной марки");
+        }
+      } finally {
+        setCatalogLoading((prev) => ({ ...prev, models: false }));
+      }
+    }
+
+    loadModels();
+    return () => controller.abort();
+  }, [vehicle.makeID]);
+
+  useEffect(() => {
+    if (!vehicle.modelID) {
+      setGenerations([]);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function loadGenerations() {
+      try {
+        setCatalogLoading((prev) => ({ ...prev, generations: true }));
+        setCatalogError("");
+        const items = await getVehicleGenerations(vehicle.modelID, {
+          signal: controller.signal,
+        });
+        setGenerations(items);
+      } catch (err) {
+        if (err?.code !== "aborted") {
+          console.error(err);
+          setCatalogError("Не удалось загрузить поколения выбранной модели");
+        }
+      } finally {
+        setCatalogLoading((prev) => ({ ...prev, generations: false }));
+      }
+    }
+
+    loadGenerations();
+    return () => controller.abort();
+  }, [vehicle.modelID]);
 
   const onFiles = (fileList) => {
     const incoming = Array.from(fileList || []);
@@ -109,24 +211,19 @@ function UploadPage() {
 
   const validate = () => {
     const e = {};
-    if (!vehicle.brand.trim()) {
-      e.brand = "Введите марку автомобиля";
+    if (!selectedMake) {
+      e.makeID = "Выберите марку автомобиля";
     }
-    if (!vehicle.model.trim()) {
-      e.model = "Введите модель автомобиля";
+    if (!selectedModel) {
+      e.modelID = "Выберите модель автомобиля";
     }
-    if (!vehicle.generation.trim()) {
-      e.generation = "Введите поколение";
+    if (!selectedGeneration) {
+      e.generationID = "Выберите поколение";
     }
-    if (!vehicle.year.trim()) {
-      e.year = "Введите год";
-    } else {
-      const year = parseYear(vehicle.year);
-      if (!year) {
-        e.year = "Введите год в формате 4 цифр";
-      } else if (year < MIN_CAR_YEAR || year > MAX_CAR_YEAR) {
-        e.year = `Год должен быть от ${MIN_CAR_YEAR} до ${MAX_CAR_YEAR}`;
-      }
+    if (!vehicle.year) {
+      e.year = "Выберите год выпуска";
+    } else if (!yearOptions.map(String).includes(String(vehicle.year))) {
+      e.year = "Выберите год из доступного диапазона";
     }
     if (items.length === 0) {
       e.files = "Выберите изображение/я";
@@ -161,10 +258,10 @@ function UploadPage() {
     try {
       setLoading(true);
       const result = await uploadImages({
-        brand: vehicle.brand.trim(),
-        model: vehicle.model.trim(),
-        generation: vehicle.generation.trim(),
-        year: vehicle.year.trim(),
+        brand: selectedMake.name,
+        model: selectedModel.name,
+        generation: selectedGeneration.name,
+        year: String(vehicle.year),
         files: items.map((it) => it.file),
       });
       navigate(`/result/${result.analysis_id}`);
@@ -184,6 +281,14 @@ function UploadPage() {
     setVehicle(initialVehicle);
     setFieldErrors({});
     setSubmitError("");
+  };
+
+  const updateVehicle = (patch) => {
+    setVehicle((prev) => ({ ...prev, ...patch }));
+  };
+
+  const clearDependentErrors = (...fields) => {
+    fields.forEach(clearFieldError);
   };
 
   return (
@@ -208,70 +313,153 @@ function UploadPage() {
           </p>
         </div>
 
+        {catalogError && (
+          <div className="alert alert-warning upload-catalog-alert" role="alert">
+            <span className="alert-icon">
+              <Icon name="alert" size={16} />
+            </span>
+            <div>{catalogError}</div>
+          </div>
+        )}
+
         <div className="form-row">
-          <label className="form-label" htmlFor="up-brand">Марка автомобиля *</label>
-          <input
-            id="up-brand"
-            className={"input" + (fieldErrors.brand ? " input-error" : "")}
-            placeholder="Например, Kia"
-            value={vehicle.brand}
+          <label className="form-label" htmlFor="up-make">Марка автомобиля *</label>
+          <select
+            id="up-make"
+            className={"select" + (fieldErrors.makeID ? " select-error" : "")}
+            value={vehicle.makeID}
+            disabled={catalogLoading.makes}
             onChange={(e) => {
-              setVehicle((v) => ({ ...v, brand: e.target.value }));
-              clearFieldError("brand");
+              updateVehicle({
+                makeID: e.target.value,
+                modelID: "",
+                generationID: "",
+                year: "",
+              });
+              setModels([]);
+              setGenerations([]);
+              clearDependentErrors("makeID", "modelID", "generationID", "year");
             }}
-          />
-          {fieldErrors.brand && <div className="field-error">{fieldErrors.brand}</div>}
+          >
+            <option value="">
+              {catalogLoading.makes ? "Загрузка марок..." : "Выберите марку"}
+            </option>
+            {makes.map((make) => (
+              <option key={make.id} value={make.id}>
+                {make.name}
+              </option>
+            ))}
+          </select>
+          {fieldErrors.makeID && <div className="field-error">{fieldErrors.makeID}</div>}
         </div>
 
         <div className="form-row">
           <label className="form-label" htmlFor="up-model">Модель автомобиля *</label>
-          <input
+          <select
             id="up-model"
-            className={"input" + (fieldErrors.model ? " input-error" : "")}
-            placeholder="Например, Coolray"
-            value={vehicle.model}
+            className={"select" + (fieldErrors.modelID ? " select-error" : "")}
+            value={vehicle.modelID}
+            disabled={!vehicle.makeID || catalogLoading.models}
             onChange={(e) => {
-              setVehicle((v) => ({ ...v, model: e.target.value }));
-              clearFieldError("model");
+              updateVehicle({
+                modelID: e.target.value,
+                generationID: "",
+                year: "",
+              });
+              setGenerations([]);
+              clearDependentErrors("modelID", "generationID", "year");
             }}
-          />
-          {fieldErrors.model && <div className="field-error">{fieldErrors.model}</div>}
+          >
+            <option value="">
+              {!vehicle.makeID
+                ? "Сначала выберите марку"
+                : catalogLoading.models
+                  ? "Загрузка моделей..."
+                  : "Выберите модель"}
+            </option>
+            {models.map((model) => (
+              <option key={model.id} value={model.id}>
+                {model.name}
+              </option>
+            ))}
+          </select>
+          {fieldErrors.modelID && <div className="field-error">{fieldErrors.modelID}</div>}
         </div>
 
         <div className="form-row-inline">
           <div className="form-row">
             <label className="form-label" htmlFor="up-gen">Поколение *</label>
-            <input
+            <select
               id="up-gen"
-              className={"input" + (fieldErrors.generation ? " input-error" : "")}
-              placeholder="I, II, FL"
-              value={vehicle.generation}
+              className={"select" + (fieldErrors.generationID ? " select-error" : "")}
+              value={vehicle.generationID}
+              disabled={!vehicle.modelID || catalogLoading.generations}
               onChange={(e) => {
-                setVehicle((v) => ({ ...v, generation: e.target.value }));
-                clearFieldError("generation");
+                updateVehicle({
+                  generationID: e.target.value,
+                  year: "",
+                });
+                clearDependentErrors("generationID", "year");
               }}
-            />
-            {fieldErrors.generation && (
-              <div className="field-error">{fieldErrors.generation}</div>
+            >
+              <option value="">
+                {!vehicle.modelID
+                  ? "Сначала выберите модель"
+                  : catalogLoading.generations
+                    ? "Загрузка поколений..."
+                    : "Выберите поколение"}
+              </option>
+              {generations.map((generation) => (
+                <option key={generation.id} value={generation.id}>
+                  {generation.name}
+                  {generation.year_from ? ` (${generation.year_from}-${generation.year_to || "н.в."})` : ""}
+                </option>
+              ))}
+            </select>
+            {fieldErrors.generationID && (
+              <div className="field-error">{fieldErrors.generationID}</div>
             )}
           </div>
           <div className="form-row">
             <label className="form-label" htmlFor="up-year">Год *</label>
-            <input
+            <select
               id="up-year"
-              type="text"
-              inputMode="numeric"
-              className={"input" + (fieldErrors.year ? " input-error" : "")}
-              placeholder="2018"
+              className={"select" + (fieldErrors.year ? " select-error" : "")}
               value={vehicle.year}
+              disabled={!selectedGeneration}
               onChange={(e) => {
-                setVehicle((v) => ({ ...v, year: e.target.value }));
+                updateVehicle({ year: e.target.value });
                 clearFieldError("year");
               }}
-            />
+            >
+              <option value="">
+                {selectedGeneration ? "Выберите год" : "Сначала выберите поколение"}
+              </option>
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
             {fieldErrors.year && <div className="field-error">{fieldErrors.year}</div>}
           </div>
         </div>
+
+        {selectedMake && selectedModel && selectedGeneration && vehicle.year && (
+          <div className="upload-vehicle-summary">
+            <span className="upload-vehicle-summary__icon" aria-hidden>
+              <Icon name="car" size={15} />
+            </span>
+            <span>
+              Выбран автомобиль:{" "}
+              <strong>
+                {[selectedMake.name, selectedModel.name, selectedGeneration.name, vehicle.year]
+                  .filter(Boolean)
+                  .join(" ")}
+              </strong>
+            </span>
+          </div>
+        )}
 
         <div className="form-row">
           <label className="form-label">Изображения автомобиля *</label>
@@ -349,7 +537,7 @@ function UploadPage() {
           <button type="submit" className="btn btn-primary" disabled={loading}>
             {loading ? "Отправка..." : "Отправить"}
           </button>
-          {(items.length > 0 || Object.values(vehicle).some((v) => v.trim())) && !loading && (
+          {(items.length > 0 || Object.values(vehicle).some(Boolean)) && !loading && (
             <button type="button" className="btn btn-secondary" onClick={clearAll}>
               Очистить
             </button>

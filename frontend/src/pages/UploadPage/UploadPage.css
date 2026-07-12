@@ -24,6 +24,10 @@
   margin: 0;
 }
 
+.upload-catalog-alert {
+  margin-bottom: 18px;
+}
+
 .upload-ml-info__icon {
   flex-shrink: 0;
   width: 32px;
@@ -34,6 +38,37 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.upload-vehicle-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  color: var(--slate-700);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.upload-vehicle-summary strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.upload-vehicle-summary__icon {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--brand-600);
 }
 
 .dropzone {
