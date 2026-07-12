@@ -1,0 +1,102 @@
+{
+  "title": "AutoInspect Backend",
+  "uid": "autoinspect-backend",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "API requests",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "targets": [{ "expr": "sum(autoinspect_http_requests_total)" }]
+    },
+    {
+      "type": "stat",
+      "title": "Analyses submitted",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "targets": [{ "expr": "autoinspect_analysis_jobs_submitted_total" }]
+    },
+    {
+      "type": "stat",
+      "title": "Analyses completed",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "targets": [{ "expr": "sum(autoinspect_analysis_results_handled_total{status=\"completed\"})" }]
+    },
+    {
+      "type": "stat",
+      "title": "Analyses failed",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+      "targets": [{ "expr": "sum(autoinspect_analysis_results_handled_total{status=\"failed\"})" }]
+    },
+    {
+      "type": "stat",
+      "title": "Repair requests",
+      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
+      "targets": [{ "expr": "sum(autoinspect_repair_requests_total)" }]
+    },
+    {
+      "type": "stat",
+      "title": "Model uploads",
+      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
+      "targets": [{ "expr": "sum(autoinspect_model_uploads_total{status=\"success\"})" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP p95 latency",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(autoinspect_http_request_duration_seconds_bucket[1m])) by (le))"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP requests by status",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "sum(rate(autoinspect_http_requests_total{status=~\"2..\"}[1m]))" },
+        { "expr": "sum(rate(autoinspect_http_requests_total{status=~\"4..\"}[1m]))" },
+        { "expr": "sum(rate(autoinspect_http_requests_total{status=~\"5..\"}[1m]))" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Analysis result handling p95",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(autoinspect_analysis_result_handle_duration_seconds_bucket[1m])) by (le))"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Kafka consumed messages",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "sum(rate(autoinspect_kafka_messages_consumed_total{status=\"success\"}[1m]))" },
+        { "expr": "sum(rate(autoinspect_kafka_messages_consumed_total{status=\"failed\"}[1m]))" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Business actions",
+      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "sum(rate(autoinspect_repair_requests_total[1m])) by (action)" },
+        { "expr": "sum(rate(autoinspect_car_service_applications_total[1m])) by (action)" },
+        { "expr": "sum(rate(autoinspect_model_training_requests_total[1m])) by (action)" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Readiness dependencies",
+      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "autoinspect_readiness_dependency_status" }
+      ]
+    }
+  ]
+}

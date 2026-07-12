@@ -228,7 +228,7 @@ services:
       create-buckets:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/health/ready || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 10
@@ -257,6 +257,8 @@ services:
       KAFKA_TOPIC_ANALYSIS_RESULT: autoinspect.analysis.result
       KAFKA_TOPIC_DLQ: autoinspect.analysis.dlq
       KAFKA_CONSUMER_GROUP_ID: autoinspect-backend
+      WORKER_OBSERVABILITY_HOST: 0.0.0.0
+      WORKER_OBSERVABILITY_PORT: 8082
       S3_ENDPOINT: http://minio:9000
       S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT}
       S3_ACCESS_KEY_FILE: /run/secrets/minio_root_user
@@ -307,6 +309,12 @@ services:
         condition: service_completed_successfully
       migrator:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8082/health/ready || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
     restart: unless-stopped
 
   ml-service:

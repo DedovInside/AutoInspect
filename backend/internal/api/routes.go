@@ -1,9 +1,8 @@
 package api
 
 import (
-	"net/http"
-
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
+	"github.com/DedovInside/AutoInspect/backend/internal/observability"
 	"github.com/gin-gonic/gin"
 
 	"github.com/DedovInside/AutoInspect/backend/internal/api/handlers"
@@ -22,15 +21,18 @@ func NewGinRouter(
 	vehicleCatalogHandler *handlers.VehicleCatalogHandler,
 	tokenManager *service.TokenManager,
 	cache service.SessionCache,
+	healthChecker *observability.HealthChecker,
 	corsAllowedOrigins []string,
 ) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Recovery())
+	router.Use(observability.HTTPMetricsMiddleware())
 	router.Use(middleware.CORS(corsAllowedOrigins))
 
-	router.GET("/health", func(c *gin.Context) {
-		c.String(http.StatusOK, "ok")
-	})
+	router.GET("/metrics", observability.MetricsHandler())
+	router.GET("/health", healthChecker.SummaryGin)
+	router.GET("/health/live", healthChecker.LiveGin)
+	router.GET("/health/ready", healthChecker.ReadyGin)
 
 	router.POST("/v1/auth/refresh", authHandler.Refresh)
 	router.GET("/v1/auth/yandex/start", authHandler.YandexStart)

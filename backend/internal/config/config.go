@@ -13,6 +13,7 @@ type Config struct {
 	Auth     AuthConfig
 	S3       S3Config
 	Kafka    KafkaConfig
+	Observe  ObservabilityConfig
 }
 
 type HTTPConfig struct {
@@ -102,4 +103,11 @@ type KafkaConfig struct {
 	SecurityProtocol string `env:"KAFKA_SECURITY_PROTOCOL" env-default:"PLAINTEXT"`
 	SASLUsername     string `env:"KAFKA_SASL_USERNAME" env-default:""`
 	SASLPassword     string `env:"KAFKA_SASL_PASSWORD" env-default:""`
+}
+
+type ObservabilityConfig struct {
+	ServiceName       string `env:"SERVICE_NAME" env-default:"autoinspect-api"`
+	WorkerServiceName string `env:"WORKER_SERVICE_NAME" env-default:"autoinspect-worker"`
+	WorkerHTTPHost    string `env:"WORKER_OBSERVABILITY_HOST" env-default:"0.0.0.0"`
+	WorkerHTTPPort    string `env:"WORKER_OBSERVABILITY_PORT" env-default:"8082"`
 }

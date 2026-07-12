@@ -16,6 +16,7 @@ import (
 
 	"github.com/DedovInside/AutoInspect/backend/internal/config"
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
+	"github.com/DedovInside/AutoInspect/backend/internal/observability"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository"
 	"github.com/google/uuid"
 )
@@ -68,7 +69,11 @@ func NewModelService(
 }
 
 func (s *ModelService) UploadModelArtifacts(ctx context.Context,
-	input *UploadModelArtifactsInput) (*domain.CarModel, error) {
+	input *UploadModelArtifactsInput) (model *domain.CarModel, err error) {
+	defer func() {
+		observability.ObserveModelUpload(err)
+	}()
+
 	if err := validateModelUploadInput(input); err != nil {
 		return nil, err
 	}
@@ -80,7 +85,7 @@ func (s *ModelService) UploadModelArtifacts(ctx context.Context,
 		return nil, err
 	}
 
-	model := &domain.CarModel{
+	model = &domain.CarModel{
 		ID:                modelID,
 		Make:              strings.TrimSpace(input.Make),
 		Model:             strings.TrimSpace(input.Model),
@@ -168,13 +173,14 @@ func (s *ModelService) uploadModelArtifacts(
 	}
 
 	artifacts := []struct {
+		name        string
 		file        ModelArtifactFile
 		objectKey   string
 		contentType string
 	}{
-		{file: input.PartsModel, objectKey: keys.partsModel, contentType: "application/octet-stream"},
-		{file: input.PartsConfig, objectKey: keys.partsConfig, contentType: "application/json"},
-		{file: input.PartsCatalog, objectKey: keys.partsCatalog, contentType: "application/json"},
+		{name: "parts_model", file: input.PartsModel, objectKey: keys.partsModel, contentType: "application/octet-stream"},
+		{name: "parts_config", file: input.PartsConfig, objectKey: keys.partsConfig, contentType: "application/json"},
+		{name: "parts_catalog", file: input.PartsCatalog, objectKey: keys.partsCatalog, contentType: "application/json"},
 	}
 
 	uploaded := make([]string, 0, len(artifacts))
@@ -189,6 +195,7 @@ func (s *ModelService) uploadModelArtifacts(
 			s.cleanupModelArtifacts(ctx, uploaded)
 			return nil, fmt.Errorf("upload model artifact %q: %w", artifact.file.Filename, err)
 		}
+		observability.ModelArtifactUploadBytesTotal.WithLabelValues(artifact.name).Add(float64(size))
 		uploaded = append(uploaded, artifact.objectKey)
 	}
 

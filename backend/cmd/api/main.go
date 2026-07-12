@@ -19,6 +19,7 @@ import (
 	rediscache "github.com/DedovInside/AutoInspect/backend/internal/cache/redis"
 	"github.com/DedovInside/AutoInspect/backend/internal/config"
 	"github.com/DedovInside/AutoInspect/backend/internal/notify"
+	"github.com/DedovInside/AutoInspect/backend/internal/observability"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository/postgres"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository/s3"
 	"github.com/DedovInside/AutoInspect/backend/internal/service"
@@ -208,6 +209,7 @@ func run() error {
 		vehicleCatalogHandler,
 		tokenManager,
 		redisCacheClient,
+		newAPIHealthChecker(cfg, db, redisCacheClient, s3Client),
 		cfg.HTTP.CORSAllowedOrigins,
 	)
 
@@ -219,6 +221,22 @@ func run() error {
 	}()
 
 	return serveHTTP(server, cfg.HTTP.ShutdownTimeout)
+}
+
+func newAPIHealthChecker(
+	cfg *config.Config,
+	db *postgres.DB,
+	redisClient *rediscache.Client,
+	s3Client *s3.Client,
+) *observability.HealthChecker {
+	return observability.NewHealthChecker(cfg.Observe.ServiceName, map[string]observability.DependencyCheck{
+		"postgres": db.Ping,
+		"redis":    redisClient.Ping,
+		"s3":       s3Client.HealthCheck,
+		"kafka": func(ctx context.Context) error {
+			return observability.CheckKafkaBrokers(ctx, cfg.Kafka.Brokers)
+		},
+	})
 }
 
 func startRedisSubscriber(redisNotifier *notify.RedisNotifier, broadcastMgr *broadcast.Manager) func() {

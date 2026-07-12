@@ -15,6 +15,7 @@ import (
 	"github.com/DedovInside/AutoInspect/backend/internal/config"
 	"github.com/DedovInside/AutoInspect/backend/internal/domain"
 	"github.com/DedovInside/AutoInspect/backend/internal/notify"
+	"github.com/DedovInside/AutoInspect/backend/internal/observability"
 	analysisv1 "github.com/DedovInside/AutoInspect/backend/internal/proto/gen/go/analysis/v1"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository"
 	"github.com/google/uuid"
@@ -70,6 +71,8 @@ func (s *AnalysisService) SubmitAnalysis(ctx context.Context,
 		if err := s.ensurePublished(ctx, existing); err != nil {
 			return nil, fmt.Errorf("republish existing job: %w", err)
 		}
+		observability.AnalysisJobsSubmittedTotal.Inc()
+		observability.AnalysisImagesUploadedTotal.Add(float64(len(existing.ImageKeys)))
 		return existing, nil
 	}
 
@@ -94,6 +97,8 @@ func (s *AnalysisService) SubmitAnalysis(ctx context.Context,
 	}
 
 	if published {
+		observability.AnalysisJobsSubmittedTotal.Inc()
+		observability.AnalysisImagesUploadedTotal.Add(float64(len(job.ImageKeys)))
 		return job, nil
 	}
 
@@ -102,6 +107,8 @@ func (s *AnalysisService) SubmitAnalysis(ctx context.Context,
 		return nil, fmt.Errorf("publish to Kafka: %w", err)
 	}
 
+	observability.AnalysisJobsSubmittedTotal.Inc()
+	observability.AnalysisImagesUploadedTotal.Add(float64(len(job.ImageKeys)))
 	return job, nil
 }
 
@@ -189,10 +196,19 @@ func (s *AnalysisService) handleCreateConflict(ctx context.Context,
 }
 
 func (s *AnalysisService) HandleAnalysisResult(ctx context.Context, msg broker.Message) error {
+	observability.AnalysisResultsReceivedTotal.Inc()
+	startedAt := time.Now()
+	outcome := "unknown"
+	defer func() {
+		observability.AnalysisResultsHandledTotal.WithLabelValues(outcome).Inc()
+		observability.AnalysisResultHandleDuration.WithLabelValues(outcome).Observe(time.Since(startedAt).Seconds())
+	}()
+
 	log.Printf("analysis result received: topic=%s key=%s payload_bytes=%d", msg.Topic, string(msg.Key), len(msg.Value))
 
 	protoResult, jobCorrID, err := parseAnalysisResultMessage(msg)
 	if err != nil {
+		outcome = "parse_error"
 		log.Printf("analysis result parse failed: topic=%s key=%s error=%v", msg.Topic, string(msg.Key), err)
 		return err
 	}
@@ -210,14 +226,17 @@ func (s *AnalysisService) HandleAnalysisResult(ctx context.Context, msg broker.M
 	existingJob, err := s.jobRepo.GetByCorrelationID(ctx, jobCorrID)
 	if err != nil {
 		if errors.Is(err, domain.ErrJobNotFound) {
+			outcome = "ignored_job_not_found"
 			log.Printf("analysis result ignored: job not found correlation_id=%s", jobCorrID)
 			return nil
 		}
+		outcome = "job_lookup_error"
 		log.Printf("analysis result job lookup failed: correlation_id=%s error=%v", jobCorrID, err)
 		return fmt.Errorf("check existing job: %w", err)
 	}
 
 	if isTerminalStatus(existingJob.Status) {
+		outcome = "ignored_terminal"
 		log.Printf(
 			"analysis result ignored: job already terminal correlation_id=%s job_id=%s status=%s",
 			jobCorrID,
@@ -230,12 +249,15 @@ func (s *AnalysisService) HandleAnalysisResult(ctx context.Context, msg broker.M
 	status := strings.ToLower(strings.TrimSpace(protoResult.Status))
 	switch status {
 	case string(domain.StatusFailed):
+		outcome = string(domain.StatusFailed)
 		log.Printf("analysis result handling failed status: correlation_id=%s job_id=%s", jobCorrID, existingJob.ID)
 		return s.handleFailedAnalysisResult(ctx, jobCorrID, existingJob, protoResult.ErrorMessage)
 	case string(domain.StatusCompleted):
+		outcome = string(domain.StatusCompleted)
 		log.Printf("analysis result handling completed status: correlation_id=%s job_id=%s", jobCorrID, existingJob.ID)
 		return s.handleCompletedAnalysisResult(ctx, jobCorrID, existingJob, protoResult)
 	default:
+		outcome = "unsupported"
 		log.Printf("analysis result unsupported status: correlation_id=%s status=%q", jobCorrID, protoResult.Status)
 		return fmt.Errorf("unsupported analysis status: %q", protoResult.Status)
 	}
@@ -457,12 +479,14 @@ func (s *AnalysisService) publishAnalysisRequest(ctx context.Context,
 		"x-event-type":     "AnalysisRequested",
 	}
 
-	if err := s.publisher.Publish(ctx, broker.Message{
+	err = s.publisher.Publish(ctx, broker.Message{
 		Topic:   topic,
 		Key:     []byte(job.CorrelationID.String()),
 		Value:   data,
 		Headers: headers,
-	}); err != nil {
+	})
+	observability.ObserveKafkaProduced(topic, err)
+	if err != nil {
 		return err
 	}
 
