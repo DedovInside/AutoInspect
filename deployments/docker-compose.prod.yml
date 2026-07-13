@@ -159,6 +159,8 @@ services:
     container_name: autoinspect-api
     environment:
       ENVIRONMENT: production
+      LOG_LEVEL: info
+      LOG_FORMAT: json
       HTTP_HOST: 0.0.0.0
       HTTP_PORT: 8080
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
@@ -243,6 +245,8 @@ services:
     container_name: autoinspect-worker
     environment:
       ENVIRONMENT: production
+      LOG_LEVEL: info
+      LOG_FORMAT: json
       DATABASE_URL_FILE: /run/secrets/database_url
       JWT_ACTIVE_KEY_ID: ${JWT_ACTIVE_KEY_ID}
       JWT_PRIVATE_KEY_FILE: /run/secrets/jwt_private_key
@@ -353,6 +357,30 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  loki:
+    image: grafana/loki:3.5.0
+    container_name: autoinspect-loki
+    command: -config.file=/etc/loki/config.yml
+    volumes:
+      - ./loki/config.yml:/etc/loki/config.yml:ro
+      - loki_data:/loki
+    restart: unless-stopped
+
+  alloy:
+    image: grafana/alloy:latest
+    container_name: autoinspect-alloy
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --server.http.listen-addr=0.0.0.0:12345
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      loki:
+        condition: service_started
+    restart: unless-stopped
+
 secrets:
   database_url:
     file: ./secrets/database_url.txt
@@ -377,3 +405,4 @@ volumes:
   minio_data:
   kafka_data:
   ml_cache:
+  loki_data:

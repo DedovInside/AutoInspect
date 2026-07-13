@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,6 +18,7 @@ import (
 	"github.com/DedovInside/AutoInspect/backend/internal/broker/kafka"
 	rediscache "github.com/DedovInside/AutoInspect/backend/internal/cache/redis"
 	"github.com/DedovInside/AutoInspect/backend/internal/config"
+	"github.com/DedovInside/AutoInspect/backend/internal/logger"
 	"github.com/DedovInside/AutoInspect/backend/internal/notify"
 	"github.com/DedovInside/AutoInspect/backend/internal/observability"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository/postgres"
@@ -27,13 +28,20 @@ import (
 
 func main() {
 	if err := run(); err != nil {
-		log.Printf("api failed: %v", err)
+		slog.Error("api failed", "error", err)
 		os.Exit(1)
 	}
 }
 
 func run() error {
 	cfg := config.MustLoad()
+	logger.Setup(&logger.Config{
+		Environment: cfg.Environment,
+		Service:     cfg.Observe.ServiceName,
+		Level:       cfg.Logging.Level,
+		Format:      cfg.Logging.Format,
+	})
+
 	initCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -48,7 +56,7 @@ func run() error {
 	redisCacheClient := rediscache.New(&cfg.Redis)
 	defer func() {
 		if closeErr := redisCacheClient.Close(); closeErr != nil {
-			log.Printf("warning: redis close failed: %v", closeErr)
+			slog.Warn("redis close failed", "error", closeErr)
 		}
 	}()
 
@@ -114,7 +122,7 @@ func run() error {
 
 	defer func() {
 		if closeErr := kafkaProducer.Close(); closeErr != nil {
-			log.Printf("warning: kafka producer close failed: %v", closeErr)
+			slog.Warn("kafka producer close failed", "error", closeErr)
 		}
 	}()
 
@@ -216,7 +224,7 @@ func run() error {
 	server := newHTTPServer(cfg, router)
 	defer func() {
 		if closeErr := server.Close(); closeErr != nil && !errors.Is(closeErr, http.ErrServerClosed) {
-			log.Printf("warning: http server close failed: %v", closeErr)
+			slog.Warn("http server close failed", "error", closeErr)
 		}
 	}()
 
@@ -250,7 +258,7 @@ func startRedisSubscriber(redisNotifier *notify.RedisNotifier, broadcastMgr *bro
 			_ = broadcastMgr.NotifyJobEvent(ctx, &event)
 		}
 		if err := redisNotifier.Subscribe(subscribeCtx, handler); err != nil {
-			log.Printf("Redis notifier subscriber stopped: %v", err)
+			slog.Warn("redis notifier subscriber stopped", "error", err)
 		}
 	}()
 
@@ -273,7 +281,7 @@ func newHTTPServer(cfg *config.Config, handler http.Handler) *http.Server {
 func serveHTTP(server *http.Server, shutdownTimeout time.Duration) error {
 	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("api listening on %s", server.Addr)
+		slog.Info("api listening", "addr", server.Addr)
 		if serveErr := server.ListenAndServe(); serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
 			errCh <- serveErr
 		}
@@ -284,7 +292,7 @@ func serveHTTP(server *http.Server, shutdownTimeout time.Duration) error {
 
 	select {
 	case sig := <-sigCh:
-		log.Printf("shutdown signal received: %s", sig.String())
+		slog.Info("shutdown signal received", "signal", sig.String())
 	case serveErr := <-errCh:
 		return fmt.Errorf("listen and serve: %w", serveErr)
 	}

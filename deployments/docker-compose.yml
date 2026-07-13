@@ -148,6 +148,8 @@ services:
       - ../backend/.env
     environment:
       ENVIRONMENT: development
+      LOG_LEVEL: info
+      LOG_FORMAT: text
       HTTP_HOST: 0.0.0.0
       HTTP_PORT: 8080
       WS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000,http://localhost:8080
@@ -197,6 +199,8 @@ services:
       - ../backend/.env
     environment:
       ENVIRONMENT: development
+      LOG_LEVEL: info
+      LOG_FORMAT: text
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/autoinspect?sslmode=disable
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -284,6 +288,34 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  loki:
+    image: grafana/loki:3.5.0
+    container_name: autoinspect-loki
+    command: -config.file=/etc/loki/config.yml
+    volumes:
+      - ./loki/config.yml:/etc/loki/config.yml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    restart: unless-stopped
+
+  alloy:
+    image: grafana/alloy:latest
+    container_name: autoinspect-alloy
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --server.http.listen-addr=0.0.0.0:12345
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "12345:12345"
+    depends_on:
+      loki:
+        condition: service_started
+    restart: unless-stopped
+
   grafana:
     image: grafana/grafana:latest
     container_name: autoinspect-grafana
@@ -300,6 +332,10 @@ services:
     depends_on:
       prometheus:
         condition: service_started
+      loki:
+        condition: service_started
+      alloy:
+        condition: service_started
     restart: unless-stopped
 
 volumes:
@@ -309,3 +345,4 @@ volumes:
   kafka_data:
   ml_cache:
   grafana_data:
+  loki_data:
