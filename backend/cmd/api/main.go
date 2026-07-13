@@ -181,6 +181,7 @@ func run() error {
 		repairRequestRepo,
 		jobRepo,
 		carServiceProfileRepo,
+		userRepo,
 		s3Client,
 		&cfg.S3,
 	)

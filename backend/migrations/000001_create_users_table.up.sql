@@ -9,6 +9,9 @@ CREATE TABLE users (
     last_name     VARCHAR(100),
     display_name  VARCHAR(220),
     avatar_url    TEXT,
+    contact_name  VARCHAR(255),
+    contact_phone VARCHAR(50),
+    contact_email VARCHAR(255),
     password_hash VARCHAR(255) NOT NULL,
     role          VARCHAR(20) NOT NULL DEFAULT 'user'
                   CHECK (role IN ('user', 'car_service', 'admin')),

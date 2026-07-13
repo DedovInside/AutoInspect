@@ -14,6 +14,7 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
 	GetByEmail(ctx context.Context, email string) (*domain.User, error)
 	Update(ctx context.Context, user *domain.User) error
+	UpdateContactProfile(ctx context.Context, input domain.UpdateUserContactProfileInput) (*domain.User, error)
 	UpdateRole(ctx context.Context, id uuid.UUID, role domain.Role) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context, limit, offset int) ([]*domain.User, error)

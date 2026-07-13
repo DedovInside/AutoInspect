@@ -12,12 +12,16 @@ import (
 )
 
 const createUser = `-- name: CreateUser :exec
-INSERT INTO users (id, username, email, first_name, last_name, display_name, avatar_url, password_hash, role,
+INSERT INTO users (id, username, email, first_name, last_name, display_name, avatar_url,
+                   contact_name, contact_phone, contact_email,
+                   password_hash, role,
                    email_verified, is_active,
                    created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
-        $10, $11,
-        $12, $13)
+VALUES ($1, $2, $3, $4, $5, $6, $7,
+        $8, $9, $10,
+        $11, $12,
+        $13, $14,
+        $15, $16)
 `
 
 type CreateUserParams struct {
@@ -28,6 +32,9 @@ type CreateUserParams struct {
 	LastName      *string
 	DisplayName   *string
 	AvatarUrl     *string
+	ContactName   *string
+	ContactPhone  *string
+	ContactEmail  *string
 	PasswordHash  string
 	Role          string
 	EmailVerified *bool
@@ -45,6 +52,9 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 		arg.LastName,
 		arg.DisplayName,
 		arg.AvatarUrl,
+		arg.ContactName,
+		arg.ContactPhone,
+		arg.ContactEmail,
 		arg.PasswordHash,
 		arg.Role,
 		arg.EmailVerified,
@@ -75,6 +85,9 @@ SELECT id,
        last_name,
        display_name,
        avatar_url,
+       contact_name,
+       contact_phone,
+       contact_email,
        password_hash,
        role,
        email_verified,
@@ -97,6 +110,9 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.LastName,
 		&i.DisplayName,
 		&i.AvatarUrl,
+		&i.ContactName,
+		&i.ContactPhone,
+		&i.ContactEmail,
 		&i.PasswordHash,
 		&i.Role,
 		&i.EmailVerified,
@@ -116,6 +132,9 @@ SELECT id,
        last_name,
        display_name,
        avatar_url,
+       contact_name,
+       contact_phone,
+       contact_email,
        password_hash,
        role,
        email_verified,
@@ -138,6 +157,9 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 		&i.LastName,
 		&i.DisplayName,
 		&i.AvatarUrl,
+		&i.ContactName,
+		&i.ContactPhone,
+		&i.ContactEmail,
 		&i.PasswordHash,
 		&i.Role,
 		&i.EmailVerified,
@@ -150,7 +172,9 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, username, email, first_name, last_name, display_name, avatar_url, password_hash, role,
+SELECT id, username, email, first_name, last_name, display_name, avatar_url,
+       contact_name, contact_phone, contact_email,
+       password_hash, role,
        email_verified, is_active,
        created_at, updated_at, last_login
 FROM users
@@ -180,6 +204,9 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 			&i.LastName,
 			&i.DisplayName,
 			&i.AvatarUrl,
+			&i.ContactName,
+			&i.ContactPhone,
+			&i.ContactEmail,
 			&i.PasswordHash,
 			&i.Role,
 			&i.EmailVerified,
@@ -218,11 +245,14 @@ SET username       = $1,
     last_name      = $4,
     display_name   = $5,
     avatar_url     = $6,
-    password_hash  = $7,
-    role           = $8,
-    email_verified = $9,
-    is_active      = $10
-WHERE id = $11
+    contact_name   = $7,
+    contact_phone  = $8,
+    contact_email  = $9,
+    password_hash  = $10,
+    role           = $11,
+    email_verified = $12,
+    is_active      = $13
+WHERE id = $14
 `
 
 type UpdateUserParams struct {
@@ -232,6 +262,9 @@ type UpdateUserParams struct {
 	LastName      *string
 	DisplayName   *string
 	AvatarUrl     *string
+	ContactName   *string
+	ContactPhone  *string
+	ContactEmail  *string
 	PasswordHash  string
 	Role          string
 	EmailVerified *bool
@@ -247,6 +280,9 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (int64, 
 		arg.LastName,
 		arg.DisplayName,
 		arg.AvatarUrl,
+		arg.ContactName,
+		arg.ContactPhone,
+		arg.ContactEmail,
 		arg.PasswordHash,
 		arg.Role,
 		arg.EmailVerified,
@@ -257,6 +293,69 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (int64, 
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const updateUserContactProfile = `-- name: UpdateUserContactProfile :one
+UPDATE users
+SET contact_name = $2,
+    contact_phone = $3,
+    contact_email = $4,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+RETURNING id,
+          username,
+          email,
+          first_name,
+          last_name,
+          display_name,
+          avatar_url,
+          contact_name,
+          contact_phone,
+          contact_email,
+          password_hash,
+          role,
+          email_verified,
+          is_active,
+          created_at,
+          updated_at,
+          last_login
+`
+
+type UpdateUserContactProfileParams struct {
+	ID           pgtype.UUID
+	ContactName  *string
+	ContactPhone *string
+	ContactEmail *string
+}
+
+func (q *Queries) UpdateUserContactProfile(ctx context.Context, arg UpdateUserContactProfileParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserContactProfile,
+		arg.ID,
+		arg.ContactName,
+		arg.ContactPhone,
+		arg.ContactEmail,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.FirstName,
+		&i.LastName,
+		&i.DisplayName,
+		&i.AvatarUrl,
+		&i.ContactName,
+		&i.ContactPhone,
+		&i.ContactEmail,
+		&i.PasswordHash,
+		&i.Role,
+		&i.EmailVerified,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LastLogin,
+	)
+	return i, err
 }
 
 const updateUserRole = `-- name: UpdateUserRole :execrows

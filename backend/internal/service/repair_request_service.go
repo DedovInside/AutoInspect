@@ -22,6 +22,7 @@ type RepairRequestService struct {
 	requestRepo repository.RepairRequestRepository
 	jobRepo     repository.AnalysisJobRepository
 	profileRepo repository.CarServiceProfileRepository
+	userRepo    repository.UserRepository
 	fileRepo    repository.FileRepository
 	s3Cfg       *config.S3Config
 }
@@ -30,6 +31,7 @@ func NewRepairRequestService(
 	requestRepo repository.RepairRequestRepository,
 	jobRepo repository.AnalysisJobRepository,
 	profileRepo repository.CarServiceProfileRepository,
+	userRepo repository.UserRepository,
 	fileRepo repository.FileRepository,
 	s3Cfg *config.S3Config,
 ) *RepairRequestService {
@@ -37,6 +39,7 @@ func NewRepairRequestService(
 		requestRepo: requestRepo,
 		jobRepo:     jobRepo,
 		profileRepo: profileRepo,
+		userRepo:    userRepo,
 		fileRepo:    fileRepo,
 		s3Cfg:       s3Cfg,
 	}
@@ -125,7 +128,28 @@ func (s *RepairRequestService) Create(
 	}
 
 	observability.RepairRequestsTotal.WithLabelValues("created").Inc()
+	s.updateUserContactProfileFromRepairRequest(ctx, request)
 	return request, nil
+}
+
+func (s *RepairRequestService) updateUserContactProfileFromRepairRequest(
+	ctx context.Context,
+	request *domain.RepairRequest,
+) {
+	if s.userRepo == nil || request == nil {
+		return
+	}
+
+	if request.CustomerName == nil && request.CustomerPhone == nil && request.CustomerEmail == nil {
+		return
+	}
+
+	_, _ = s.userRepo.UpdateContactProfile(ctx, domain.UpdateUserContactProfileInput{
+		UserID:       request.UserID,
+		ContactName:  request.CustomerName,
+		ContactPhone: request.CustomerPhone,
+		ContactEmail: request.CustomerEmail,
+	})
 }
 
 func (s *RepairRequestService) GetMine(

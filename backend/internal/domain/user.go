@@ -30,6 +30,9 @@ type User struct {
 	LastName      *string    `json:"last_name,omitempty" db:"last_name"`
 	DisplayName   *string    `json:"display_name,omitempty" db:"display_name"`
 	AvatarURL     *string    `json:"avatar_url,omitempty" db:"avatar_url"`
+	ContactName   *string    `json:"contact_name,omitempty" db:"contact_name"`
+	ContactPhone  *string    `json:"contact_phone,omitempty" db:"contact_phone"`
+	ContactEmail  *string    `json:"contact_email,omitempty" db:"contact_email"`
 	PasswordHash  string     `json:"-" db:"password_hash"`
 	Role          Role       `json:"role" db:"role"`
 	EmailVerified bool       `json:"email_verified" db:"email_verified"`
@@ -37,4 +40,11 @@ type User struct {
 	CreatedAt     time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt     time.Time  `json:"updated_at" db:"updated_at"`
 	LastLogin     *time.Time `json:"last_login,omitempty" db:"last_login"`
+}
+
+type UpdateUserContactProfileInput struct {
+	UserID       uuid.UUID
+	ContactName  *string
+	ContactPhone *string
+	ContactEmail *string
 }
