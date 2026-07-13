@@ -14,6 +14,7 @@ type Config struct {
 	S3       S3Config
 	Kafka    KafkaConfig
 	Observe  ObservabilityConfig
+	Logging  LoggingConfig
 }
 
 type HTTPConfig struct {
@@ -110,4 +111,9 @@ type ObservabilityConfig struct {
 	WorkerServiceName string `env:"WORKER_SERVICE_NAME" env-default:"autoinspect-worker"`
 	WorkerHTTPHost    string `env:"WORKER_OBSERVABILITY_HOST" env-default:"0.0.0.0"`
 	WorkerHTTPPort    string `env:"WORKER_OBSERVABILITY_PORT" env-default:"8082"`
+}
+
+type LoggingConfig struct {
+	Level  string `env:"LOG_LEVEL" env-default:"info"`
+	Format string `env:"LOG_FORMAT" env-default:""`
 }

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"strings"
@@ -204,44 +204,55 @@ func (s *AnalysisService) HandleAnalysisResult(ctx context.Context, msg broker.M
 		observability.AnalysisResultHandleDuration.WithLabelValues(outcome).Observe(time.Since(startedAt).Seconds())
 	}()
 
-	log.Printf("analysis result received: topic=%s key=%s payload_bytes=%d", msg.Topic, string(msg.Key), len(msg.Value))
+	slog.InfoContext(ctx, "analysis result received",
+		"topic", msg.Topic,
+		"key", string(msg.Key),
+		"payload_bytes", len(msg.Value),
+	)
 
 	protoResult, jobCorrID, err := parseAnalysisResultMessage(msg)
 	if err != nil {
 		outcome = "parse_error"
-		log.Printf("analysis result parse failed: topic=%s key=%s error=%v", msg.Topic, string(msg.Key), err)
+		slog.ErrorContext(ctx, "analysis result parse failed",
+			"topic", msg.Topic,
+			"key", string(msg.Key),
+			"error", err,
+		)
 		return err
 	}
 
-	log.Printf(
-		"analysis result parsed: correlation_id=%s status=%q model_id=%q model_version=%q images=%d error=%q",
-		jobCorrID,
-		protoResult.Status,
-		protoResult.ModelId,
-		protoResult.ModelVersion,
-		len(protoResult.Results),
-		protoResult.ErrorMessage,
+	slog.InfoContext(ctx, "analysis result parsed",
+		"correlation_id", jobCorrID,
+		"status", protoResult.Status,
+		"model_id", protoResult.ModelId,
+		"model_version", protoResult.ModelVersion,
+		"images", len(protoResult.Results),
+		"has_error", strings.TrimSpace(protoResult.ErrorMessage) != "",
 	)
 
 	existingJob, err := s.jobRepo.GetByCorrelationID(ctx, jobCorrID)
 	if err != nil {
 		if errors.Is(err, domain.ErrJobNotFound) {
 			outcome = "ignored_job_not_found"
-			log.Printf("analysis result ignored: job not found correlation_id=%s", jobCorrID)
+			slog.WarnContext(ctx, "analysis result ignored: job not found",
+				"correlation_id", jobCorrID,
+			)
 			return nil
 		}
 		outcome = "job_lookup_error"
-		log.Printf("analysis result job lookup failed: correlation_id=%s error=%v", jobCorrID, err)
+		slog.ErrorContext(ctx, "analysis result job lookup failed",
+			"correlation_id", jobCorrID,
+			"error", err,
+		)
 		return fmt.Errorf("check existing job: %w", err)
 	}
 
 	if isTerminalStatus(existingJob.Status) {
 		outcome = "ignored_terminal"
-		log.Printf(
-			"analysis result ignored: job already terminal correlation_id=%s job_id=%s status=%s",
-			jobCorrID,
-			existingJob.ID,
-			existingJob.Status,
+		slog.WarnContext(ctx, "analysis result ignored: job already terminal",
+			"correlation_id", jobCorrID,
+			"job_id", existingJob.ID,
+			"status", existingJob.Status,
 		)
 		return nil
 	}
@@ -250,15 +261,24 @@ func (s *AnalysisService) HandleAnalysisResult(ctx context.Context, msg broker.M
 	switch status {
 	case string(domain.StatusFailed):
 		outcome = string(domain.StatusFailed)
-		log.Printf("analysis result handling failed status: correlation_id=%s job_id=%s", jobCorrID, existingJob.ID)
+		slog.InfoContext(ctx, "analysis result handling failed status",
+			"correlation_id", jobCorrID,
+			"job_id", existingJob.ID,
+		)
 		return s.handleFailedAnalysisResult(ctx, jobCorrID, existingJob, protoResult.ErrorMessage)
 	case string(domain.StatusCompleted):
 		outcome = string(domain.StatusCompleted)
-		log.Printf("analysis result handling completed status: correlation_id=%s job_id=%s", jobCorrID, existingJob.ID)
+		slog.InfoContext(ctx, "analysis result handling completed status",
+			"correlation_id", jobCorrID,
+			"job_id", existingJob.ID,
+		)
 		return s.handleCompletedAnalysisResult(ctx, jobCorrID, existingJob, protoResult)
 	default:
 		outcome = "unsupported"
-		log.Printf("analysis result unsupported status: correlation_id=%s status=%q", jobCorrID, protoResult.Status)
+		slog.WarnContext(ctx, "analysis result unsupported status",
+			"correlation_id", jobCorrID,
+			"status", protoResult.Status,
+		)
 		return fmt.Errorf("unsupported analysis status: %q", protoResult.Status)
 	}
 }
@@ -294,14 +314,23 @@ func (s *AnalysisService) handleFailedAnalysisResult(
 
 	if err := s.jobRepo.UpdateStatusByCorrelationID(ctx, correlationID, domain.StatusFailed, &errMsg); err != nil {
 		if errors.Is(err, domain.ErrJobNotFound) {
-			log.Printf("analysis job failed update skipped: job not found correlation_id=%s", correlationID)
+			slog.WarnContext(ctx, "analysis job failed update skipped: job not found",
+				"correlation_id", correlationID,
+			)
 			return nil
 		}
-		log.Printf("analysis job failed update error: correlation_id=%s error=%v", correlationID, err)
+		slog.ErrorContext(ctx, "analysis job failed update error",
+			"correlation_id", correlationID,
+			"error", err,
+		)
 		return fmt.Errorf("update job status to failed: %w", err)
 	}
 
-	log.Printf("analysis job marked failed: correlation_id=%s job_id=%s error=%q", correlationID, job.ID, errMsg)
+	slog.InfoContext(ctx, "analysis job marked failed",
+		"correlation_id", correlationID,
+		"job_id", job.ID,
+		"error_message", errMsg,
+	)
 
 	s.notifyJobEvent(ctx, &notify.JobEvent{
 		JobID:     job.ID,
@@ -333,26 +362,34 @@ func (s *AnalysisService) handleCompletedAnalysisResult(
 	}
 
 	if err := s.enrichAnalysisResult(ctx, domainResult, model); err != nil {
-		log.Printf("analysis result enrichment failed: correlation_id=%s job_id=%s error=%v", correlationID, job.ID, err)
+		slog.ErrorContext(ctx, "analysis result enrichment failed",
+			"correlation_id", correlationID,
+			"job_id", job.ID,
+			"error", err,
+		)
 		return fmt.Errorf("enrich analysis result: %w", err)
 	}
 
 	if err := s.jobRepo.UpdateResultByCorrelationID(ctx, correlationID, domainResult, protoResult.ModelVersion); err != nil {
 		if errors.Is(err, domain.ErrJobNotFound) {
-			log.Printf("analysis job completed update skipped: job not found correlation_id=%s", correlationID)
+			slog.WarnContext(ctx, "analysis job completed update skipped: job not found",
+				"correlation_id", correlationID,
+			)
 			return nil
 		}
-		log.Printf("analysis job completed update error: correlation_id=%s error=%v", correlationID, err)
+		slog.ErrorContext(ctx, "analysis job completed update error",
+			"correlation_id", correlationID,
+			"error", err,
+		)
 		return fmt.Errorf("update job result: %w", err)
 	}
 
-	log.Printf(
-		"analysis job marked completed: correlation_id=%s job_id=%s model_version=%q images=%d damages=%d",
-		correlationID,
-		job.ID,
-		protoResult.ModelVersion,
-		len(protoResult.Results),
-		countDamageInstances(domainResult),
+	slog.InfoContext(ctx, "analysis job marked completed",
+		"correlation_id", correlationID,
+		"job_id", job.ID,
+		"model_version", protoResult.ModelVersion,
+		"images", len(protoResult.Results),
+		"damages", countDamageInstances(domainResult),
 	)
 
 	s.notifyJobEvent(ctx, &notify.JobEvent{

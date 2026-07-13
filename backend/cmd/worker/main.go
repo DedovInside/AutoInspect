@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,6 +15,7 @@ import (
 	"github.com/DedovInside/AutoInspect/backend/internal/broker/kafka"
 	rediscache "github.com/DedovInside/AutoInspect/backend/internal/cache/redis"
 	"github.com/DedovInside/AutoInspect/backend/internal/config"
+	"github.com/DedovInside/AutoInspect/backend/internal/logger"
 	"github.com/DedovInside/AutoInspect/backend/internal/notify"
 	"github.com/DedovInside/AutoInspect/backend/internal/observability"
 	"github.com/DedovInside/AutoInspect/backend/internal/repository/postgres"
@@ -24,13 +25,20 @@ import (
 
 func main() {
 	if err := run(); err != nil {
-		log.Printf("worker failed: %v", err)
+		slog.Error("worker failed", "error", err)
 		os.Exit(1)
 	}
 }
 
 func run() error {
 	cfg := config.MustLoad()
+	logger.Setup(&logger.Config{
+		Environment: cfg.Environment,
+		Service:     cfg.Observe.WorkerServiceName,
+		Level:       cfg.Logging.Level,
+		Format:      cfg.Logging.Format,
+	})
+
 	initCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -54,7 +62,7 @@ func run() error {
 	redisCacheClient := rediscache.New(&cfg.Redis)
 	defer func() {
 		if closeErr := redisCacheClient.Close(); closeErr != nil {
-			log.Printf("warning: redis close failed: %v", closeErr)
+			slog.Warn("redis close failed", "error", closeErr)
 		}
 	}()
 	if err := redisCacheClient.Ping(initCtx); err != nil {
@@ -74,7 +82,7 @@ func run() error {
 
 	defer func() {
 		if closeErr := kafkaConsumer.Close(); closeErr != nil {
-			log.Printf("warning: kafka consumer close failed: %v", closeErr)
+			slog.Warn("kafka consumer close failed", "error", closeErr)
 		}
 	}()
 
@@ -99,7 +107,7 @@ func run() error {
 		return err
 	}
 
-	log.Printf("worker started, listening on topic: %s", cfg.Kafka.TopicAnalysisResult)
+	slog.Info("worker started", "topic", cfg.Kafka.TopicAnalysisResult)
 
 	consumerCtx, stopConsumer := context.WithCancel(context.Background())
 	defer stopConsumer()
@@ -118,7 +126,7 @@ func run() error {
 
 	select {
 	case sig := <-sigCh:
-		log.Printf("shutdown signal received: %s", sig.String())
+		slog.Info("shutdown signal received", "signal", sig.String())
 	case consumerErr := <-errCh:
 		if consumerErr == nil {
 			return nil
@@ -136,7 +144,7 @@ func run() error {
 		return fmt.Errorf("worker shutdown timed out")
 	}
 
-	log.Println("worker shutting down...")
+	slog.Info("worker shutting down")
 	return nil
 }
 
@@ -168,9 +176,9 @@ func startWorkerObservabilityServer(
 	}
 
 	go func() {
-		log.Printf("worker observability listening on %s", server.Addr)
+		slog.Info("worker observability listening", "addr", server.Addr)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Printf("worker observability server failed: %v", err)
+			slog.Error("worker observability server failed", "error", err)
 		}
 	}()
 
@@ -178,7 +186,7 @@ func startWorkerObservabilityServer(
 		ctx, cancel := context.WithTimeout(context.Background(), cfg.HTTP.ShutdownTimeout)
 		defer cancel()
 		if err := server.Shutdown(ctx); err != nil {
-			log.Printf("warning: worker observability shutdown failed: %v", err)
+			slog.Warn("worker observability shutdown failed", "error", err)
 		}
 	}
 }

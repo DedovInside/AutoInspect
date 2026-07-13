@@ -2,7 +2,7 @@
   "title": "AutoInspect Backend",
   "uid": "autoinspect-backend",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "5s",
   "panels": [
     {
@@ -96,6 +96,57 @@
       "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
       "targets": [
         { "expr": "autoinspect_readiness_dependency_status" }
+      ]
+    },
+    {
+      "type": "logs",
+      "title": "API and worker logs",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "x": 0, "y": 28, "w": 24, "h": 8 },
+      "options": {
+        "showLabels": false,
+        "showTime": true,
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{job=\"autoinspect\",compose_service=~\"api|worker\"}"
+        }
+      ]
+    },
+    {
+      "type": "logs",
+      "title": "Backend errors and warnings",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "x": 0, "y": 36, "w": 12, "h": 8 },
+      "options": {
+        "showLabels": false,
+        "showTime": true,
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{job=\"autoinspect\",compose_service=~\"api|worker\"} |~ \"level=(WARN|ERROR)|\\\\\\\"level\\\\\\\":\\\\\\\"(WARN|ERROR)\\\\\\\"\""
+        }
+      ]
+    },
+    {
+      "type": "logs",
+      "title": "Analysis lifecycle logs",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "x": 12, "y": 36, "w": 12, "h": 8 },
+      "options": {
+        "showLabels": false,
+        "showTime": true,
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{job=\"autoinspect\",compose_service=\"worker\"} |~ \"analysis result|analysis job\""
+        }
       ]
     }
   ]
