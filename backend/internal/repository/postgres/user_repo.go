@@ -32,6 +32,9 @@ func (r *UserRepo) Create(ctx context.Context, user *domain.User) error {
 		LastName:      user.LastName,
 		DisplayName:   user.DisplayName,
 		AvatarUrl:     user.AvatarURL,
+		ContactName:   user.ContactName,
+		ContactPhone:  user.ContactPhone,
+		ContactEmail:  user.ContactEmail,
 		PasswordHash:  user.PasswordHash,
 		Role:          string(user.Role),
 		EmailVerified: &user.EmailVerified,
@@ -84,6 +87,9 @@ func (r *UserRepo) Update(ctx context.Context, user *domain.User) error {
 		LastName:      user.LastName,
 		DisplayName:   user.DisplayName,
 		AvatarUrl:     user.AvatarURL,
+		ContactName:   user.ContactName,
+		ContactPhone:  user.ContactPhone,
+		ContactEmail:  user.ContactEmail,
 		PasswordHash:  user.PasswordHash,
 		Role:          string(user.Role),
 		EmailVerified: &user.EmailVerified,
@@ -100,6 +106,26 @@ func (r *UserRepo) Update(ctx context.Context, user *domain.User) error {
 	}
 
 	return nil
+}
+
+func (r *UserRepo) UpdateContactProfile(
+	ctx context.Context,
+	input domain.UpdateUserContactProfileInput,
+) (*domain.User, error) {
+	dbUser, err := r.queries.UpdateUserContactProfile(ctx, db.UpdateUserContactProfileParams{
+		ID:           pgtype.UUID{Bytes: input.UserID, Valid: true},
+		ContactName:  input.ContactName,
+		ContactPhone: input.ContactPhone,
+		ContactEmail: input.ContactEmail,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, domain.ErrInternal
+	}
+
+	return toDomainUser(&dbUser), nil
 }
 
 func (r *UserRepo) UpdateRole(ctx context.Context, id uuid.UUID, role domain.Role) error {
@@ -198,6 +224,9 @@ func toDomainUser(dbUser *db.User) *domain.User {
 		LastName:      dbUser.LastName,
 		DisplayName:   dbUser.DisplayName,
 		AvatarURL:     dbUser.AvatarUrl,
+		ContactName:   dbUser.ContactName,
+		ContactPhone:  dbUser.ContactPhone,
+		ContactEmail:  dbUser.ContactEmail,
 		PasswordHash:  dbUser.PasswordHash,
 		Role:          domain.Role(dbUser.Role),
 		EmailVerified: emailVerified,

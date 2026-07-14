@@ -82,6 +82,33 @@ func (h *AuthHandler) Me(c *gin.Context) {
 	writeJSON(c, http.StatusOK, resp)
 }
 
+func (h *AuthHandler) UpdateMe(c *gin.Context) {
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "unauthorized", "missing user context")
+		return
+	}
+
+	var req dto.UpdateMeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+
+	user, err := h.auth.UpdateContactProfile(c.Request.Context(), domain.UpdateUserContactProfileInput{
+		UserID:       userID,
+		ContactName:  req.ContactName,
+		ContactPhone: req.ContactPhone,
+		ContactEmail: req.ContactEmail,
+	})
+	if err != nil {
+		handleAuthError(c, err)
+		return
+	}
+
+	writeJSON(c, http.StatusOK, dto.ToUserResponse(user))
+}
+
 func (h *AuthHandler) YandexStart(c *gin.Context) {
 	url, err := h.auth.StartYandexOAuth(c.Request.Context())
 

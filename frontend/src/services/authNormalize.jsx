@@ -185,6 +185,26 @@ export function normalizeUser(raw) {
       : o.avatarUrl != null
         ? String(o.avatarUrl)
         : "";
+  const contact_name =
+    o.contact_name != null
+      ? String(o.contact_name)
+      : o.contactName != null
+        ? String(o.contactName)
+        : "";
+  const contact_phone =
+    o.contact_phone != null
+      ? String(o.contact_phone)
+      : o.contactPhone != null
+        ? String(o.contactPhone)
+        : o.phone != null
+          ? String(o.phone)
+          : "";
+  const contact_email =
+    o.contact_email != null
+      ? String(o.contact_email)
+      : o.contactEmail != null
+        ? String(o.contactEmail)
+        : "";
 
   const roleRaw = o.role ?? o.Role;
   let role = ROLES.USER;
@@ -212,6 +232,9 @@ export function normalizeUser(raw) {
     last_name,
     display_name,
     avatar_url,
+    contact_name,
+    contact_phone,
+    contact_email,
     role,
   };
 }

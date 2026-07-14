@@ -162,10 +162,12 @@ func TestRepairRequestServiceCreateBuildsRepairSummaryAndStoresRequest(t *testin
 	job := completedRepairAnalysisJob(userID, jobID)
 	profile := &domain.CarServiceProfile{ID: profileID, UserID: uuid.New(), IsActive: true}
 	requestRepo := newFakeRepairRequestRepo()
+	userRepo := &fakeRepairRequestUserRepo{}
 	svc := NewRepairRequestService(
 		requestRepo,
 		&fakeAnalysisJobRepo{byID: map[uuid.UUID]*domain.AnalysisJob{jobID: job}},
 		&fakeCarServiceProfileRepo{byID: map[uuid.UUID]*domain.CarServiceProfile{profileID: profile}},
+		userRepo,
 		nil,
 		nil,
 	)
@@ -174,7 +176,9 @@ func TestRepairRequestServiceCreateBuildsRepairSummaryAndStoresRequest(t *testin
 		UserID:              userID,
 		AnalysisJobID:       jobID,
 		CarServiceProfileID: profileID,
+		CustomerName:        ptr(" Иван "),
 		CustomerPhone:       ptr("+79990000000"),
+		CustomerEmail:       ptr("ivan@example.com"),
 	})
 
 	require.NoError(t, err)
@@ -182,10 +186,16 @@ func TestRepairRequestServiceCreateBuildsRepairSummaryAndStoresRequest(t *testin
 	require.Equal(t, domain.RepairRequestStatusPending, got.Status)
 	require.Equal(t, job, got.Analysis)
 	require.Equal(t, profile, got.CarServiceProfile)
+	require.Equal(t, "Иван", *got.CustomerName)
 	require.Equal(t, "+79990000000", *got.CustomerPhone)
+	require.Equal(t, "ivan@example.com", *got.CustomerEmail)
 	require.Len(t, got.RepairSummary, 1)
 	require.Equal(t, "hood", got.RepairSummary[0].PartName)
 	require.Len(t, requestRepo.items, 1)
+	require.Equal(t, userID, userRepo.lastInput.UserID)
+	require.Equal(t, "Иван", *userRepo.lastInput.ContactName)
+	require.Equal(t, "+79990000000", *userRepo.lastInput.ContactPhone)
+	require.Equal(t, "ivan@example.com", *userRepo.lastInput.ContactEmail)
 }
 
 func TestRepairRequestServiceAcceptIncomingStoresEstimate(t *testing.T) {
@@ -212,6 +222,7 @@ func TestRepairRequestServiceAcceptIncomingStoresEstimate(t *testing.T) {
 				serviceUserID: {ID: profileID, UserID: serviceUserID, IsActive: true},
 			},
 		},
+		nil,
 		nil,
 		nil,
 	)
@@ -257,6 +268,7 @@ func TestRepairRequestServiceRejectIncomingStoresComment(t *testing.T) {
 				serviceUserID: {ID: profileID, UserID: serviceUserID, IsActive: true},
 			},
 		},
+		nil,
 		nil,
 		nil,
 	)
@@ -405,6 +417,50 @@ func (r *fakeRepairRequestRepo) RespondByCarServiceProfileID(
 	item.EstimatedPriceMax = input.EstimatedPriceMax
 	now := time.Now().UTC()
 	item.RespondedAt = &now
+	return nil
+}
+
+type fakeRepairRequestUserRepo struct {
+	lastInput domain.UpdateUserContactProfileInput
+}
+
+func (r *fakeRepairRequestUserRepo) Create(context.Context, *domain.User) error {
+	return nil
+}
+
+func (r *fakeRepairRequestUserRepo) GetByID(context.Context, uuid.UUID) (*domain.User, error) {
+	return nil, domain.ErrNotFound
+}
+
+func (r *fakeRepairRequestUserRepo) GetByEmail(context.Context, string) (*domain.User, error) {
+	return nil, domain.ErrNotFound
+}
+
+func (r *fakeRepairRequestUserRepo) Update(context.Context, *domain.User) error {
+	return nil
+}
+
+func (r *fakeRepairRequestUserRepo) UpdateContactProfile(
+	_ context.Context,
+	input domain.UpdateUserContactProfileInput,
+) (*domain.User, error) {
+	r.lastInput = input
+	return &domain.User{ID: input.UserID}, nil
+}
+
+func (r *fakeRepairRequestUserRepo) UpdateRole(context.Context, uuid.UUID, domain.Role) error {
+	return nil
+}
+
+func (r *fakeRepairRequestUserRepo) Delete(context.Context, uuid.UUID) error {
+	return nil
+}
+
+func (r *fakeRepairRequestUserRepo) List(context.Context, int, int) ([]*domain.User, error) {
+	return nil, nil
+}
+
+func (r *fakeRepairRequestUserRepo) UpdateLastLogin(context.Context, uuid.UUID) error {
 	return nil
 }
 

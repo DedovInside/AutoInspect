@@ -205,6 +205,9 @@ type User struct {
 	LastName      *string
 	DisplayName   *string
 	AvatarUrl     *string
+	ContactName   *string
+	ContactPhone  *string
+	ContactEmail  *string
 	PasswordHash  string
 	Role          string
 	EmailVerified *bool

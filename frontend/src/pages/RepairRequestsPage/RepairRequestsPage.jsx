@@ -132,9 +132,9 @@ function repairSummaryRows(summary) {
 
 function IncomingCustomerContact({ request }) {
   const user = request?.user || {};
-  const name = user.name || request?.customer_name || "";
-  const phone = user.phone || request?.customer_phone || "";
-  const email = user.email || request?.customer_email || "";
+  const name = user.contact_name || user.name || request?.customer_name || "";
+  const phone = user.contact_phone || user.phone || request?.customer_phone || "";
+  const email = user.contact_email || user.email || request?.customer_email || "";
   const comment = request?.customer_comment || "";
 
   if (!name && !phone && !email && !comment) return null;

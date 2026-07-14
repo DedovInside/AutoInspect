@@ -43,6 +43,7 @@ func NewGinRouter(
 	authGroup := router.Group("/v1/auth")
 	authGroup.Use(middleware.Auth(tokenManager, cache))
 	authGroup.GET("/me", authHandler.Me)
+	authGroup.PATCH("/me", authHandler.UpdateMe)
 	authGroup.POST("/logout", authHandler.Logout)
 
 	analysisGroup := router.Group("/v1/analyses")

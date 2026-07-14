@@ -10,6 +10,7 @@ import {
 } from "../../services/analyses";
 import { normalizeApiError } from "../../services/apiFoundation";
 import { createRepairRequest } from "../../services/repairRequests";
+import { getMe } from "../../services/authService";
 import Icon from "../../components/Icon/Icon";
 import { useAuth } from "../../auth/AuthContext";
 import DamageOverlayImage from "../../components/DamageOverlayImage/DamageOverlayImage";
@@ -75,6 +76,15 @@ const initialRepairContactForm = {
   email: "",
   comment: "",
 };
+
+function repairContactFormFromUser(user) {
+  return {
+    name: user?.contact_name || "",
+    phone: user?.contact_phone || "",
+    email: user?.contact_email || "",
+    comment: "",
+  };
+}
 
 function contactPhoneDigits(value) {
   return String(value ?? "").replace(/\D/g, "");
@@ -342,7 +352,7 @@ function RepairContactModal({
 function ResultPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { role } = useAuth();
+  const { role, user, syncFromStorage } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [analysis, setAnalysis] = useState(null);
@@ -535,6 +545,10 @@ function ResultPage() {
     }
     setRepairError("");
     setRepairContactErrors({});
+    setRepairContactForm((prev) => ({
+      ...repairContactFormFromUser(user),
+      comment: prev.comment || "",
+    }));
     setRepairContactOpen(true);
   };
 
@@ -600,8 +614,16 @@ function ResultPage() {
 
       if (!repairCreateMountedRef.current) return;
 
+      let refreshedUser = null;
+      try {
+        refreshedUser = await getMe();
+        syncFromStorage();
+      } catch {
+        syncFromStorage();
+      }
+
       setRepairContactOpen(false);
-      setRepairContactForm(initialRepairContactForm);
+      setRepairContactForm(repairContactFormFromUser(refreshedUser || user));
       setRepairContactErrors({});
       setToast("Заявка на ремонт отправлена");
       setTimeout(() => {

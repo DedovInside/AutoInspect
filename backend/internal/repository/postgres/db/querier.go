@@ -99,6 +99,7 @@ type Querier interface {
 	UpdateLastLogin(ctx context.Context, id pgtype.UUID) (int64, error)
 	UpdateModelTrainingRequestStatus(ctx context.Context, arg UpdateModelTrainingRequestStatusParams) (int64, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (int64, error)
+	UpdateUserContactProfile(ctx context.Context, arg UpdateUserContactProfileParams) (User, error)
 	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (int64, error)
 	UpdateVehicleGeneration(ctx context.Context, arg UpdateVehicleGenerationParams) (int64, error)
 	UpdateVehicleMake(ctx context.Context, arg UpdateVehicleMakeParams) (int64, error)

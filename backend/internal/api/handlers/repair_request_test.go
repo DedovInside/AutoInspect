@@ -31,6 +31,7 @@ func TestRepairRequestHandlerCreate(t *testing.T) {
 		}},
 		nil,
 		nil,
+		nil,
 	))
 
 	router := gin.New()
@@ -76,6 +77,7 @@ func TestRepairRequestHandlerAcceptIncoming(t *testing.T) {
 		&handlerCarServiceProfileRepo{byUserID: map[uuid.UUID]*domain.CarServiceProfile{
 			serviceUserID: {ID: profileID, UserID: serviceUserID, IsActive: true},
 		}},
+		nil,
 		nil,
 		nil,
 	))
@@ -133,6 +135,7 @@ func TestRepairRequestHandlerRejectIncoming(t *testing.T) {
 		}},
 		nil,
 		nil,
+		nil,
 	))
 
 	router := gin.New()
@@ -177,6 +180,7 @@ func TestRepairRequestHandlerCancelMine(t *testing.T) {
 		&handlerCarServiceProfileRepo{byID: map[uuid.UUID]*domain.CarServiceProfile{
 			profileID: {ID: profileID, IsActive: true},
 		}},
+		nil,
 		nil,
 		nil,
 	))
