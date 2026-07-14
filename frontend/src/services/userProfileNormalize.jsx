@@ -8,13 +8,13 @@ export function coerceString(raw, fallback = "") {
     const s = String(raw).trim();
     return s || fallback;
   }
-  
+
   /** @param {unknown} raw */
   function optionalString(raw) {
     if (raw === null || raw === undefined) return "";
     return String(raw).trim();
   }
-  
+
   /**
    * @param {unknown} raw
    */
@@ -34,15 +34,15 @@ export function coerceString(raw, fallback = "") {
         role: "USER",
       };
     }
-  
+
     /** @type {Record<string, unknown>} */
     const o = /** @type {Record<string, unknown>} */ (raw);
-  
+
     const roleRaw = coerceString(o.role ?? o.Role, "user").toLowerCase();
     let role = "USER";
     if (roleRaw === "car_service" || roleRaw === "service") role = "SERVICE";
     else if (roleRaw === "admin") role = "ADMIN";
-  
+
     return {
       id: coerceString(o.id, ""),
       email: coerceString(o.email, ""),
@@ -57,13 +57,13 @@ export function coerceString(raw, fallback = "") {
       role,
     };
   }
-  
+
   /**
    * @param {{ contact_name?: string, contact_phone?: string, contact_email?: string }} profile
    */
   export function userProfileToApiBody(profile) {
     const body = {};
-  
+
     if (profile.contact_name !== undefined) {
       const value = coerceString(profile.contact_name, "");
       body.contact_name = value || null;
@@ -76,10 +76,10 @@ export function coerceString(raw, fallback = "") {
       const value = coerceString(profile.contact_email, "");
       body.contact_email = value || null;
     }
-  
+
     return body;
   }
-  
+
   /**
    * @param {ReturnType<typeof normalizeUserProfile>} profile
    */
@@ -92,4 +92,3 @@ export function coerceString(raw, fallback = "") {
     if (profile?.email) return profile.email;
     return "Пользователь";
   }
-  
