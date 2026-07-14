@@ -7,6 +7,7 @@ import ResultPage from './pages/ResultPage/ResultPage';
 import HistoryPage from './pages/HistoryPage/HistoryPage';
 import AdminPage from './pages/AdminPage/AdminPage';
 import ServiceProfilePage from './pages/ServiceProfilePage/ServiceProfilePage';
+import UserProfilePage from './pages/UserProfilePage/UserProfilePage';
 import RepairRequestsPage from './pages/RepairRequestsPage/RepairRequestsPage';
 import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute';
 import RoleBasedRoute from './components/RoleBasedRoute/RoleBasedRoute';
@@ -79,6 +80,17 @@ function App() {
               <ProtectedRoute>
                 <RoleBasedRoute allowedRoles={["USER", "SERVICE", "ADMIN"]}>
                   <RepairRequestsPage />
+                </RoleBasedRoute>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <RoleBasedRoute allowedRoles={["USER", "ADMIN"]}>
+                  <UserProfilePage />
                 </RoleBasedRoute>
               </ProtectedRoute>
             }

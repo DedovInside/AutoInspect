@@ -41,10 +41,15 @@ function Header() {
         { to: "/upload", label: "Анализ" },
         { to: "/history", label: "История" },
         { to: "/repair-requests", label: "Заявки" },
-        ...(role === "SERVICE" ? [{ to: "/service-profile", label: "Профиль сервиса" }] : []),
+        ...(role === "SERVICE"
+          ? [{ to: "/service-profile", label: "Профиль сервиса" }]
+          : [{ to: "/profile", label: "Профиль" }]),
         ...(role === "ADMIN" ? [{ to: "/admin", label: "Админ панель" }] : []),
       ]
     : [];
+
+  const profilePath = role === "SERVICE" ? "/service-profile" : "/profile";
+  const profileLabel = role === "SERVICE" ? "Профиль сервиса" : "Профиль";
 
   const handleLogout = async () => {
     setMobileMenuOpen(false);
@@ -128,6 +133,14 @@ function Header() {
                       <div className="profile-dropdown-role">{getRoleLabel(role)}</div>
                     )}
                   </div>
+                  <Link
+                    to={profilePath}
+                    className="profile-dropdown-item"
+                    role="menuitem"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Icon name="user" size={14} /> {profileLabel}
+                  </Link>
                   <button type="button" className="profile-dropdown-item danger" onClick={handleLogout}>
                     <Icon name="logout" size={14} /> Выйти
                   </button>
