@@ -132,6 +132,7 @@ export function normalizeServiceProfile(raw) {
       serviceProfileDevLog("normalize.blank_envelope", { kind: typeof env });
     }
     return {
+      id: "",
       name: "",
       city: "",
       phone: "",
@@ -187,6 +188,7 @@ export function normalizeServiceProfile(raw) {
   }
 
   return {
+    id: coerceString(o.id ?? o.profile_id ?? o.profileId, ""),
     name: coerceString(o.name ?? o.title ?? o.organization_name ?? o.organizationName, ""),
     city: coerceString(o.city, ""),
     phone: coerceString(

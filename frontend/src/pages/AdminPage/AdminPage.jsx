@@ -1168,13 +1168,13 @@ function ModelsTab() {
           <tbody>
             {models.map((m) => (
               <tr key={m.id}>
-                <td><b style={{ color: "var(--text)" }}>{m.brand}</b></td>
-                <td>{m.model}</td>
-                <td>{m.generation}</td>
-                <td>{m.years}</td>
-                <td>{fmtDate(m.created_at)}</td>
-                <td>{statusBadge(m.status)}</td>
-                <td>
+                <td data-label="Марка"><b style={{ color: "var(--text)" }}>{m.brand}</b></td>
+                <td data-label="Модель">{m.model}</td>
+                <td data-label="Поколение">{m.generation}</td>
+                <td data-label="Год">{m.years}</td>
+                <td data-label="Дата">{fmtDate(m.created_at)}</td>
+                <td data-label="Статус">{statusBadge(m.status)}</td>
+                <td data-label="Действия">
                   <div className="actions-col">
                     {m.status === "active" ? (
                       <button className="kbd-action danger" onClick={() => deactivate(m.id)}>
@@ -1277,11 +1277,11 @@ function ServiceRequestsTab() {
             return (
               <Fragment key={r.id}>
                 <tr>
-                  <td>
+                  <td data-label="Организация">
                     <b style={{ color: "var(--text)" }}>{r.organization}</b>
                     <div className="text-xs muted">{formatServiceRegistrationAddress(r)}</div>
                   </td>
-                  <td>
+                  <td data-label="Контакт">
                     {r.contact_phone ? (
                       <div>{r.contact_phone}</div>
                     ) : (
@@ -1289,9 +1289,9 @@ function ServiceRequestsTab() {
                     )}
                     {email ? <div className="text-xs muted">{email}</div> : null}
                   </td>
-                  <td>{fmtDate(r.submitted_at)}</td>
-                  <td>{statusBadge(r.status)}</td>
-                  <td>
+                  <td data-label="Дата">{fmtDate(r.submitted_at)}</td>
+                  <td data-label="Статус">{statusBadge(r.status)}</td>
+                  <td data-label="Действия">
                     <div className="actions-col">
                       {hasDetails ? (
                         <button

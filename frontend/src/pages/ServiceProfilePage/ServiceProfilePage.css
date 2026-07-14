@@ -192,3 +192,48 @@
 .service-profile-uploader input {
   display: none;
 }
+
+.service-profile-reviews {
+  display: grid;
+  gap: 10px;
+}
+
+.service-profile-review {
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+
+.service-profile-review-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.service-profile-review-head b {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.service-profile-review-head span {
+  color: var(--brand-700);
+  font-size: 13px;
+}
+
+.service-profile-review-date {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.service-profile-review p {
+  margin: 8px 0 0;
+  color: var(--slate-700);
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

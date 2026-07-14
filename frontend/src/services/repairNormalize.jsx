@@ -66,6 +66,10 @@ export function normalizeRepairRequestStatus(raw) {
     case "cancelled":
     case "canceled":
       return "canceled";
+    case "completed":
+    case "done":
+    case "finished":
+      return "completed";
     default:
       repairDevLog("normalize.status_fallback", { rawValue: raw });
       return "pending";

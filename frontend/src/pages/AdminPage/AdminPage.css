@@ -51,8 +51,11 @@
 
 .actions-col {
   display: inline-flex;
+  justify-content: flex-end;
   gap: 6px;
   flex-wrap: wrap;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .kbd-action {
@@ -352,6 +355,132 @@
 }
 
 @media (max-width: 640px) {
+  .admin-toolbar,
+  .admin-toolbar .right {
+    width: 100%;
+  }
+
+  .admin-toolbar .right {
+    margin-left: 0;
+  }
+
+  .admin-toolbar .btn,
+  .admin-toolbar .tab-btn {
+    flex: 1 1 auto;
+  }
+
+  .table-wrap {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .table-wrap .table,
+  .table-wrap .table tbody,
+  .table-wrap .table tr,
+  .table-wrap .table td {
+    display: block;
+    width: 100%;
+  }
+
+  .table-wrap .table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .table-wrap .table thead {
+    display: none;
+  }
+
+  .table-wrap .table tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .table-wrap .table tbody tr {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+
+  .table-wrap .table tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+  }
+
+  .table-wrap .table tbody td:last-child {
+    border-bottom: 0;
+  }
+
+  .table-wrap .table tbody td::before {
+    content: attr(data-label);
+    flex: 0 0 118px;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .table-wrap .table tbody td[data-label="Действия"] {
+    display: block;
+    text-align: left;
+  }
+
+  .table-wrap .table tbody td[data-label="Действия"]::before {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .table-wrap .table tbody .service-registration-details-row {
+    margin-top: -10px;
+    border-top: 0;
+    box-shadow: none;
+  }
+
+  .table-wrap .table tbody .service-registration-details-row td {
+    display: block;
+    text-align: left;
+  }
+
+  .table-wrap .table tbody .service-registration-details-row td::before {
+    content: none;
+  }
+
+  .actions-col {
+    display: flex;
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .actions-col .kbd-action {
+    flex: 1 1 120px;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .training-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .training-card > .actions-col {
+    justify-content: stretch;
+  }
+
+  .training-card > .actions-col .kbd-action {
+    flex: 1 1 140px;
+  }
+
   .vehicle-catalog-column-head,
   .vehicle-catalog-item {
     flex-direction: column;
