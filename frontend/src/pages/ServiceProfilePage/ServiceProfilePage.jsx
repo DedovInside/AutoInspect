@@ -14,6 +14,7 @@ import {
   setPrimaryServiceProfileImage,
   deleteServiceProfileImage,
 } from "../../services/serviceProfile";
+import { listCarServiceReviews } from "../../services/carServiceReviews";
 
 const ANY_PART_CATEGORY_CODE = "*";
 
@@ -34,6 +35,7 @@ function ServiceProfilePage() {
   });
   const [specializations, setSpecializations] = useState([]);
   const [images, setImages] = useState([]);
+  const [reviews, setReviews] = useState([]);
 
   const isFresh = !form.name;
 
@@ -88,6 +90,28 @@ function ServiceProfilePage() {
       ac.abort();
     };
   }, []);
+
+  useEffect(() => {
+    if (!form.id) {
+      setReviews([]);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const ac = new AbortController();
+    listCarServiceReviews(form.id, { signal: ac.signal, limit: 50 })
+      .then((items) => {
+        if (!cancelled) setReviews(items);
+      })
+      .catch(() => {
+        if (!cancelled) setReviews([]);
+      });
+
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+  }, [form.id]);
 
   useEffect(() => {
     return () => {
@@ -326,6 +350,31 @@ function ServiceProfilePage() {
                   <div className="meta">
                     <span>{image.is_primary ? "Главное" : image.original_filename}</span>
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="section-divider">Отзывы клиентов</div>
+          {reviews.length === 0 ? (
+            <p className="muted">Отзывов пока нет</p>
+          ) : (
+            <div className="service-profile-reviews">
+              {reviews.map((review) => (
+                <div className="service-profile-review" key={review.id}>
+                  <div className="service-profile-review-head">
+                    <b>{review.author_name || "Пользователь"}</b>
+                    <span>
+                      {"★".repeat(Math.max(0, Math.min(5, Math.round(Number(review.rating) || 0))))}
+                      {"☆".repeat(Math.max(0, 5 - Math.max(0, Math.min(5, Math.round(Number(review.rating) || 0)))))}
+                    </span>
+                  </div>
+                  {review.created_at ? (
+                    <div className="service-profile-review-date">
+                      {new Date(review.created_at).toLocaleDateString("ru-RU")}
+                    </div>
+                  ) : null}
+                  {review.comment ? <p>{review.comment}</p> : null}
                 </div>
               ))}
             </div>

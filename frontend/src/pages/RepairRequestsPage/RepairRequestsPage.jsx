@@ -10,11 +10,20 @@ import {
   listIncomingRepairRequests,
   acceptRepairRequest,
   rejectRepairRequest,
+  completeRepairRequest,
   cancelRepairRequest,
   getIncomingRepairRequestDetails,
   mergeRepairRequest,
   normalizeRepairRequestList,
 } from "../../services/repairRequests";
+import {
+  createRepairRequestReview,
+  deleteRepairRequestReview,
+  listCarServiceReviews,
+  listMyCarServiceReviews,
+  reviewByRepairRequestId,
+  updateRepairRequestReview,
+} from "../../services/carServiceReviews";
 import { listMyServiceRegistrations } from "../../services/serviceRegistrations";
 import { listMyTrainingRequests } from "../../services/trainingRequests";
 import DamageOverlayImage from "../../components/DamageOverlayImage/DamageOverlayImage";
@@ -47,6 +56,11 @@ function statusIndicator(status) {
       className: "repair-status-pill repair-status-pill-accepted",
       icon: "checkCircle",
       label: "Принята",
+    },
+    completed: {
+      className: "repair-status-pill repair-status-pill-completed",
+      icon: "checkCircle",
+      label: "Ремонт завершён",
     },
     rejected: {
       className: "repair-status-pill repair-status-pill-rejected",
@@ -86,6 +100,29 @@ function formatPriceRange(min, max) {
   if (from && to && from !== to) return `${from}-${to} ₽`;
   if (from || to) return `${from || to} ₽`;
   return "";
+}
+
+function reviewRatingLabel(rating) {
+  const value = Math.max(0, Math.min(5, Number(rating) || 0));
+  return `${"★".repeat(value)}${"☆".repeat(5 - value)}`;
+}
+
+function ReviewBlock({ review, title = "Отзыв", actions = null }) {
+  if (!review?.id) return null;
+  return (
+    <div className="repair-review-block">
+      <div className="repair-review-head">
+        <span>{title}</span>
+        <b aria-label={`Оценка ${review.rating} из 5`}>{reviewRatingLabel(review.rating)}</b>
+      </div>
+      <div className="repair-review-author">
+        {review.author_name || "Пользователь"}
+        {review.created_at ? <span>{fmtDateTime(review.created_at)}</span> : null}
+      </div>
+      {review.comment ? <div className="repair-review-comment">{review.comment}</div> : null}
+      {actions ? <div className="repair-review-actions">{actions}</div> : null}
+    </div>
+  );
 }
 
 function vehicleTitle(r) {
@@ -267,7 +304,7 @@ function requestStatusIndicator(status) {
       label: "В работе",
     },
     completed: {
-      className: "repair-status-pill repair-status-pill-accepted",
+      className: "repair-status-pill repair-status-pill-completed",
       icon: "checkCircle",
       label: "Завершена",
     },
@@ -411,11 +448,187 @@ function SystemRequestsPanel({ role, serviceApplications, trainingRequests, load
   );
 }
 
-function UserView({ tab, setTab, items, setItems }) {
+function UserReviewModal({ request, user, review = null, mode = "create", onClose, onSubmit }) {
+  const defaultName =
+    review?.author_name ||
+    request?.user?.contact_name ||
+    request?.customer_name ||
+    user?.contact_name ||
+    user?.name ||
+    user?.display_name ||
+    "";
+  const [rating, setRating] = useState(Number(review?.rating) || 5);
+  const [authorName, setAuthorName] = useState(defaultName);
+  const [comment, setComment] = useState(review?.comment || "");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const isEdit = mode === "edit";
+
+  const submit = async (event) => {
+    event.preventDefault();
+    const cleanName = authorName.trim();
+    const cleanComment = comment.trim();
+    if (!cleanName) {
+      setError("Укажите имя для отзыва");
+      return;
+    }
+    if (!cleanComment) {
+      setError("Напишите небольшой комментарий");
+      return;
+    }
+
+    setSubmitting(true);
+    setError("");
+    try {
+      await onSubmit({
+        rating,
+        author_name: cleanName,
+        comment: cleanComment,
+      });
+    } catch (err) {
+      setError(err?.message || "Не удалось отправить отзыв");
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="repair-modal-overlay" role="dialog" aria-modal="true">
+      <div className="repair-modal-card repair-modal-card-sm">
+        <form onSubmit={submit} noValidate>
+          <div className="repair-modal-header">
+            <div>
+              <h3>{isEdit ? "Редактировать отзыв" : "Оставить отзыв"}</h3>
+              <p className="repair-modal-subtitle">{request?.service?.name || "Автосервис"}</p>
+            </div>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} disabled={submitting} aria-label="Закрыть">
+              <Icon name="x" size={16} />
+            </button>
+          </div>
+          <div className="repair-modal-body">
+            <div className="repair-rating-picker" aria-label="Оценка">
+              {[1, 2, 3, 4, 5].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={value <= rating ? "active" : ""}
+                  onClick={() => setRating(value)}
+                  disabled={submitting}
+                  aria-label={`Оценка ${value}`}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+            <div className="form-row">
+              <label className="form-label" htmlFor="review-author-name">Как подписать отзыв</label>
+              <input
+                id="review-author-name"
+                className="input"
+                value={authorName}
+                onChange={(event) => setAuthorName(event.target.value)}
+                maxLength={120}
+                disabled={submitting}
+              />
+            </div>
+            <div className="form-row">
+              <label className="form-label" htmlFor="review-comment">Комментарий</label>
+              <textarea
+                id="review-comment"
+                className="textarea"
+                value={comment}
+                onChange={(event) => setComment(event.target.value)}
+                maxLength={1000}
+                rows={4}
+                disabled={submitting}
+                placeholder="Расскажите, как прошёл ремонт"
+              />
+              <div className="form-hint">{comment.length}/1000 символов</div>
+            </div>
+            {error ? <div className="field-error">{error}</div> : null}
+          </div>
+          <div className="repair-modal-footer">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} disabled={submitting}>
+              Отмена
+            </button>
+            <button type="submit" className="btn btn-primary btn-sm" disabled={submitting}>
+              {isEdit ? "Сохранить отзыв" : "Отправить отзыв"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function DeleteReviewModal({ request, review, onClose, onSubmit }) {
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async () => {
+    setSubmitting(true);
+    setError("");
+    try {
+      await onSubmit();
+    } catch (err) {
+      setError(err?.message || "Не удалось удалить отзыв");
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="repair-modal-overlay" role="dialog" aria-modal="true">
+      <div className="repair-modal-card repair-modal-card-sm">
+        <div className="repair-modal-header">
+          <div>
+            <h3>Удалить отзыв</h3>
+            <p className="repair-modal-subtitle">{request?.service?.name || "Автосервис"}</p>
+          </div>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} disabled={submitting} aria-label="Закрыть">
+            <Icon name="x" size={16} />
+          </button>
+        </div>
+        <div className="repair-modal-body">
+          <div className="repair-modal-summary">
+            <div className="repair-modal-summary-title">Отзыв будет удалён</div>
+            <div className="repair-delete-review-preview">
+              <b>{reviewRatingLabel(review?.rating)}</b>
+              {review?.comment ? <span>{review.comment}</span> : null}
+            </div>
+          </div>
+          <p className="repair-delete-hint">
+            После удаления можно будет оставить новый отзыв по этой заявке.
+          </p>
+          {error ? <div className="field-error">{error}</div> : null}
+        </div>
+        <div className="repair-modal-footer">
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} disabled={submitting}>
+            Отмена
+          </button>
+          <button type="button" className="btn btn-danger btn-sm" onClick={submit} disabled={submitting}>
+            Удалить
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UserView({
+  tab,
+  setTab,
+  items,
+  setItems,
+  reviewsByRequestId,
+  onReviewSaved,
+  onReviewDeleted,
+  user,
+}) {
   const filtered = useMemo(() => {
     if (tab === "all") return items;
     return items.filter((r) => r.status === tab);
   }, [tab, items]);
+  const [reviewTarget, setReviewTarget] = useState(null);
+  const [deleteReviewTarget, setDeleteReviewTarget] = useState(null);
 
   const handleCancel = async (id) => {
     const snapshot = items;
@@ -448,6 +661,9 @@ function UserView({ tab, setTab, items, setItems }) {
           <button className={"tab-btn" + (tab === "accepted" ? " active" : "")} onClick={() => setTab("accepted")}>
             Приняты
           </button>
+          <button className={"tab-btn" + (tab === "completed" ? " active" : "")} onClick={() => setTab("completed")}>
+            Завершены
+          </button>
           <button className={"tab-btn" + (tab === "rejected" ? " active" : "")} onClick={() => setTab("rejected")}>
             Отклонены
           </button>
@@ -476,6 +692,7 @@ function UserView({ tab, setTab, items, setItems }) {
             const serviceAddress = serviceContactLine(service);
             const priceRange = formatPriceRange(r.estimated_price_min, r.estimated_price_max);
             const estimates = estimateRows(r.service_estimate);
+            const review = reviewsByRequestId?.[r.id];
 
             return (
               <article className="repair-card" key={r.id}>
@@ -575,12 +792,82 @@ function UserView({ tab, setTab, items, setItems }) {
                     </button>
                   </div>
                 )}
+
+                {r.status === "completed" ? (
+                  review ? (
+                    <ReviewBlock
+                      review={review}
+                      title="Ваш отзыв"
+                      actions={
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => setReviewTarget({ request: r, review, mode: "edit" })}
+                          >
+                            Редактировать
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-danger btn-sm"
+                            onClick={() => setDeleteReviewTarget({ request: r, review })}
+                          >
+                            Удалить
+                          </button>
+                        </>
+                      }
+                    />
+                  ) : (
+                    <div className="repair-review-cta">
+                      <div>
+                        <b>Ремонт завершён</b>
+                        <span>Можно оставить отзыв о работе автосервиса.</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={() => setReviewTarget({ request: r, review: null, mode: "create" })}
+                      >
+                        Оставить отзыв
+                      </button>
+                    </div>
+                  )
+                ) : null}
               </article>
             );
           })}
         </div>
       )}
       </section>
+      {reviewTarget ? (
+        <UserReviewModal
+          request={reviewTarget.request}
+          user={user}
+          review={reviewTarget.review}
+          mode={reviewTarget.mode}
+          onClose={() => setReviewTarget(null)}
+          onSubmit={async (payload) => {
+            const saved =
+              reviewTarget.mode === "edit"
+                ? await updateRepairRequestReview(reviewTarget.request.id, payload)
+                : await createRepairRequestReview(reviewTarget.request.id, payload);
+            onReviewSaved?.(saved);
+            setReviewTarget(null);
+          }}
+        />
+      ) : null}
+      {deleteReviewTarget ? (
+        <DeleteReviewModal
+          request={deleteReviewTarget.request}
+          review={deleteReviewTarget.review}
+          onClose={() => setDeleteReviewTarget(null)}
+          onSubmit={async () => {
+            await deleteRepairRequestReview(deleteReviewTarget.request.id);
+            onReviewDeleted?.(deleteReviewTarget.request.id);
+            setDeleteReviewTarget(null);
+          }}
+        />
+      ) : null}
     </>
   );
 }
@@ -922,7 +1209,7 @@ function AcceptRepairRequestModal({ request, onClose, onConfirm }) {
   );
 }
 
-function ServiceView({ tab, setTab, items, setItems, refetchIncoming }) {
+function ServiceView({ tab, setTab, items, setItems, refetchIncoming, reviewsByRequestId }) {
   const filtered = useMemo(() => {
     if (tab === "all") return items;
     return items.filter((r) => r.status === tab);
@@ -1065,8 +1352,62 @@ function ServiceView({ tab, setTab, items, setItems, refetchIncoming }) {
     }
   };
 
+  const handleComplete = async (id) => {
+    if (busyById[id]) return;
+
+    let snapshot = null;
+    setItems((prev) => {
+      const cur = prev.find((r) => r.id === id);
+      if (!cur || cur.status !== "accepted") return prev;
+      snapshot = cur;
+      return prev.map((r) =>
+        r.id === id ? { ...r, status: "completed" } : r
+      );
+    });
+
+    if (!snapshot) return;
+
+    markBusy(id, true);
+
+    try {
+      const row = await completeRepairRequest(id);
+      if (!aliveRef.current) return;
+      setItems((prev) =>
+        prev.map((r) =>
+          r.id === id ? mergeRepairRequest(r, row) : r
+        )
+      );
+    } catch (e) {
+      if (normalizeApiError(e).code === "aborted") {
+        if (aliveRef.current) {
+          setItems((prev) =>
+            prev.map((r) => (r.id === id ? snapshot : r))
+          );
+        }
+        return;
+      }
+      if (import.meta.env.DEV) {
+        repairDevLog("ui.optimistic_rollback", { action: "complete" });
+      }
+      if (aliveRef.current) {
+        setItems((prev) =>
+          prev.map((r) => (r.id === id ? snapshot : r))
+        );
+        if (typeof refetchIncoming === "function") {
+          try {
+            await refetchIncoming();
+          } catch {
+            /* keep rolled-back local state */
+          }
+        }
+      }
+    } finally {
+      if (aliveRef.current) markBusy(id, false);
+    }
+  };
+
   const toggleDetails = async (id) => {
-    if (detailsById[id]) {
+    if (detailsById[id] && !detailsById[id].error) {
       setDetailsById((prev) => {
         const next = { ...prev };
         delete next[id];
@@ -1100,6 +1441,9 @@ function ServiceView({ tab, setTab, items, setItems, refetchIncoming }) {
           <button className={"tab-btn" + (tab === "accepted" ? " active" : "")} onClick={() => setTab("accepted")}>
             Принятые
           </button>
+          <button className={"tab-btn" + (tab === "completed" ? " active" : "")} onClick={() => setTab("completed")}>
+            Завершённые
+          </button>
           <button className={"tab-btn" + (tab === "rejected" ? " active" : "")} onClick={() => setTab("rejected")}>
             Отклонённые
           </button>
@@ -1119,13 +1463,17 @@ function ServiceView({ tab, setTab, items, setItems, refetchIncoming }) {
         </div>
       ) : (
         <div className="repair-list">
-          {filtered.map((r) => (
-            <article
-              className={
-                "service-request-card" + (r.status === "rejected" ? " service-request-card--rejected" : "")
-              }
-              key={r.id}
-            >
+          {filtered.map((r) => {
+            const detailsOpen = Boolean(detailsById[r.id] && !detailsById[r.id].error);
+            const detailsButtonLabel = detailsOpen ? "Скрыть" : "Подробнее";
+
+            return (
+              <article
+                className={
+                  "service-request-card" + (r.status === "rejected" ? " service-request-card--rejected" : "")
+                }
+                key={r.id}
+              >
               <div className="head">
                 <div>
                   <div className="title">{vehicleTitle(r)}</div>
@@ -1143,6 +1491,10 @@ function ServiceView({ tab, setTab, items, setItems, refetchIncoming }) {
               )}
 
               <IncomingCustomerContact request={r} />
+
+              {r.status === "completed" && reviewsByRequestId?.[r.id] ? (
+                <ReviewBlock review={reviewsByRequestId[r.id]} title="Отзыв клиента" />
+              ) : null}
 
               <div className="service-request-actions">
                 {r.status === "pending" ? (
@@ -1164,25 +1516,36 @@ function ServiceView({ tab, setTab, items, setItems, refetchIncoming }) {
                       Отклонить
                     </button>
                     <button type="button" className="btn btn-ghost btn-sm" onClick={() => toggleDetails(r.id)}>
-                      Подробнее
+                      {detailsButtonLabel}
                     </button>
                   </>
                 ) : r.status === "accepted" ? (
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => toggleDetails(r.id)}>
-                    Подробнее
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      disabled={!!busyById[r.id]}
+                      onClick={() => handleComplete(r.id)}
+                    >
+                      Ремонт завершён
+                    </button>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => toggleDetails(r.id)}>
+                      {detailsButtonLabel}
+                    </button>
+                  </>
                 ) : r.status === "rejected" ? (
                   <p className="service-request-rejected-hint" role="status">
                     Заявка отклонена.
                   </p>
                 ) : (
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => toggleDetails(r.id)}>
-                    Подробнее
+                    {detailsButtonLabel}
                   </button>
                 )}
               </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
       )}
       </section>
@@ -1205,7 +1568,7 @@ function ServiceView({ tab, setTab, items, setItems, refetchIncoming }) {
 }
 
 function RepairRequestsPage() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const [section, setSection] = useState("repair");
   const [userTab, setUserTab] = useState("all");
   const [serviceTab, setServiceTab] = useState("pending");
@@ -1214,6 +1577,8 @@ function RepairRequestsPage() {
   const [serviceApplications, setServiceApplications] = useState([]);
   const [trainingRequests, setTrainingRequests] = useState([]);
   const [systemRequestsLoading, setSystemRequestsLoading] = useState(false);
+  const [userReviewsByRequestId, setUserReviewsByRequestId] = useState({});
+  const [serviceReviewsByRequestId, setServiceReviewsByRequestId] = useState({});
 
   const isService = role === "SERVICE";
   const availableSections = useMemo(() => {
@@ -1238,6 +1603,20 @@ function RepairRequestsPage() {
       .catch(() => setServiceItems([]));
   }, []);
 
+  const refetchRepairRequests = useCallback(() => {
+    const loader = isService ? listIncomingRepairRequests : listMyRepairRequests;
+    return loader()
+      .then((data) => {
+        const rows = Array.isArray(data) ? data : normalizeRepairRequestList(data);
+        if (isService) setServiceItems(rows);
+        else setUserItems(rows);
+      })
+      .catch(() => {
+        if (isService) setServiceItems([]);
+        else setUserItems([]);
+      });
+  }, [isService]);
+
   useEffect(() => {
     let cancelled = false;
     const loader = isService ? listIncomingRepairRequests : listMyRepairRequests;
@@ -1257,6 +1636,74 @@ function RepairRequestsPage() {
       cancelled = true;
     };
   }, [isService]);
+
+  useEffect(() => {
+    if (section !== "repair") return undefined;
+
+    const refreshVisibleRepairRequests = () => {
+      if (document.visibilityState === "visible") {
+        refetchRepairRequests();
+      }
+    };
+
+    window.addEventListener("focus", refreshVisibleRepairRequests);
+    document.addEventListener("visibilitychange", refreshVisibleRepairRequests);
+
+    return () => {
+      window.removeEventListener("focus", refreshVisibleRepairRequests);
+      document.removeEventListener("visibilitychange", refreshVisibleRepairRequests);
+    };
+  }, [refetchRepairRequests, section]);
+
+  useEffect(() => {
+    if (isService || role === "ADMIN") {
+      setUserReviewsByRequestId({});
+      return undefined;
+    }
+
+    let cancelled = false;
+    const ac = new AbortController();
+    listMyCarServiceReviews({ signal: ac.signal, limit: 100 })
+      .then((reviews) => {
+        if (!cancelled) setUserReviewsByRequestId(reviewByRepairRequestId(reviews));
+      })
+      .catch(() => {
+        if (!cancelled) setUserReviewsByRequestId({});
+      });
+
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+  }, [isService, role, userItems.length]);
+
+  useEffect(() => {
+    if (!isService || serviceItems.length === 0) {
+      setServiceReviewsByRequestId({});
+      return undefined;
+    }
+
+    const profileId = serviceItems.find((item) => item?.service?.id)?.service?.id;
+    if (!profileId) {
+      setServiceReviewsByRequestId({});
+      return undefined;
+    }
+
+    let cancelled = false;
+    const ac = new AbortController();
+    listCarServiceReviews(profileId, { signal: ac.signal, limit: 100 })
+      .then((reviews) => {
+        if (!cancelled) setServiceReviewsByRequestId(reviewByRepairRequestId(reviews));
+      })
+      .catch(() => {
+        if (!cancelled) setServiceReviewsByRequestId({});
+      });
+
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+  }, [isService, serviceItems]);
 
   useEffect(() => {
     if (!availableSections.some((item) => item.id === section)) {
@@ -1353,6 +1800,7 @@ function RepairRequestsPage() {
             items={serviceItems}
             setItems={setServiceItems}
             refetchIncoming={refetchService}
+            reviewsByRequestId={serviceReviewsByRequestId}
           />
         ) : (
           <UserView
@@ -1360,6 +1808,21 @@ function RepairRequestsPage() {
             setTab={setUserTab}
             items={userItems}
             setItems={setUserItems}
+            user={user}
+            reviewsByRequestId={userReviewsByRequestId}
+            onReviewSaved={(review) =>
+              setUserReviewsByRequestId((prev) => ({
+                ...prev,
+                [review.repair_request_id]: review,
+              }))
+            }
+            onReviewDeleted={(repairRequestID) =>
+              setUserReviewsByRequestId((prev) => {
+                const next = { ...prev };
+                delete next[repairRequestID];
+                return next;
+              })
+            }
           />
         )
       )}

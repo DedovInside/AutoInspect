@@ -34,12 +34,11 @@ function delay(ms) {
 
 /**
  * Prod: mocks only if `VITE_USE_MOCK_REPAIR_REQUESTS=true`.
- * Dev: mocks on unless explicit `false`.
+ * Dev: mocks only if `VITE_USE_MOCK_REPAIR_REQUESTS=true`.
  */
 function shouldUseRepairMocks() {
   if (import.meta.env.VITE_USE_MOCK_REPAIR_REQUESTS === "true") return true;
-  if (import.meta.env.VITE_USE_MOCK_REPAIR_REQUESTS === "false") return false;
-  return import.meta.env.DEV;
+  return false;
 }
 
 /**
@@ -287,6 +286,19 @@ async function mockRejectRepairRequest(id, { reason }) {
       status: "rejected",
       rejection_reason: reason || "",
     });
+  }
+  return found;
+}
+
+async function mockCompleteRepairRequest(id) {
+  await delay(150);
+  const sid = String(id);
+  mockServiceRequests = mockServiceRequests.map((r) =>
+    r.id === sid ? { ...r, status: "completed" } : r
+  );
+  let found = mockServiceRequests.find((r) => r.id === sid);
+  if (!found) {
+    found = normalizeRepairRequest({ id: sid, status: "completed" });
   }
   return found;
 }
@@ -619,6 +631,63 @@ export async function rejectRepairRequest(id, options = {}) {
       return norm;
     } catch (e) {
       throw mapRepairMutationError("reject", e);
+    } finally {
+      clear();
+    }
+  };
+
+  const p = run().finally(() => {
+    inFlightMutations.delete(opKey);
+  });
+  inFlightMutations.set(opKey, p);
+  return p;
+}
+
+/**
+ * @param {string} id
+ * @param {{ signal?: AbortSignal, timeoutMs?: number }} [options]
+ */
+export async function completeRepairRequest(id, options = {}) {
+  const sid = String(id ?? "");
+  if (!sid) {
+    return normalizeRepairRequest({ status: "completed" });
+  }
+
+  const opKey = `complete:${sid}`;
+  if (inFlightMutations.has(opKey)) {
+    repairDevLog("mutation.dedupe", { action: "complete" });
+    return inFlightMutations.get(opKey);
+  }
+
+  const run = async () => {
+    if (shouldUseRepairMocks()) {
+      repairDevLog("complete.start", { mock: true });
+      const updated = normalizeRepairRequest(await mockCompleteRepairRequest(sid));
+      repairDevLog("complete.success", { mock: true });
+      return updated;
+    }
+
+    const { signal: userSignal, timeoutMs = 25_000 } = options ?? {};
+    const { signal: timeoutSig, clear } = abortAfter(timeoutMs);
+    const combined = combineAbortSignals(userSignal, timeoutSig);
+
+    try {
+      repairDevLog("complete.start", { mock: false });
+      const raw = await apiClient.patch(
+        `/v1/car-service/repair-requests/${encodeURIComponent(sid)}/complete`,
+        {},
+        { signal: combined, auth: true }
+      );
+
+      let norm = normalizeRepairRequest(raw ?? { id: sid, status: "completed" });
+      if (norm.status !== "completed") {
+        repairDevLog("complete.normalize_status_correction", {});
+        norm = { ...norm, status: "completed", id: norm.id || sid };
+      }
+      repairDevLog("complete.success", { mock: false });
+      return norm;
+    } catch (e) {
+      throw mapRepairMutationError("complete", e);
     } finally {
       clear();
     }

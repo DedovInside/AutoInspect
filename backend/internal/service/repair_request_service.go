@@ -350,6 +350,31 @@ func (s *RepairRequestService) RejectIncoming(
 	return s.requestRepo.GetByIDAndCarServiceProfileID(ctx, request.ID, profile.ID)
 }
 
+func (s *RepairRequestService) CompleteIncoming(
+	ctx context.Context,
+	input *domain.CompleteRepairRequestInput,
+) (*domain.RepairRequest, error) {
+	if err := validateCompleteRepairRequestInput(input); err != nil {
+		return nil, err
+	}
+
+	profile, request, err := s.getIncomingRequest(ctx, input.CarServiceUserID, input.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	if request.Status != domain.RepairRequestStatusAccepted {
+		return nil, domain.ErrInvalidInput
+	}
+
+	if err := s.requestRepo.CompleteAcceptedByCarServiceProfileID(ctx, request.ID, profile.ID); err != nil {
+		return nil, err
+	}
+
+	observability.RepairRequestsTotal.WithLabelValues("completed").Inc()
+	return s.requestRepo.GetByIDAndCarServiceProfileID(ctx, request.ID, profile.ID)
+}
+
 func (s *RepairRequestService) getIncomingPendingRequest(
 	ctx context.Context,
 	carServiceUserID, requestID uuid.UUID,
@@ -370,6 +395,27 @@ func (s *RepairRequestService) getIncomingPendingRequest(
 
 	if request.Status != domain.RepairRequestStatusPending {
 		return nil, nil, domain.ErrInvalidInput
+	}
+
+	return profile, request, nil
+}
+
+func (s *RepairRequestService) getIncomingRequest(
+	ctx context.Context,
+	carServiceUserID, requestID uuid.UUID,
+) (*domain.CarServiceProfile, *domain.RepairRequest, error) {
+	if requestID == uuid.Nil {
+		return nil, nil, domain.ErrInvalidInput
+	}
+
+	profile, err := s.getCarServiceProfile(ctx, carServiceUserID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	request, err := s.requestRepo.GetByIDAndCarServiceProfileID(ctx, requestID, profile.ID)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return profile, request, nil
@@ -493,6 +539,14 @@ func validateRejectRepairRequestInput(input *domain.RejectRepairRequestInput) er
 		input.ID == uuid.Nil ||
 		input.CarServiceUserID == uuid.Nil ||
 		strings.TrimSpace(input.ServiceComment) == "" {
+		return domain.ErrInvalidInput
+	}
+
+	return nil
+}
+
+func validateCompleteRepairRequestInput(input *domain.CompleteRepairRequestInput) error {
+	if input == nil || input.ID == uuid.Nil || input.CarServiceUserID == uuid.Nil {
 		return domain.ErrInvalidInput
 	}
 

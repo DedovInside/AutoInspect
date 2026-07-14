@@ -79,6 +79,7 @@ func run() error {
 	partCategoryRepo := postgres.NewPartCategoryRepo(db)
 	carServiceSpecializationRepo := postgres.NewCarServiceSpecializationRepo(db)
 	vehicleCatalogRepo := postgres.NewVehicleCatalogRepo(db)
+	carServiceReviewRepo := postgres.NewCarServiceReviewRepo(db)
 
 	tokenManager, err := service.NewTokenManager(&service.TokenManagerConfig{
 		ActiveKeyID:   cfg.Auth.JWTActiveKeyID,
@@ -186,12 +187,19 @@ func run() error {
 		&cfg.S3,
 	)
 
+	carServiceReviewService := service.NewCarServiceReviewService(
+		carServiceReviewRepo,
+		repairRequestRepo,
+		userRepo,
+	)
+
 	authHandler := handlers.NewAuthHandler(authService)
 	modelHandler := handlers.NewModelHandler(modelService)
 	modelTrainingRequestHandler := handlers.NewModelTrainingRequestHandler(modelTrainingRequestService)
 	carServiceApplicationHandler := handlers.NewCarServiceApplicationHandler(carServiceApplicationService)
 	carServiceProfileHandler := handlers.NewCarServiceProfileHandler(carServiceProfileService)
 	repairRequestHandler := handlers.NewRepairRequestHandler(repairRequestService)
+	carServiceReviewHandler := handlers.NewCarServiceReviewHandler(carServiceReviewService)
 	vehicleCatalogHandler := handlers.NewVehicleCatalogHandler(vehicleCatalogService)
 
 	analysisHandler := handlers.NewAnalysisHandler(
@@ -215,6 +223,7 @@ func run() error {
 		carServiceApplicationHandler,
 		carServiceProfileHandler,
 		repairRequestHandler,
+		carServiceReviewHandler,
 		vehicleCatalogHandler,
 		tokenManager,
 		redisCacheClient,

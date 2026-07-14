@@ -14,6 +14,7 @@ type Querier interface {
 	ApproveCarServiceApplication(ctx context.Context, arg ApproveCarServiceApplicationParams) (int64, error)
 	CancelPendingRepairRequestByUserID(ctx context.Context, arg CancelPendingRepairRequestByUserIDParams) (int64, error)
 	ClearPrimaryCarServiceImage(ctx context.Context, profileID pgtype.UUID) error
+	CompleteAcceptedRepairRequestByCarServiceProfileID(ctx context.Context, arg CompleteAcceptedRepairRequestByCarServiceProfileIDParams) (int64, error)
 	CountActiveModelTrainingRequestsByUserID(ctx context.Context, initiatorUserID pgtype.UUID) (int32, error)
 	CreateAnalysisJob(ctx context.Context, arg CreateAnalysisJobParams) error
 	CreateAuthSession(ctx context.Context, arg CreateAuthSessionParams) error
@@ -21,6 +22,7 @@ type Querier interface {
 	CreateCarServiceApplication(ctx context.Context, arg CreateCarServiceApplicationParams) error
 	CreateCarServiceImage(ctx context.Context, arg CreateCarServiceImageParams) error
 	CreateCarServiceProfile(ctx context.Context, arg CreateCarServiceProfileParams) error
+	CreateCarServiceReview(ctx context.Context, arg CreateCarServiceReviewParams) error
 	CreateCarServiceSpecialization(ctx context.Context, arg CreateCarServiceSpecializationParams) error
 	CreateModelTrainingRequest(ctx context.Context, arg CreateModelTrainingRequestParams) error
 	CreateOAuthIdentity(ctx context.Context, arg CreateOAuthIdentityParams) error
@@ -31,6 +33,7 @@ type Querier interface {
 	CreateVehicleModel(ctx context.Context, arg CreateVehicleModelParams) error
 	DeactivateCarModel(ctx context.Context, id pgtype.UUID) error
 	DeleteCarServiceImage(ctx context.Context, id pgtype.UUID) (int64, error)
+	DeleteCarServiceReviewByRepairRequestIDAndUserID(ctx context.Context, arg DeleteCarServiceReviewByRepairRequestIDAndUserIDParams) (int64, error)
 	DeleteCarServiceSpecializationsByProfileID(ctx context.Context, profileID pgtype.UUID) error
 	DeleteUser(ctx context.Context, id pgtype.UUID) (int64, error)
 	ExistsActiveDamageType(ctx context.Context, code string) (bool, error)
@@ -45,6 +48,8 @@ type Querier interface {
 	GetCarServiceImageByID(ctx context.Context, id pgtype.UUID) (CarServiceImage, error)
 	GetCarServiceProfileByID(ctx context.Context, id pgtype.UUID) (CarServiceProfile, error)
 	GetCarServiceProfileByUserID(ctx context.Context, userID pgtype.UUID) (CarServiceProfile, error)
+	GetCarServiceReviewByID(ctx context.Context, id pgtype.UUID) (CarServiceReview, error)
+	GetCarServiceReviewByRepairRequestID(ctx context.Context, repairRequestID pgtype.UUID) (CarServiceReview, error)
 	GetModelTrainingRequestByID(ctx context.Context, id pgtype.UUID) (ModelTrainingRequest, error)
 	GetModelTrainingRequestByUserAndIdempotencyKey(ctx context.Context, arg GetModelTrainingRequestByUserAndIdempotencyKeyParams) (ModelTrainingRequest, error)
 	GetOAuthIdentityByProviderSubject(ctx context.Context, arg GetOAuthIdentityByProviderSubjectParams) (AuthOauthIdentity, error)
@@ -67,6 +72,8 @@ type Querier interface {
 	ListCarServiceApplicationsByUserID(ctx context.Context, arg ListCarServiceApplicationsByUserIDParams) ([]CarServiceApplication, error)
 	ListCarServiceApplicationsForAdmin(ctx context.Context, arg ListCarServiceApplicationsForAdminParams) ([]CarServiceApplication, error)
 	ListCarServiceImagesByProfileID(ctx context.Context, profileID pgtype.UUID) ([]CarServiceImage, error)
+	ListCarServiceReviewsByProfileID(ctx context.Context, arg ListCarServiceReviewsByProfileIDParams) ([]CarServiceReview, error)
+	ListCarServiceReviewsByUserID(ctx context.Context, arg ListCarServiceReviewsByUserIDParams) ([]CarServiceReview, error)
 	ListCarServiceSpecializationsByProfileID(ctx context.Context, profileID pgtype.UUID) ([]CarServiceSpecialization, error)
 	ListMatchingCarServices(ctx context.Context, arg ListMatchingCarServicesParams) ([]ListMatchingCarServicesRow, error)
 	ListModelTrainingRequestsByUserID(ctx context.Context, arg ListModelTrainingRequestsByUserIDParams) ([]ModelTrainingRequest, error)
@@ -96,6 +103,7 @@ type Querier interface {
 	UpdateAnalysisJobStatus(ctx context.Context, arg UpdateAnalysisJobStatusParams) (int64, error)
 	UpdateAnalysisJobStatusByCorrelationID(ctx context.Context, arg UpdateAnalysisJobStatusByCorrelationIDParams) (int64, error)
 	UpdateCarServiceProfile(ctx context.Context, arg UpdateCarServiceProfileParams) (int64, error)
+	UpdateCarServiceReviewByRepairRequestIDAndUserID(ctx context.Context, arg UpdateCarServiceReviewByRepairRequestIDAndUserIDParams) (CarServiceReview, error)
 	UpdateLastLogin(ctx context.Context, id pgtype.UUID) (int64, error)
 	UpdateModelTrainingRequestStatus(ctx context.Context, arg UpdateModelTrainingRequestStatusParams) (int64, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (int64, error)

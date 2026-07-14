@@ -283,6 +283,114 @@
   color: var(--success-700);
 }
 
+.repair-review-block,
+.repair-review-cta {
+  margin-top: 12px;
+  padding: 11px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--brand-100);
+  background: var(--brand-50);
+}
+
+.repair-review-head,
+.repair-review-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.repair-review-head span,
+.repair-review-cta b {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.repair-review-head b {
+  color: var(--brand-700);
+  font-size: 14px;
+  letter-spacing: 0;
+}
+
+.repair-review-author {
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--slate-700);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.repair-review-author span,
+.repair-review-cta span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.repair-review-comment {
+  margin-top: 7px;
+  color: var(--slate-700);
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.repair-review-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.repair-review-cta {
+  flex-wrap: wrap;
+}
+
+.repair-review-cta > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.repair-modal-subtitle {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.repair-rating-picker {
+  display: inline-flex;
+  width: fit-content;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+
+.repair-rating-picker button {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--slate-400);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.repair-rating-picker button.active {
+  color: var(--brand-700);
+  background: var(--surface);
+}
+
 .repair-contact-block {
   margin-top: 10px;
   padding: 10px 12px;
@@ -385,6 +493,11 @@
   background: var(--success-50);
   color: var(--success-700);
   border-color: var(--success-100);
+}
+.repair-status-pill-completed {
+  background: var(--brand-50);
+  color: var(--brand-700);
+  border-color: var(--brand-100);
 }
 .repair-status-pill-rejected {
   background: var(--danger-50);
@@ -601,6 +714,32 @@
   color: var(--text);
   font-size: 14px;
   font-weight: 600;
+}
+
+.repair-delete-review-preview {
+  display: grid;
+  gap: 6px;
+  color: var(--slate-700);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.repair-delete-review-preview b {
+  color: var(--brand-700);
+  font-size: 14px;
+  letter-spacing: 0;
+}
+
+.repair-delete-review-preview span {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.repair-delete-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .repair-estimate-editor {

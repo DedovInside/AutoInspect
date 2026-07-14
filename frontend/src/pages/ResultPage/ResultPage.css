@@ -190,6 +190,26 @@
 .service-card-meta .row svg {
   flex: 0 0 auto;
 }
+.service-card-review {
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.service-card-review b {
+  color: var(--text);
+  font-size: 13px;
+}
+.service-card-review span {
+  color: var(--brand-700);
+}
+.service-card-review em {
+  font-style: normal;
+  color: var(--text-muted);
+}
 .service-card-desc {
   grid-column: 1;
   font-size: 13px;
@@ -360,6 +380,76 @@
 .service-gallery-info-value {
   font-size: 13px;
   color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.service-gallery-reviews-block {
+  margin-top: 14px;
+}
+
+.service-gallery-reviews {
+  display: grid;
+  gap: 8px;
+}
+
+.service-gallery-review-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 9px 10px;
+  border: 1px solid var(--brand-100);
+  border-radius: 8px;
+  background: var(--brand-50);
+}
+
+.service-gallery-review-summary b {
+  color: var(--text);
+  font-size: 15px;
+}
+
+.service-gallery-review-summary span {
+  color: var(--brand-700);
+  font-size: 13px;
+}
+
+.service-gallery-review-summary em {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.service-gallery-review {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.service-gallery-review > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.service-gallery-review b {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.service-gallery-review span {
+  color: var(--brand-700);
+  font-size: 12px;
+}
+
+.service-gallery-review p {
+  margin: 7px 0 0;
+  color: var(--slate-700);
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 

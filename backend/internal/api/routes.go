@@ -18,6 +18,7 @@ func NewGinRouter(
 	carServiceApplicationHandler *handlers.CarServiceApplicationHandler,
 	carServiceProfileHandler *handlers.CarServiceProfileHandler,
 	repairRequestHandler *handlers.RepairRequestHandler,
+	carServiceReviewHandler *handlers.CarServiceReviewHandler,
 	vehicleCatalogHandler *handlers.VehicleCatalogHandler,
 	tokenManager *service.TokenManager,
 	cache service.SessionCache,
@@ -82,6 +83,18 @@ func NewGinRouter(
 	repairRequestsGroup.GET("", repairRequestHandler.ListMine)
 	repairRequestsGroup.GET("/:id", repairRequestHandler.GetMine)
 	repairRequestsGroup.PATCH("/:id/cancel", repairRequestHandler.CancelMine)
+	repairRequestsGroup.POST("/:id/review", carServiceReviewHandler.CreateForRepairRequest)
+	repairRequestsGroup.GET("/:id/review", carServiceReviewHandler.GetByRepairRequest)
+	repairRequestsGroup.PATCH("/:id/review", carServiceReviewHandler.UpdateForRepairRequest)
+	repairRequestsGroup.DELETE("/:id/review", carServiceReviewHandler.DeleteForRepairRequest)
+
+	reviewsGroup := router.Group("/v1/reviews")
+	reviewsGroup.Use(middleware.Auth(tokenManager, cache))
+	reviewsGroup.GET("/mine", carServiceReviewHandler.ListMine)
+
+	carServicesGroup := router.Group("/v1/car-services")
+	carServicesGroup.Use(middleware.Auth(tokenManager, cache))
+	carServicesGroup.GET("/:id/reviews", carServiceReviewHandler.ListByCarService)
 
 	carServiceProfileGroup := router.Group("/v1/car-service/profile")
 	carServiceProfileGroup.Use(middleware.Auth(tokenManager, cache))
@@ -104,6 +117,7 @@ func NewGinRouter(
 	carServiceRepairRequestsGroup.GET("/:id", repairRequestHandler.GetIncomingDetails)
 	carServiceRepairRequestsGroup.PATCH("/:id/accept", repairRequestHandler.AcceptIncoming)
 	carServiceRepairRequestsGroup.PATCH("/:id/reject", repairRequestHandler.RejectIncoming)
+	carServiceRepairRequestsGroup.PATCH("/:id/complete", repairRequestHandler.CompleteIncoming)
 
 	adminGroup := router.Group("/v1/admin")
 	adminGroup.Use(middleware.Auth(tokenManager, cache))

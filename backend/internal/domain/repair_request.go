@@ -9,10 +9,11 @@ import (
 type RepairRequestStatus string
 
 const (
-	RepairRequestStatusPending  RepairRequestStatus = "pending"
-	RepairRequestStatusAccepted RepairRequestStatus = "accepted"
-	RepairRequestStatusRejected RepairRequestStatus = "rejected"
-	RepairRequestStatusCanceled RepairRequestStatus = "canceled"
+	RepairRequestStatusPending   RepairRequestStatus = "pending"
+	RepairRequestStatusAccepted  RepairRequestStatus = "accepted"
+	RepairRequestStatusRejected  RepairRequestStatus = "rejected"
+	RepairRequestStatusCanceled  RepairRequestStatus = "canceled"
+	RepairRequestStatusCompleted RepairRequestStatus = "completed"
 )
 
 func (s RepairRequestStatus) IsValid() bool {
@@ -20,7 +21,8 @@ func (s RepairRequestStatus) IsValid() bool {
 	case RepairRequestStatusPending,
 		RepairRequestStatusAccepted,
 		RepairRequestStatusRejected,
-		RepairRequestStatusCanceled:
+		RepairRequestStatusCanceled,
+		RepairRequestStatusCompleted:
 		return true
 	default:
 		return false
@@ -29,9 +31,9 @@ func (s RepairRequestStatus) IsValid() bool {
 
 func (s RepairRequestStatus) IsTerminal() bool {
 	switch s {
-	case RepairRequestStatusAccepted,
-		RepairRequestStatusRejected,
-		RepairRequestStatusCanceled:
+	case RepairRequestStatusRejected,
+		RepairRequestStatusCanceled,
+		RepairRequestStatusCompleted:
 		return true
 	default:
 		return false
@@ -143,4 +145,9 @@ type RejectRepairRequestInput struct {
 	ID               uuid.UUID
 	CarServiceUserID uuid.UUID
 	ServiceComment   string
+}
+
+type CompleteRepairRequestInput struct {
+	ID               uuid.UUID
+	CarServiceUserID uuid.UUID
 }

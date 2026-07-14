@@ -32,8 +32,11 @@ func TestRepairRequestStatusHelpers(t *testing.T) {
 
 	require.True(t, RepairRequestStatusPending.IsValid())
 	require.False(t, RepairRequestStatusPending.IsTerminal())
-	require.True(t, RepairRequestStatusAccepted.IsTerminal())
+	require.True(t, RepairRequestStatusAccepted.IsValid())
+	require.False(t, RepairRequestStatusAccepted.IsTerminal())
 	require.True(t, RepairRequestStatusRejected.IsTerminal())
 	require.True(t, RepairRequestStatusCanceled.IsTerminal())
+	require.True(t, RepairRequestStatusCompleted.IsValid())
+	require.True(t, RepairRequestStatusCompleted.IsTerminal())
 	require.False(t, RepairRequestStatus("done").IsValid())
 }

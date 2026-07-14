@@ -25,7 +25,7 @@ CREATE TABLE repair_requests
     responded_at           TIMESTAMPTZ,
 
     CONSTRAINT chk_repair_requests_status
-        CHECK (status IN ('pending', 'accepted', 'rejected', 'canceled')),
+        CHECK (status IN ('pending', 'accepted', 'rejected', 'canceled', 'completed')),
     CONSTRAINT chk_repair_requests_estimated_price_min_non_negative
         CHECK (estimated_price_min IS NULL OR estimated_price_min >= 0),
     CONSTRAINT chk_repair_requests_estimated_price_max_non_negative

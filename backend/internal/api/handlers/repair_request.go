@@ -160,6 +160,26 @@ func (h *RepairRequestHandler) RejectIncoming(c *gin.Context) {
 	})
 }
 
+func (h *RepairRequestHandler) CompleteIncoming(c *gin.Context) {
+	userID, requestID, ok := repairRequestIDFromRequest(c)
+	if !ok {
+		return
+	}
+
+	request, err := h.service.CompleteIncoming(c.Request.Context(), &domain.CompleteRepairRequestInput{
+		ID:               requestID,
+		CarServiceUserID: userID,
+	})
+	if err != nil {
+		handleRepairRequestError(c, err)
+		return
+	}
+
+	writeJSON(c, http.StatusOK, dto.RespondRepairRequestResponse{
+		Request: dto.ToRepairRequestResponse(request),
+	})
+}
+
 func repairRequestIDFromRequest(c *gin.Context) (userID, requestID uuid.UUID, ok bool) {
 	userID, ok = userIDOrAbort(c)
 	if !ok {

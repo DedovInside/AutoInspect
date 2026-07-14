@@ -124,6 +124,21 @@ type CarServiceProfile struct {
 	UpdatedAt        pgtype.Timestamptz
 }
 
+// Отзывы пользователей об автосервисах по завершённым ремонтным заявкам
+type CarServiceReview struct {
+	ID pgtype.UUID
+	// Ремонтная заявка, по которой оставлен отзыв. По одной заявке допускается только один отзыв
+	RepairRequestID     pgtype.UUID
+	CarServiceProfileID pgtype.UUID
+	UserID              pgtype.UUID
+	Rating              int32
+	// Имя автора, сохранённое на момент публикации отзыва
+	AuthorName *string
+	Comment    *string
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
+}
+
 // Специализации автосервисов по типам повреждений и категориям деталей
 type CarServiceSpecialization struct {
 	ID               pgtype.UUID

@@ -11,6 +11,7 @@ import {
 import { normalizeApiError } from "../../services/apiFoundation";
 import { createRepairRequest } from "../../services/repairRequests";
 import { getMe } from "../../services/authService";
+import { listCarServiceReviews } from "../../services/carServiceReviews";
 import Icon from "../../components/Icon/Icon";
 import { useAuth } from "../../auth/AuthContext";
 import DamageOverlayImage from "../../components/DamageOverlayImage/DamageOverlayImage";
@@ -46,6 +47,21 @@ function formatDate(iso) {
   } catch {
     return iso;
   }
+}
+
+function reviewRatingLabel(rating) {
+  const value = Math.max(0, Math.min(5, Number(rating) || 0));
+  return `${"★".repeat(value)}${"☆".repeat(5 - value)}`;
+}
+
+function serviceReviewSummary(reviews) {
+  const items = Array.isArray(reviews) ? reviews.filter((item) => item?.id) : [];
+  if (items.length === 0) return { count: 0, average: 0 };
+  const sum = items.reduce((acc, item) => acc + (Number(item.rating) || 0), 0);
+  return {
+    count: items.length,
+    average: Math.round((sum / items.length) * 10) / 10,
+  };
 }
 
 function ResultLoading() {
@@ -144,10 +160,12 @@ function resultImages(result) {
   return Array.isArray(result?.results) ? result.results : [];
 }
 
-function ServiceGalleryModal({ service, index, setIndex, onClose }) {
+function ServiceGalleryModal({ service, reviews, index, setIndex, onClose }) {
   const images = Array.isArray(service?.images) ? service.images : [];
   const current = images[index] || images[0] || null;
   const hasMany = images.length > 1;
+  const reviewItems = Array.isArray(reviews) ? reviews : [];
+  const reviewSummary = serviceReviewSummary(reviewItems);
   const hasContacts =
     Boolean(service?.city) ||
     Boolean(service?.address && service.address !== "—") ||
@@ -245,6 +263,30 @@ function ServiceGalleryModal({ service, index, setIndex, onClose }) {
               ) : null}
             </div>
           ) : null}
+
+          <div className="service-gallery-info-block service-gallery-reviews-block">
+            <div className="service-gallery-info-label">Отзывы</div>
+            {reviewItems.length > 0 ? (
+              <div className="service-gallery-reviews">
+                <div className="service-gallery-review-summary">
+                  <b>{reviewSummary.average.toFixed(1)}</b>
+                  <span>{reviewRatingLabel(Math.round(reviewSummary.average))}</span>
+                  <em>{reviewSummary.count} отзывов</em>
+                </div>
+                {reviewItems.slice(0, 5).map((review) => (
+                  <div className="service-gallery-review" key={review.id}>
+                    <div>
+                      <b>{review.author_name || "Пользователь"}</b>
+                      <span>{reviewRatingLabel(review.rating)}</span>
+                    </div>
+                    {review.comment ? <p>{review.comment}</p> : null}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="service-gallery-empty-note">Отзывов пока нет</div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -369,6 +411,7 @@ function ResultPage() {
   const [repairContactErrors, setRepairContactErrors] = useState({});
   const [galleryService, setGalleryService] = useState(null);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [reviewsByServiceId, setReviewsByServiceId] = useState({});
   const repairCreateLockRef = useRef(false);
   const repairCreateMountedRef = useRef(true);
 
@@ -500,6 +543,49 @@ function ResultPage() {
       ac.abort();
     };
   }, [analysis, id]);
+
+  useEffect(() => {
+    if (!analysis || !isSuccessTerminalAnalysisStatus(analysis.status)) {
+      setReviewsByServiceId({});
+      return undefined;
+    }
+
+    const servicesForReviews = matchedServices.length > 0
+      ? matchedServices
+      : Array.isArray(analysis.services)
+        ? analysis.services
+        : [];
+
+    const ids = [...new Set(servicesForReviews.map((service) => service?.id).filter(Boolean))];
+    if (ids.length === 0) {
+      setReviewsByServiceId({});
+      return undefined;
+    }
+
+    let cancelled = false;
+    const ac = new AbortController();
+    Promise.allSettled(
+      ids.map((profileId) =>
+        listCarServiceReviews(profileId, { signal: ac.signal, limit: 20 })
+          .then((reviews) => [profileId, reviews])
+      )
+    ).then((results) => {
+      if (cancelled) return;
+      const next = {};
+      results.forEach((result) => {
+        if (result.status === "fulfilled") {
+          const [profileId, reviews] = result.value;
+          next[profileId] = reviews;
+        }
+      });
+      setReviewsByServiceId(next);
+    });
+
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+  }, [analysis, matchedServices]);
 
   useEffect(() => {
     repairCreateMountedRef.current = true;
@@ -759,51 +845,66 @@ function ResultPage() {
           ) : (
             <>
               <div className="services-list">
-                {services.map((s) => (
-                  <div
-                    key={s.id}
-                    className={"service-card" + (selectedServiceId === s.id ? " selected" : "")}
-                    onClick={() => setSelectedServiceId(s.id)}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <div className="service-card-photo" aria-label="Фото автосервиса">
-                      {Array.isArray(s.images) && s.images.length > 0 ? (
-                        <img src={s.images[0].url} alt={s.name} />
-                      ) : (
-                        <span className="service-card-photo-placeholder">
-                          <Icon name="building" size={20} />
-                          <span>Фото нет</span>
-                        </span>
-                      )}
+                {services.map((s) => {
+                  const reviewItems = reviewsByServiceId[s.id] || [];
+                  const reviewSummary = serviceReviewSummary(reviewItems);
+                  return (
+                    <div
+                      key={s.id}
+                      className={"service-card" + (selectedServiceId === s.id ? " selected" : "")}
+                      onClick={() => setSelectedServiceId(s.id)}
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <div className="service-card-photo" aria-label="Фото автосервиса">
+                        {Array.isArray(s.images) && s.images.length > 0 ? (
+                          <img src={s.images[0].url} alt={s.name} />
+                        ) : (
+                          <span className="service-card-photo-placeholder">
+                            <Icon name="building" size={20} />
+                            <span>Фото нет</span>
+                          </span>
+                        )}
+                      </div>
+                      <div className="service-card-head">
+                        <h4>{s.name}</h4>
+                      </div>
+                      {s.description && <div className="service-card-desc">{s.description}</div>}
+                      <div className="service-card-meta">
+                        {s.city ? (
+                          <div className="row"><Icon name="mapPin" size={13} /> {s.city}</div>
+                        ) : null}
+                        <div className="row"><Icon name="mapPin" size={13} /> {s.address || "Адрес не указан"}</div>
+                        {s.phone && s.phone !== "—" ? (
+                          <div className="row"><Icon name="phone" size={13} /> {s.phone}</div>
+                        ) : null}
+                        {s.email ? (
+                          <div className="row"><Icon name="mail" size={13} /> {s.email}</div>
+                        ) : null}
+                      </div>
+                      <div className="service-card-review">
+                        {reviewItems.length > 0 ? (
+                          <>
+                            <b>{reviewSummary.average.toFixed(1)}</b>
+                            <span>{reviewRatingLabel(Math.round(reviewSummary.average))}</span>
+                            <em>{reviewSummary.count} отзывов</em>
+                          </>
+                        ) : (
+                          <span>Отзывов пока нет</span>
+                        )}
+                      </div>
+                      <div className="service-card-actions">
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={(event) => openServiceGallery(s, event)}
+                        >
+                          Подробнее
+                        </button>
+                      </div>
                     </div>
-                    <div className="service-card-head">
-                      <h4>{s.name}</h4>
-                    </div>
-                    {s.description && <div className="service-card-desc">{s.description}</div>}
-                    <div className="service-card-meta">
-                      {s.city ? (
-                        <div className="row"><Icon name="mapPin" size={13} /> {s.city}</div>
-                      ) : null}
-                      <div className="row"><Icon name="mapPin" size={13} /> {s.address || "Адрес не указан"}</div>
-                      {s.phone && s.phone !== "—" ? (
-                        <div className="row"><Icon name="phone" size={13} /> {s.phone}</div>
-                      ) : null}
-                      {s.email ? (
-                        <div className="row"><Icon name="mail" size={13} /> {s.email}</div>
-                      ) : null}
-                    </div>
-                    <div className="service-card-actions">
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-sm"
-                        onClick={(event) => openServiceGallery(s, event)}
-                      >
-                        Подробнее
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="result-actions">
@@ -842,6 +943,7 @@ function ResultPage() {
       {galleryService ? (
         <ServiceGalleryModal
           service={galleryService}
+          reviews={reviewsByServiceId[galleryService.id] || []}
           index={galleryIndex}
           setIndex={setGalleryIndex}
           onClose={() => setGalleryService(null)}
