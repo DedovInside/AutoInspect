@@ -205,6 +205,27 @@ func (r *RepairRequestRepo) RespondByCarServiceProfileID(ctx context.Context,
 	return nil
 }
 
+func (r *RepairRequestRepo) CompleteAcceptedByCarServiceProfileID(
+	ctx context.Context,
+	id, carServiceProfileID uuid.UUID,
+) error {
+	params := db.CompleteAcceptedRepairRequestByCarServiceProfileIDParams{
+		ID:                  pgtype.UUID{Bytes: id, Valid: true},
+		CarServiceProfileID: pgtype.UUID{Bytes: carServiceProfileID, Valid: true},
+		UpdatedAt:           pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
+	}
+
+	rowsAffected, err := r.queries.CompleteAcceptedRepairRequestByCarServiceProfileID(ctx, params)
+	if err != nil {
+		return domain.ErrInternal
+	}
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+
+	return nil
+}
+
 func toDomainRepairRequests(dbRequests []db.RepairRequest) ([]*domain.RepairRequest, error) {
 	requests := make([]*domain.RepairRequest, 0, len(dbRequests))
 	for i := range dbRequests {

@@ -86,3 +86,11 @@ SET status = $3,
 WHERE id = $1
   AND car_service_profile_id = $2
   AND status = 'pending';
+
+-- name: CompleteAcceptedRepairRequestByCarServiceProfileID :execrows
+UPDATE repair_requests
+SET status = 'completed',
+    updated_at = $3
+WHERE id = $1
+  AND car_service_profile_id = $2
+  AND status = 'accepted';

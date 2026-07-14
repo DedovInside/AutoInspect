@@ -133,6 +133,17 @@ type RepairRequestRepository interface {
 	ListByCarServiceProfileID(ctx context.Context, carServiceProfileID uuid.UUID, limit, offset int) ([]*domain.RepairRequest, error)
 	CancelPendingByUserID(ctx context.Context, id, userID uuid.UUID) error
 	RespondByCarServiceProfileID(ctx context.Context, carServiceProfileID uuid.UUID, input *domain.RespondRepairRequestInput) error
+	CompleteAcceptedByCarServiceProfileID(ctx context.Context, id, carServiceProfileID uuid.UUID) error
+}
+
+type CarServiceReviewRepository interface {
+	Create(ctx context.Context, review *domain.CarServiceReview) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.CarServiceReview, error)
+	GetByRepairRequestID(ctx context.Context, repairRequestID uuid.UUID) (*domain.CarServiceReview, error)
+	ListByCarServiceProfileID(ctx context.Context, carServiceProfileID uuid.UUID, limit, offset int) ([]*domain.CarServiceReview, error)
+	ListByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*domain.CarServiceReview, error)
+	UpdateByRepairRequestIDAndUserID(ctx context.Context, input *domain.UpdateCarServiceReviewInput) (*domain.CarServiceReview, error)
+	DeleteByRepairRequestIDAndUserID(ctx context.Context, repairRequestID, userID uuid.UUID) error
 }
 
 type AnalysisJobRepository interface {

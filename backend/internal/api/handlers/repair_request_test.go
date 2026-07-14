@@ -330,6 +330,21 @@ func (r *handlerRepairRequestRepo) RespondByCarServiceProfileID(
 	return nil
 }
 
+func (r *handlerRepairRequestRepo) CompleteAcceptedByCarServiceProfileID(
+	_ context.Context,
+	id, carServiceProfileID uuid.UUID,
+) error {
+	item, err := r.GetByIDAndCarServiceProfileID(context.Background(), id, carServiceProfileID)
+	if err != nil {
+		return err
+	}
+	if item.Status != domain.RepairRequestStatusAccepted {
+		return domain.ErrNotFound
+	}
+	item.Status = domain.RepairRequestStatusCompleted
+	return nil
+}
+
 type handlerAnalysisJobRepo struct {
 	byID    map[uuid.UUID]*domain.AnalysisJob
 	created *domain.AnalysisJob

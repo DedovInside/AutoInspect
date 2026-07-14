@@ -284,6 +284,73 @@ func TestRepairRequestServiceRejectIncomingStoresComment(t *testing.T) {
 	require.Equal(t, "Нет свободных мест", *got.ServiceComment)
 }
 
+func TestRepairRequestServiceCompleteIncomingAcceptedRequest(t *testing.T) {
+	t.Parallel()
+
+	serviceUserID := uuid.New()
+	profileID := uuid.New()
+	requestID := uuid.New()
+	requestRepo := newFakeRepairRequestRepo()
+	requestRepo.items = append(requestRepo.items, &domain.RepairRequest{
+		ID:                  requestID,
+		CarServiceProfileID: profileID,
+		Status:              domain.RepairRequestStatusAccepted,
+	})
+	svc := NewRepairRequestService(
+		requestRepo,
+		&fakeAnalysisJobRepo{},
+		&fakeCarServiceProfileRepo{
+			byUserID: map[uuid.UUID]*domain.CarServiceProfile{
+				serviceUserID: {ID: profileID, UserID: serviceUserID, IsActive: true},
+			},
+		},
+		nil,
+		nil,
+		nil,
+	)
+
+	got, err := svc.CompleteIncoming(context.Background(), &domain.CompleteRepairRequestInput{
+		ID:               requestID,
+		CarServiceUserID: serviceUserID,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, domain.RepairRequestStatusCompleted, got.Status)
+}
+
+func TestRepairRequestServiceCompleteIncomingRejectsPendingRequest(t *testing.T) {
+	t.Parallel()
+
+	serviceUserID := uuid.New()
+	profileID := uuid.New()
+	requestID := uuid.New()
+	requestRepo := newFakeRepairRequestRepo()
+	requestRepo.items = append(requestRepo.items, &domain.RepairRequest{
+		ID:                  requestID,
+		CarServiceProfileID: profileID,
+		Status:              domain.RepairRequestStatusPending,
+	})
+	svc := NewRepairRequestService(
+		requestRepo,
+		&fakeAnalysisJobRepo{},
+		&fakeCarServiceProfileRepo{
+			byUserID: map[uuid.UUID]*domain.CarServiceProfile{
+				serviceUserID: {ID: profileID, UserID: serviceUserID, IsActive: true},
+			},
+		},
+		nil,
+		nil,
+		nil,
+	)
+
+	_, err := svc.CompleteIncoming(context.Background(), &domain.CompleteRepairRequestInput{
+		ID:               requestID,
+		CarServiceUserID: serviceUserID,
+	})
+
+	require.ErrorIs(t, err, domain.ErrInvalidInput)
+}
+
 func ptr(value string) *string {
 	return &value
 }
@@ -417,6 +484,21 @@ func (r *fakeRepairRequestRepo) RespondByCarServiceProfileID(
 	item.EstimatedPriceMax = input.EstimatedPriceMax
 	now := time.Now().UTC()
 	item.RespondedAt = &now
+	return nil
+}
+
+func (r *fakeRepairRequestRepo) CompleteAcceptedByCarServiceProfileID(
+	_ context.Context,
+	id, carServiceProfileID uuid.UUID,
+) error {
+	item, err := r.GetByIDAndCarServiceProfileID(context.Background(), id, carServiceProfileID)
+	if err != nil {
+		return err
+	}
+	if item.Status != domain.RepairRequestStatusAccepted {
+		return domain.ErrNotFound
+	}
+	item.Status = domain.RepairRequestStatusCompleted
 	return nil
 }
 

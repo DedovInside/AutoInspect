@@ -34,6 +34,29 @@ func (q *Queries) CancelPendingRepairRequestByUserID(ctx context.Context, arg Ca
 	return result.RowsAffected(), nil
 }
 
+const completeAcceptedRepairRequestByCarServiceProfileID = `-- name: CompleteAcceptedRepairRequestByCarServiceProfileID :execrows
+UPDATE repair_requests
+SET status = 'completed',
+    updated_at = $3
+WHERE id = $1
+  AND car_service_profile_id = $2
+  AND status = 'accepted'
+`
+
+type CompleteAcceptedRepairRequestByCarServiceProfileIDParams struct {
+	ID                  pgtype.UUID
+	CarServiceProfileID pgtype.UUID
+	UpdatedAt           pgtype.Timestamptz
+}
+
+func (q *Queries) CompleteAcceptedRepairRequestByCarServiceProfileID(ctx context.Context, arg CompleteAcceptedRepairRequestByCarServiceProfileIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, completeAcceptedRepairRequestByCarServiceProfileID, arg.ID, arg.CarServiceProfileID, arg.UpdatedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const createRepairRequest = `-- name: CreateRepairRequest :exec
 INSERT INTO repair_requests (
     id, user_id, analysis_job_id, car_service_profile_id,
